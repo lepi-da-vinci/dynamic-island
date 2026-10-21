@@ -34,6 +34,9 @@ public sealed class HardwareTelemetryService : IDisposable
     private bool _lastCapsLock;
     private bool _lastNumLock;
     private bool _lastCharging;
+    private bool _netBaselineCaptured;
+    private bool _lastNetAvailable;
+    private string _lastNetName = string.Empty;
     private DateTime _lastSlowPollUtc = DateTime.MinValue;
     private DateTime _lastBtPollUtc = DateTime.MinValue;
     private bool _cachedCamActive;
@@ -48,6 +51,13 @@ public sealed class HardwareTelemetryService : IDisposable
     public HardwareTelemetryService()
     {
         InitializeAudioAndBluetoothListeners();
+
+        try
+        {
+            NetworkChange.NetworkAddressChanged += (_, _) => CheckNetworkChange(emitToasts: true);
+            NetworkChange.NetworkAvailabilityChanged += (_, _) => CheckNetworkChange(emitToasts: true);
+        }
+        catch { }
     }
 
     private void InitializeAudioAndBluetoothListeners()
@@ -98,7 +108,7 @@ public sealed class HardwareTelemetryService : IDisposable
             {
                 _lastAudioRenderDeviceName = newName;
                 HardwareToastTriggered?.Invoke(new ToastPayload(
-                    Icon: "🎧",
+                    Icon: "HEADPHONES",
                     Title: "Output Audio Terhubung",
                     Subtitle: newName,
                     AccentHex: "#38BDF8",
@@ -152,7 +162,7 @@ public sealed class HardwareTelemetryService : IDisposable
                         !_connectedBtDevices.Values.Any(v => string.Equals(v, kvp.Value, StringComparison.OrdinalIgnoreCase)))
                     {
                         HardwareToastTriggered?.Invoke(new ToastPayload(
-                            Icon: "🎧",
+                            Icon: "BLUETOOTH",
                             Title: "Bluetooth Terhubung",
                             Subtitle: kvp.Value,
                             AccentHex: "#38BDF8",
@@ -167,7 +177,7 @@ public sealed class HardwareTelemetryService : IDisposable
                         !currentConnected.Values.Any(v => string.Equals(v, oldKvp.Value, StringComparison.OrdinalIgnoreCase)))
                     {
                         HardwareToastTriggered?.Invoke(new ToastPayload(
-                            Icon: "🔌",
+                            Icon: "BLUETOOTH_OFF",
                             Title: "Bluetooth Terputus",
                             Subtitle: oldKvp.Value,
                             AccentHex: "#94A3B8",
@@ -211,7 +221,7 @@ public sealed class HardwareTelemetryService : IDisposable
         {
             _lastCapsLock = caps;
             HardwareToastTriggered?.Invoke(new ToastPayload(
-                Icon: caps ? "🔠" : "🔡",
+                Icon: caps ? "CAPS_ON" : "CAPS_OFF",
                 Title: caps ? "CAPS LOCK: ON" : "CAPS LOCK: OFF",
                 Subtitle: caps ? "Huruf kapital aktif" : "Huruf standar aktif",
                 AccentHex: caps ? "#F59E0B" : "#94A3B8",
@@ -222,7 +232,7 @@ public sealed class HardwareTelemetryService : IDisposable
         {
             _lastNumLock = num;
             HardwareToastTriggered?.Invoke(new ToastPayload(
-                Icon: "🔢",
+                Icon: num ? "NUM_ON" : "NUM_OFF",
                 Title: num ? "NUM LOCK: ON" : "NUM LOCK: OFF",
                 Subtitle: num ? "Numpad numerik aktif" : "Numpad navigasi",
                 AccentHex: num ? "#38BDF8" : "#94A3B8",
@@ -247,7 +257,7 @@ public sealed class HardwareTelemetryService : IDisposable
     private void EmitBatteryChargingToast(bool isCharging, int batteryPct)
     {
         HardwareToastTriggered?.Invoke(new ToastPayload(
-            Icon: "⚡",
+            Icon: "BATTERY",
             Title: isCharging ? $"Charging • {batteryPct}%" : $"Baterai • {batteryPct}%",
             Subtitle: isCharging ? "Adaptor Daya AC Terhubung" : "Adaptor Dilepas (Mode Baterai)",
             AccentHex: isCharging ? "#22C55E" : "#F59E0B",
@@ -277,10 +287,11 @@ public sealed class HardwareTelemetryService : IDisposable
         }
         _lastCharging = isCharging;
 
-        // Poll connected Bluetooth devices every 2 seconds
+        // Poll network state changes & connected Bluetooth devices every 2 seconds
         if ((DateTime.UtcNow - _lastBtPollUtc).TotalSeconds >= 2.0)
         {
             _lastBtPollUtc = DateTime.UtcNow;
+            CheckNetworkChange(emitToasts);
             _ = PollConnectedBluetoothDevicesAsync(emitToasts);
         }
 
@@ -311,10 +322,80 @@ public sealed class HardwareTelemetryService : IDisposable
         };
     }
 
+    private void CheckNetworkChange(bool emitToasts)
+    {
+        try
+        {
+            bool isAvailable = NetworkInterface.GetIsNetworkAvailable();
+            string netName = GetActiveNetworkNameLightweight();
+
+            if (!_netBaselineCaptured)
+            {
+                _lastNetAvailable = isAvailable;
+                _lastNetName = netName;
+                _netBaselineCaptured = true;
+                return;
+            }
+
+            if (isAvailable != _lastNetAvailable || !string.Equals(netName, _lastNetName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (emitToasts)
+                {
+                    bool isWifi = netName.StartsWith("Wi-Fi", StringComparison.OrdinalIgnoreCase);
+                    bool wasWifi = _lastNetName.StartsWith("Wi-Fi", StringComparison.OrdinalIgnoreCase);
+
+                    if (isAvailable && isWifi)
+                    {
+                        HardwareToastTriggered?.Invoke(new ToastPayload(
+                            Icon: "WIFI",
+                            Title: "Wi-Fi Terhubung",
+                            Subtitle: netName,
+                            AccentHex: "#38BDF8",
+                            Duration: TimeSpan.FromSeconds(2.8)));
+                    }
+                    else if (!isAvailable || netName == "Offline")
+                    {
+                        HardwareToastTriggered?.Invoke(new ToastPayload(
+                            Icon: "WIFI_OFF",
+                            Title: "Jaringan Terputus",
+                            Subtitle: wasWifi ? "Koneksi Wi-Fi terputus" : "Tidak ada akses internet",
+                            AccentHex: "#F87171",
+                            Duration: TimeSpan.FromSeconds(2.8)));
+                    }
+                    else if (isAvailable)
+                    {
+                        HardwareToastTriggered?.Invoke(new ToastPayload(
+                            Icon: "WIFI",
+                            Title: "Jaringan Aktif",
+                            Subtitle: netName,
+                            AccentHex: "#38BDF8",
+                            Duration: TimeSpan.FromSeconds(2.8)));
+                    }
+                }
+
+                _lastNetAvailable = isAvailable;
+                _lastNetName = netName;
+                _cachedNetworkName = netName;
+            }
+        }
+        catch { }
+    }
+
     private static string GetActiveNetworkNameLightweight()
     {
         try
         {
+            var profile = Windows.Networking.Connectivity.NetworkInformation.GetInternetConnectionProfile();
+            if (profile != null)
+            {
+                if (profile.IsWlanConnectionProfile)
+                {
+                    string ssid = profile.WlanConnectionProfileDetails?.GetConnectedSsid() ?? string.Empty;
+                    return !string.IsNullOrWhiteSpace(ssid) ? $"Wi-Fi: {ssid}" : $"Wi-Fi ({profile.ProfileName})";
+                }
+                return profile.ProfileName ?? "Online";
+            }
+
             if (!NetworkInterface.GetIsNetworkAvailable())
                 return "Offline";
 

@@ -1,4 +1,4 @@
-# 🏝️ Windows Dynamic Island
+# Windows Dynamic Island
 
 <div align="center">
 
@@ -10,52 +10,53 @@
 
 <br/>
 
-**Aplikasi Dynamic Island native, ultra-ringan, dan responsif untuk Windows 10 & 11.**  
+**Aplikasi Dynamic Island native, ultra-ringan, dan responsif untuk Windows 10 dan 11.**  
 Menggabungkan keindahan estetika *NotchNook* satu kesatuan dengan integrasi mendalam Windows Core Audio, GSMTC Media Controls, lirik tersinkronisasi, dan fitur produktivitas harian.
 
 <br/>
 
 <!-- QUICK INSTALL BUTTONS -->
-[![Quick Install & Run](https://img.shields.io/badge/🚀_Quick_Install_&_Run-PowerShell_One--Liner-0284c7?style=for-the-badge&logo=powershell&logoColor=white)](#-instalasi--cara-menjalankan)
+[![Quick Install & Run](https://img.shields.io/badge/Quick_Install_&_Run-PowerShell_One--Liner-0284c7?style=for-the-badge&logo=powershell&logoColor=white)](#instalasi--cara-menjalankan)
 &nbsp;&nbsp;
-[![Download Latest Binary](https://img.shields.io/badge/⬇️_Download_Latest_Release-EXE_Standalone-10b981?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lepi-da-vinci/dynamic-island/releases/latest)
+[![Download Latest Binary](https://img.shields.io/badge/Download_Latest_Release-EXE_Standalone-10b981?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lepi-da-vinci/dynamic-island/releases/latest)
 
 </div>
 
 ---
 
-## ✨ Fitur Unggulan
+## Fitur Utama
 
-### 1. 🖤 Siluet *One-Piece NotchNook* yang Menyatu
-* **Satu Desain Utuh Menempel di Atas Layar**: Menempel *flush* di bibir paling atas layar monitor (`Y = 0`) dengan lekukan *concave ears* yang mulus dan radius bawah elegan. Menghilangkan ilusi oval terpisah atau latar penahan yang kaku.
-* **18 Custom Bespoke Vector SVG Icons (Zero Emoji)**: Seluruh UI dirancang bebas emoji bawaan sistem operasi. Menggunakan vektor geometris tajam (`GeomMusic`, `GeomFolderTray`, `GeomFocusTimer`, `GeomSliders`, `GeomPlay`, `GeomPause`, `GeomSkipPrev`, `GeomSkipNext`, `GeomSpeakerOn`, `GeomSpeakerMuted`, `GeomHeadphones`, `GeomBrightnessSun`, `GeomMicOn`, `GeomMicMuted`, `GeomBolt`, `GeomShield`, `GeomChevronUp`, `GeomClosePower`) sehingga tampilan selalu rapi tanpa artefak kotak font emoji.
+### 1. Siluet One-Piece NotchNook yang Menyatu
+* **Satu Desain Utuh Menempel di Atas Layar**: Menempel *flush* di bibir paling atas layar monitor (`Y = 0`) dengan lekukan telinga cekung (*concave ears*) yang mulus dan radius bawah elegan. Menghilangkan ilusi oval terpisah atau latar penahan yang kaku.
+* **18 Custom Bespoke Vector SVG Icons (Zero Emoji)**: Seluruh antarmuka dirancang bebas emoji bawaan sistem operasi. Menggunakan vektor geometris tajam (`GeomMusic`, `GeomFolderTray`, `GeomFocusTimer`, `GeomSliders`, `GeomPlay`, `GeomPause`, `GeomSkipPrev`, `GeomSkipNext`, `GeomSpeakerOn`, `GeomSpeakerMuted`, `GeomHeadphones`, `GeomBrightnessSun`, `GeomMicOn`, `GeomMicMuted`, `GeomBolt`, `GeomShield`, `GeomChevronUp`, `GeomClosePower`, `GeomWifi`, `GeomWifiOff`) sehingga tampilan selalu konsisten tanpa risiko rendering kotak font emoji.
 
-### 2. 🎵 Real-Time 5-Band WASAPI Audio Visualizer & Synced Lyrics
+### 2. Real-Time 5-Band WASAPI Audio Visualizer dan Synced Lyrics
 * **True Song-Synchronized Spectrum**: Menggunakan tangkapan native COM **WASAPI Loopback PCM Capture** (`IAudioCaptureClient`) yang dipecah secara *real-time* menjadi 5 pita frekuensi musikal (*Sub-Bass/Kick*, *Low-Mid*, *Vocals/Lead*, *Snare/Presence*, *Hi-Hat*) dilengkapi *Automatic Gain Control* (AGC). Gelombang bergerak hidup mengikuti ketukan lagu di Spotify, Chrome, Edge, YouTube, atau VLC.
 * **Lirik Lagu Real-Time (LRCLIB Engine)**: Mengambil lirik lagu tersinkronisasi waktu (*time-synced .lrc*) dengan cache offline lokal. Menampilkan panggung lirik 3-baris mengambang di mode *Expanded*, serta pergeseran horizontal (*smooth one-way tempo pan*) di mode *Compact*.
 
-### 3. 🛡️ Mode Simpan (*Tucked Top Edge*) & Dynamic Click-Through
-* **Anti-Blocking Tab Browser**: Saat Anda perlu mengakses tab Chrome/Edge atau tombol aplikasi di bibir atas layar, klik **"Simpan"** atau klik kanan pada pulau. Dynamic Island otomatis terlipat menjadi garis aksen tipis 5px.
-* **Win32 `WS_EX_TRANSPARENT` & `WM_NCHITTEST` Cerdas**: Setiap piksel di luar fisik Dynamic Island (termasuk efek bayangan *drop-shadow*) berstatus tembus klik (*click-through* 100%) sehingga kursor dapat mengeklik tab browser tepat di belakangnya tanpa halangan.
+### 3. Mode Simpan (Tucked Top Edge) dan Dynamic Click-Through
+* **Anti-Blocking Tab Browser**: Saat Anda perlu mengakses tab Chrome/Edge atau tombol aplikasi di bibir atas layar, klik tombol **"Simpan"** atau klik kanan pada pulau. Dynamic Island otomatis terlipat menjadi garis aksen tipis 5px.
+* **Win32 WS_EX_TRANSPARENT dan WM_NCHITTEST Cerdas**: Setiap piksel di luar fisik Dynamic Island (termasuk efek bayangan *drop-shadow*) berstatus tembus klik (*click-through* 100%) sehingga kursor dapat mengeklik tab browser tepat di belakangnya tanpa halangan.
 
-### 4. 🎛️ Control Center & Capsule Sliders Modern
-* **Modern Line-Only Sliders**: Slider Volume dan Kecerahan Layar berbentuk kapsul minimalis modern tanpa titik *knob* jadul.
-* **Multi-Role Microphone Mute & OSD**: Mendeteksi status *mute* mikrofon dari berbagai perangkat (laptop internal microphone Realtek maupun earphone Bluetooth/TWS EDIFIER) secara instan dalam 100ms *fast-polling*.
-* **Graphic Baterai Presisi**: Representasi bentuk baterai elegan dengan lambang petir presisi di tengah, dinamis berubah warna saat mengisi daya (*charging*), normal, atau lemah (*low battery*).
+### 4. Control Center dan Capsule Sliders Modern
+* **Modern Line-Only Sliders**: Slider Volume dan Kecerahan Layar berbentuk kapsul minimalis modern tanpa titik *knob* bundar yang memotong garis.
+* **Multi-Role Microphone Mute dan OSD**: Mendeteksi status *mute* mikrofon dari berbagai perangkat (laptop internal microphone Realtek maupun earphone Bluetooth/TWS EDIFIER) secara instan dalam 100ms *fast-polling*.
+* **Grafik Baterai Presisi**: Representasi bentuk baterai elegan dengan lambang petir presisi di tengah, dinamis berubah warna saat mengisi daya (*charging*), normal, atau lemah (*low battery*).
+* **Notifikasi Jaringan Wi-Fi**: Mendeteksi sambungan dan pemutusan jaringan Wi-Fi secara instan lengkap dengan nama SSID.
 
-### 5. 📦 Rak File Sementara (*File Drop Shelf / Tray*)
+### 5. Rak File Sementara (File Drop Shelf / Tray)
 * Tarik (*drag*) gambar atau file dari File Explorer / Browser ke Dynamic Island untuk menyimpannya sementara di rak *tray*.
 * Tarik keluar file kapan saja ke WhatsApp Web, Discord, Telegram, Gmail, atau folder lain tanpa harus membuka dua jendela Explorer berdampingan.
 
-### 6. ⏱️ Timer Fokus Pomodoro Produktif
+### 6. Timer Fokus Pomodoro Produktif
 * Mode jam yang dapat beralih ke timer fokus 25 menit dan waktu istirahat 5 menit dengan kontrol tombol *Play/Pause* instan.
 
-### 7. 🔔 Integrasi Notifikasi Windows Real-Time
+### 7. Integrasi Notifikasi Windows Real-Time
 * Mendeteksi notifikasi pesan masuk dari WhatsApp, Telegram, Instagram, dan aplikasi sistem secara langsung melalui pembacaan Windows Notification Store (`wpndatabase.db`).
 
 ---
 
-## 🚀 Instalasi & Cara Menjalankan
+## Instalasi & Cara Menjalankan
 
 ### Prasyarat Sistem
 * **Sistem Operasi**: Windows 10 (versi 2004 / build 19041+) atau Windows 11 (64-bit).
@@ -63,9 +64,9 @@ Menggabungkan keindahan estetika *NotchNook* satu kesatuan dengan integrasi mend
 
 ---
 
-### Metode 1: One-Click Installer via PowerShell (Paling Cepat & Mudah) ⭐
+### Metode 1: One-Click Installer via PowerShell (Paling Cepat & Mudah)
 
-Buka **PowerShell** dan jalankan perintah satu baris berikut untuk langsung meng-clone, meng-compile, dan menjalankan aplikasi secara otomatis:
+Buka **PowerShell** (tekan `Win + X` lalu pilih Terminal / PowerShell) dan jalankan perintah satu baris berikut:
 
 ```powershell
 irm https://raw.githubusercontent.com/lepi-da-vinci/dynamic-island/main/install.ps1 | iex
@@ -98,7 +99,7 @@ Jika Anda ingin mengompilasi dari source code sendiri:
 
 ---
 
-### Metode 3: Build Standalone Single-File `.exe` (Portabel tanpa install SDK)
+### Metode 3: Build Standalone Single-File .exe (Portabel tanpa install SDK)
 
 Jika Anda ingin menghasilkan file `.exe` tunggal yang portabel dan bisa dibagikan ke laptop/PC lain tanpa perlu menginstal .NET SDK:
 
@@ -116,7 +117,7 @@ File executable mandiri siap pakai akan berada di folder `./publish/WindowsDynam
 
 ---
 
-### 🔄 Menjalankan Otomatis saat Windows Dinyalakan (Autostart)
+### Menjalankan Otomatis saat Windows Dinyalakan (Autostart)
 
 Agar Dynamic Island otomatis menyala setiap kali komputer dihidupkan:
 1. Tekan tombol `Win + R` di keyboard, ketik `shell:startup`, lalu tekan **Enter**.
@@ -125,22 +126,22 @@ Agar Dynamic Island otomatis menyala setiap kali komputer dihidupkan:
 
 ---
 
-## 🖱️ Pintasan & Gestur Interaktif
+## Pintasan & Gestur Interaktif
 
 | Aksi Mouse / Keyboard | Fungsi |
 | :--- | :--- |
 | **Arahkan Kursor (Hover)** | Membuka *Expanded Dashboard* dengan animasi pegas elastis (*Spring Physics*). |
-| **Klik Kanan di Pulau** | Berganti cepat antar 4 Tab (*Musik & Lirik* ➔ *Rak File* ➔ *Pomodoro Fokus* ➔ *Pusat Kontrol Sistem*), atau melipat ke atas (*Mode Simpan*) saat mode compact. |
-| **Klik Tengah (*Middle Click*)** | Langsung **Play / Pause** lagu yang sedang diputar. |
+| **Klik Kanan di Pulau** | Berganti cepat antar 4 Tab (*Musik & Lirik* -> *Rak File* -> *Pomodoro Fokus* -> *Pusat Kontrol Sistem*), atau melipat ke atas (*Mode Simpan*) saat mode compact. |
+| **Klik Tengah (Middle Click)** | Langsung **Play / Pause** lagu yang sedang diputar. |
 | **Scroll Wheel di Atas Pulau** | Menyesuaikan **Volume Audio Sistem** Windows secara instan dengan OSD kapsul halus. |
 | **Shift + Scroll Wheel** | Menyesuaikan **Kecerahan Layar Monitor** (*Screen Brightness*). |
 | **Drag & Drop File ke Pulau** | Otomatis membuka tab **Rak File** untuk menyimpan file sementara. |
-| **Tahan `Left Alt` + Klik** | Menembus pulau (*Click-Through Bypass*) jika Anda ingin mengeklik aplikasi di belakangnya tanpa memindahkan pulau. |
+| **Tahan Left Alt + Klik** | Menembus pulau (*Click-Through Bypass*) jika Anda ingin mengeklik aplikasi di belakangnya tanpa memindahkan pulau. |
 | **Klik Tombol "Simpan"** | Melipat pulau ke bibir atas layar (5px) agar tab browser di belakangnya 100% bebas diklik. |
 
 ---
 
-## 🏗️ Arsitektur & Struktur Proyek
+## Arsitektur & Struktur Proyek
 
 ```text
 WindowsDynamicIsland/
@@ -162,7 +163,7 @@ WindowsDynamicIsland/
 │       ├── UI/
 │       │   ├── MainWindow.xaml              # Unified NotchNook XAML layout & bespoke vector geometries
 │       │   └── MainWindow.xaml.cs           # Compositor render loop, slider dragging, mouse gestures
-│       ├── App.xaml                         # 18 Bespoke Vector Path geometries & segmented pill styles
+│       ├── App.xaml                         # 20 Bespoke Vector Path geometries & segmented pill styles
 │       ├── App.xaml.cs                      # Single-instance mutex & application lifecycle
 │       ├── app.manifest                     # PerMonitorV2 High-DPI scaling configuration
 │       └── WindowsDynamicIsland.csproj      # .NET 10 Target dengan Windows 10.0.19041.0 SDK
@@ -173,14 +174,14 @@ WindowsDynamicIsland/
 
 ---
 
-## ⚡ Performa & Konsumsi Sumber Daya
+## Performa & Konsumsi Sumber Daya
 
-* **Memori (RAM)**: Hanya menggunakan **~20 – 30 MB** RAM saat aktif.
-* **Prosesor (CPU)**: **0.0% CPU** saat *idle* berkat sistem *frame-rate throttling* otomatis. Loop render 60–120 FPS hanya berjalan saat terjadi animasi *morphing*, *hover*, atau saat pemutar musik memproses gelombang audio *real-time*.
-* **Zero External Dependencies**: Menggunakan native COM interop Windows murni tanpa paket NuGet berat pihak ketiga.
+* **Memori (RAM)**: Hanya menggunakan **~20 - 30 MB** RAM saat aktif.
+* **Prosesor (CPU)**: **0.0% CPU** saat *idle* berkat sistem *frame-rate throttling* otomatis. Loop render 60-120 FPS hanya berjalan saat terjadi animasi *morphing*, *hover*, atau saat pemutar musik memproses gelombang audio *real-time*.
+* **Zero External Dependencies**: Menggunakan native COM interop Windows murni tanpa paket NuGet pihak ketiga yang membebani sistem.
 
 ---
 
-## 📄 Lisensi
+## Lisensi
 
 Proyek ini dirilis di bawah lisensi [MIT License](LICENSE). Anda bebas menggunakannya, memodifikasinya, dan mengembangkannya kembali.

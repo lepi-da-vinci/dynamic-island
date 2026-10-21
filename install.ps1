@@ -8,7 +8,7 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  🏝️  Windows Dynamic Island - Quick Installer / Launcher " -ForegroundColor Cyan
+Write-Host "  Windows Dynamic Island - Quick Installer / Launcher " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Check for .NET SDK
@@ -73,6 +73,7 @@ Write-Host "[4/4] Starting Windows Dynamic Island..." -ForegroundColor Yellow
 Start-Process -FilePath $targetExe.FullName -WorkingDirectory $targetExe.DirectoryName
 
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "  🎉 Windows Dynamic Island is now running at the top of your screen!" -ForegroundColor Green
+Write-Host "  [SUCCESS] Windows Dynamic Island is now running at the top of your screen!" -ForegroundColor Green
 Write-Host "  Tip: Hover mouse to expand, Right-Click to cycle tabs, Scroll to change volume." -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Green
+

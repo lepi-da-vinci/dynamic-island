@@ -271,36 +271,36 @@ public sealed class NotificationListenerService
     private static (string AppName, string Icon, string AccentHex, bool IsMessagingApp) ResolveAppIdentity(string primaryId)
     {
         if (primaryId.Contains("whatsapp", StringComparison.OrdinalIgnoreCase))
-            return ("WhatsApp", "💬", "#25D366", true);
+            return ("WhatsApp", "CHAT", "#25D366", true);
 
         if (primaryId.Contains("instagram", StringComparison.OrdinalIgnoreCase))
-            return ("Instagram", "📸", "#E1306C", true);
+            return ("Instagram", "CHAT", "#E1306C", true);
 
         if (primaryId.Contains("telegram", StringComparison.OrdinalIgnoreCase))
-            return ("Telegram", "✈️", "#2AABEE", true);
+            return ("Telegram", "CHAT", "#2AABEE", true);
 
         if (primaryId.Contains("discord", StringComparison.OrdinalIgnoreCase))
-            return ("Discord", "🎮", "#5865F2", true);
+            return ("Discord", "CHAT", "#5865F2", true);
 
         if (primaryId.Contains("yourphone", StringComparison.OrdinalIgnoreCase))
-            return ("Phone Link", "📱", "#38BDF8", true);
+            return ("Phone Link", "PHONE", "#38BDF8", true);
 
         if (primaryId.Contains("mail", StringComparison.OrdinalIgnoreCase) ||
             primaryId.Contains("outlook", StringComparison.OrdinalIgnoreCase))
-            return ("Email", "✉️", "#3B82F6", true);
+            return ("Email", "MAIL", "#3B82F6", true);
 
         if (primaryId.Contains("chrome", StringComparison.OrdinalIgnoreCase))
-            return ("Chrome", "🌐", "#38BDF8", false);
+            return ("Chrome", "BROWSER", "#38BDF8", false);
 
         if (primaryId.Contains("edge", StringComparison.OrdinalIgnoreCase))
-            return ("Edge", "🌐", "#38BDF8", false);
+            return ("Edge", "BROWSER", "#38BDF8", false);
 
         if (primaryId.Contains("visualstudiocode", StringComparison.OrdinalIgnoreCase) ||
             primaryId.Contains("antigravity", StringComparison.OrdinalIgnoreCase))
-            return ("VS Code", "💻", "#38BDF8", false);
+            return ("VS Code", "CODE", "#38BDF8", false);
 
         if (primaryId.Contains("spotify", StringComparison.OrdinalIgnoreCase))
-            return ("Spotify", "🎵", "#1DB954", false);
+            return ("Spotify", "MUSIC", "#1DB954", false);
 
         // Extract readable name from UWP / AUMID if possible
         string cleaned = primaryId;
@@ -314,7 +314,7 @@ public sealed class NotificationListenerService
         if (string.IsNullOrWhiteSpace(cleaned))
             cleaned = "Sistem";
 
-        return (cleaned, "🔔", "#38BDF8", false);
+        return (cleaned, "BELL", "#38BDF8", false);
     }
 }
 

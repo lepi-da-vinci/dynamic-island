@@ -68,7 +68,7 @@ public sealed class PomodoroTimerService
             Reset(finishedBreak ? 25 : 5, isBreak: !finishedBreak);
 
             TimerCompleted?.Invoke(new ToastPayload(
-                Icon: finishedBreak ? "🔥" : "☕",
+                Icon: finishedBreak ? "POMO_FOCUS" : "POMO_BREAK",
                 Title: finishedBreak ? "Break Selesai! Siap Fokus" : "Sesi Fokus Selesai!",
                 Subtitle: finishedBreak ? "Timer disetel ke 25m Fokus" : "Waktunya istirahat 5 menit",
                 AccentHex: finishedBreak ? "#38BDF8" : "#22C55E",

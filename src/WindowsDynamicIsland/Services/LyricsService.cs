@@ -125,12 +125,12 @@ public sealed partial class LyricsService
             }
             else
             {
-                StatusMessage = $"♪ {cleanTitle} — {cleanArtist}";
+                StatusMessage = $"{cleanTitle} - {cleanArtist}";
             }
         }
         catch
         {
-            StatusMessage = $"♪ {cleanTitle} — {cleanArtist}";
+            StatusMessage = $"{cleanTitle} - {cleanArtist}";
         }
 
         LyricsUpdated?.Invoke();
@@ -175,7 +175,7 @@ public sealed partial class LyricsService
             return new ActiveLyricSnapshot(
                 LineIndex: -1,
                 PreviousLine: string.Empty,
-                CurrentLine: "♪  •  •  •",
+                CurrentLine: "• • •",
                 NextLine: _currentLines[0].Text,
                 LineProgressRatio: introRatio,
                 IsSynced: true);
@@ -185,7 +185,7 @@ public sealed partial class LyricsService
         string current = _currentLines[activeIndex].Text;
         string next = (activeIndex + 1 < _currentLines.Count)
             ? _currentLines[activeIndex + 1].Text
-            : "♪  •  •  •";
+            : "• • •";
 
         double progress = 1.0;
         if (activeIndex + 1 < _currentLines.Count)
@@ -284,7 +284,7 @@ public sealed partial class LyricsService
             string text = match.Groups[4].Value.Trim();
             if (string.IsNullOrWhiteSpace(text))
             {
-                text = "♪  •  •  •";
+                text = "• • •";
             }
 
             lines.Add(new LyricLine(new TimeSpan(0, 0, minutes, seconds, milliseconds), text));

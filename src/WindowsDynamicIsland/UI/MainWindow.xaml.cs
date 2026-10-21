@@ -758,31 +758,37 @@ public partial class MainWindow : Window
 
     private Geometry ResolveToastVectorGeometry(string iconCode, ToastSliderKind sliderKind)
     {
-        if (sliderKind == ToastSliderKind.Brightness || iconCode.Contains("☀️") || iconCode.Contains("🔅") || iconCode == "SUN")
+        if (sliderKind == ToastSliderKind.Brightness || iconCode == "SUN" || iconCode.StartsWith("BRIGHTNESS"))
             return GetVectorGeometry("GeomBrightnessSun");
 
-        if (sliderKind == ToastSliderKind.Battery || iconCode.Contains("⚡") || iconCode.Contains("🔋"))
+        if (sliderKind == ToastSliderKind.Battery || iconCode == "BATTERY" || iconCode.StartsWith("BATTERY") || iconCode == "BOLT")
             return GetVectorGeometry("GeomBolt");
 
-        if (iconCode == "MUTE" || iconCode.Contains("🔇"))
+        if (iconCode == "MUTE" || (iconCode.Contains("MUTE") && !iconCode.Contains("MIC")))
             return GetVectorGeometry("GeomSpeakerMuted");
 
-        if (iconCode == "HEADPHONES" || iconCode.Contains("🎧"))
+        if (iconCode == "HEADPHONES" || iconCode == "BLUETOOTH" || iconCode.StartsWith("BT"))
             return GetVectorGeometry("GeomHeadphones");
 
-        if (iconCode == "SPEAKER" || iconCode.Contains("🔊") || iconCode.Contains("🔉"))
+        if (iconCode == "SPEAKER")
             return GetVectorGeometry("GeomSpeakerOn");
 
-        if (iconCode == "MIC_MUTE" || iconCode.Contains("🚫"))
+        if (iconCode == "MIC_MUTE")
             return GetVectorGeometry("GeomMicMuted");
 
-        if (iconCode == "MIC_ON" || iconCode.Contains("🎙"))
+        if (iconCode == "MIC_ON" || iconCode == "MIC")
             return GetVectorGeometry("GeomMicOn");
 
-        if (iconCode == "FOLDER" || iconCode.Contains("🗂") || iconCode.Contains("📋"))
+        if (iconCode == "WIFI")
+            return GetVectorGeometry("GeomWifi");
+
+        if (iconCode == "WIFI_OFF")
+            return GetVectorGeometry("GeomWifiOff");
+
+        if (iconCode == "FOLDER" || iconCode == "DROP_SHELF")
             return GetVectorGeometry("GeomFolderTray");
 
-        if (iconCode.Contains("⏱") || iconCode.Contains("☕"))
+        if (iconCode == "POMO_FOCUS" || iconCode == "POMO_BREAK" || iconCode.StartsWith("TIMER") || iconCode.StartsWith("POMO"))
             return GetVectorGeometry("GeomFocusTimer");
 
         return GetVectorGeometry("GeomBellNotif");
@@ -1043,7 +1049,7 @@ public partial class MainWindow : Window
         LyricLineProgressFill.Width = 120.0 * Math.Clamp(lyricSnap.LineProgressRatio, 0.0, 1.0);
 
         string compactTargetText;
-        if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "♪  •  •  •")
+        if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "• • •")
         {
             compactTargetText = lyricSnap.CurrentLine;
         }
