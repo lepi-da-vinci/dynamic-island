@@ -37,7 +37,7 @@
             </Border.Effect>
         </Border>
 
-        <!-- SINGLE UNIFIED NOTCHNOOK SILHOUETTE (Gambar 2 Reference: Satu desain utuh menempel di atas layar) -->
+        <!-- SINGLE UNIFIED NOTCHNOOK SILHOUETTE (Satu desain utuh menempel di atas layar) -->
         <Grid HorizontalAlignment="Center" VerticalAlignment="Top">
             <!-- One-piece pure black NotchNook shape with top concave ears & bottom rounded corners -->
             <Path x:Name="UnifiedNotchPath"
@@ -50,15 +50,15 @@
                 </Path.Effect>
             </Path>
 
-            <!-- Subtle contour rim along the sides and bottom only (never creates a separate oval!) -->
+            <!-- Subtle contour rim along the sides and bottom only -->
             <Path x:Name="UnifiedNotchRimPath"
-                  Stroke="#1EFFFFFF"
+                  Stroke="#22FFFFFF"
                   StrokeThickness="1"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
                   IsHitTestVisible="False"/>
 
-            <!-- Interactive Content Host (Transparent background & 0 border so it is 100% one piece with UnifiedNotchPath) -->
+            <!-- Interactive Content Host -->
             <Border x:Name="IslandBorder"
                     Width="196"
                     Height="36"
@@ -94,7 +94,7 @@
                                 VerticalAlignment="Center"/>
                     </Grid>
 
-                    <!-- STATE 1: IDLE PILL (Clock + Privacy Dots + Battery) -->
+                    <!-- STATE 1: IDLE PILL (Clock + Privacy Dots + Vector Battery) -->
                     <Grid x:Name="IdlePillPanel"
                           Margin="16,0,16,2"
                           Visibility="Visible">
@@ -137,7 +137,7 @@
                                      Visibility="Collapsed"/>
                         </StackPanel>
 
-                        <!-- Battery Graphic + Percentage Right Side (Battery shape with lightning bolt centered inside) -->
+                        <!-- Vector Battery Graphic + Percentage Right Side -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
                                 <!-- Battery Body -->
@@ -145,7 +145,7 @@
                                         Width="26" Height="13.5"
                                         CornerRadius="4"
                                         BorderThickness="1.3"
-                                        BorderBrush="#70FFFFFF"
+                                        BorderBrush="#75FFFFFF"
                                         Background="#1AFFFFFF"
                                         Padding="1.4"
                                         VerticalAlignment="Center">
@@ -156,23 +156,23 @@
                                                 Height="8.5"
                                                 CornerRadius="2.2"
                                                 Background="#22C55E"/>
-                                        <TextBlock x:Name="IdleBatteryIconText"
-                                                   Text="⚡"
-                                                   FontSize="8.5"
-                                                   FontWeight="Bold"
-                                                   Foreground="#FFFFFF"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center">
-                                            <TextBlock.Effect>
-                                                <DropShadowEffect BlurRadius="3" ShadowDepth="0" Color="#000000" Opacity="0.9"/>
-                                            </TextBlock.Effect>
-                                        </TextBlock>
+                                        <Path x:Name="IdleBatteryBoltPath"
+                                              Data="{StaticResource GeomBolt}"
+                                              Width="7.5" Height="9"
+                                              Stretch="Uniform"
+                                              Fill="#FFFFFF"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center">
+                                            <Path.Effect>
+                                                <DropShadowEffect BlurRadius="3" ShadowDepth="0" Color="#000000" Opacity="0.95"/>
+                                            </Path.Effect>
+                                        </Path>
                                     </Grid>
                                 </Border>
                                 <!-- Battery Positive Terminal Cap -->
                                 <Border Width="2.2" Height="5.5"
                                         CornerRadius="0,1.5,1.5,0"
-                                        Background="#70FFFFFF"
+                                        Background="#75FFFFFF"
                                         Margin="1,0,0,0"
                                         VerticalAlignment="Center"/>
                             </StackPanel>
@@ -185,7 +185,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- STATE 2: COMPACT MEDIA PILL (Album Thumbnail + Smooth Lyric-Synced Pan + 5-Bar Waveform) -->
+                    <!-- STATE 2: COMPACT MEDIA PILL (Album Thumbnail + Smooth Lyric-Synced Pan + 5-Bar True Audio Spectrum) -->
                     <Grid x:Name="CompactMediaPanel"
                           Margin="14,0,14,2"
                           Visibility="Collapsed"
@@ -200,20 +200,23 @@
                         <Border Grid.Column="0"
                                 Width="25" Height="25"
                                 CornerRadius="7"
-                                Background="#1E293B"
+                                Background="#181822"
+                                BorderBrush="#26FFFFFF"
+                                BorderThickness="1"
                                 VerticalAlignment="Center"
                                 ClipToBounds="True">
                             <Grid>
-                                <TextBlock Text="♪"
-                                           Foreground="#94A3B8"
-                                           FontSize="11"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"/>
+                                <Path Data="{StaticResource GeomMusic}"
+                                      Width="11" Height="11"
+                                      Stretch="Uniform"
+                                      Fill="#64748B"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
                                 <Image x:Name="CompactAlbumImage" Stretch="UniformToFill"/>
                             </Grid>
                         </Border>
 
-                        <!-- Live Moving Lyrics Viewport (Smooth One-Way Pan mengikuti tempo lirik) -->
+                        <!-- Live Moving Lyrics Viewport -->
                         <Border x:Name="CompactLyricViewport"
                                 Grid.Column="1"
                                 Margin="11,0,11,0"
@@ -224,7 +227,7 @@
                                 <TextBlock x:Name="CompactSongTitleText"
                                            Canvas.Left="0"
                                            Canvas.Top="3"
-                                           Text="♪ Memuat lirik lagu..."
+                                           Text="Memuat lirik lagu..."
                                            Foreground="#F8FAFC"
                                            FontSize="12.5"
                                            FontWeight="SemiBold"
@@ -236,20 +239,20 @@
                             </Canvas>
                         </Border>
 
-                        <!-- 5-Bar Real-Time WASAPI Audio Spectrum -->
+                        <!-- 5-Bar Real-Time WASAPI Loopback Audio Spectrum -->
                         <StackPanel Grid.Column="2"
                                     Orientation="Horizontal"
                                     VerticalAlignment="Center"
                                     Height="20">
-                            <Rectangle x:Name="WaveBar0" Width="3.2" Height="6" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
-                            <Rectangle x:Name="WaveBar1" Width="3.2" Height="12" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
-                            <Rectangle x:Name="WaveBar2" Width="3.2" Height="16" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
-                            <Rectangle x:Name="WaveBar3" Width="3.2" Height="10" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
-                            <Rectangle x:Name="WaveBar4" Width="3.2" Height="5" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
+                            <Rectangle x:Name="WaveBar0" Width="3.2" Height="4" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
+                            <Rectangle x:Name="WaveBar1" Width="3.2" Height="8" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
+                            <Rectangle x:Name="WaveBar2" Width="3.2" Height="14" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
+                            <Rectangle x:Name="WaveBar3" Width="3.2" Height="9" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
+                            <Rectangle x:Name="WaveBar4" Width="3.2" Height="4" RadiusX="1.6" RadiusY="1.6" Fill="#38BDF8" Margin="1.3,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Grid>
 
-                    <!-- STATE 3: TOAST INTERRUPT PILL (Interactive Volume / Brightness Slider, Mic/Sound Mute, Bluetooth) -->
+                    <!-- STATE 3: TOAST INTERRUPT PILL (Bespoke Vector Badge + Interactive Volume / Brightness / Battery) -->
                     <Grid x:Name="ToastPanel"
                           Margin="18,0,18,2"
                           Visibility="Collapsed">
@@ -264,13 +267,17 @@
                                 Width="32" Height="32"
                                 CornerRadius="10"
                                 Background="#2438BDF8"
+                                BorderBrush="#30FFFFFF"
+                                BorderThickness="1"
                                 VerticalAlignment="Center"
                                 Margin="0,0,12,0">
-                            <TextBlock x:Name="ToastIconText"
-                                       Text="🔊"
-                                       FontSize="15"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                            <Path x:Name="ToastIconPath"
+                                  Data="{StaticResource GeomSpeakerOn}"
+                                  Width="15" Height="15"
+                                  Stretch="Uniform"
+                                  Fill="#38BDF8"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
                         </Border>
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -287,7 +294,7 @@
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
 
-                        <!-- Modern Line-Only Interactive Toast Slider (Volume / Brightness — Tanpa Titik Pembatas) -->
+                        <!-- Modern Line-Only Interactive Toast Slider (Volume / Brightness) -->
                         <Grid x:Name="ToastProgressContainer"
                               Grid.Column="2"
                               Width="112"
@@ -315,14 +322,13 @@
                             </Border>
                         </Grid>
 
-                        <!-- Dedicated Battery Shape Graphic for Charger Plug/Unplug Toast (dengan Lambang Petir ⚡ di Tengah) -->
+                        <!-- Dedicated Vector Battery Graphic for Charger Plug/Unplug Toast -->
                         <StackPanel x:Name="ToastBatteryContainer"
                                     Grid.Column="2"
                                     Orientation="Horizontal"
                                     VerticalAlignment="Center"
                                     Margin="14,0,2,0"
                                     Visibility="Collapsed">
-                            <!-- Battery Casing -->
                             <Border x:Name="ToastBatteryBody"
                                     Width="54" Height="24"
                                     CornerRadius="6.5"
@@ -332,7 +338,6 @@
                                     Padding="2.2"
                                     VerticalAlignment="Center">
                                 <Grid ClipToBounds="True">
-                                    <!-- Dynamic Battery Level Fill -->
                                     <Border x:Name="ToastBatteryFill"
                                             HorizontalAlignment="Left"
                                             Width="40"
@@ -340,22 +345,20 @@
                                             CornerRadius="4"
                                             Background="#22C55E"/>
 
-                                    <!-- Center Lightning Bolt Emblem (⚡) -->
-                                    <TextBlock x:Name="ToastBatteryBoltIcon"
-                                               Text="⚡"
-                                               FontSize="12.5"
-                                               FontWeight="Bold"
-                                               Foreground="#FFFFFF"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center">
-                                        <TextBlock.Effect>
+                                    <Path x:Name="ToastBatteryBoltPath"
+                                          Data="{StaticResource GeomBolt}"
+                                          Width="11" Height="13"
+                                          Stretch="Uniform"
+                                          Fill="#FFFFFF"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center">
+                                        <Path.Effect>
                                             <DropShadowEffect BlurRadius="4" ShadowDepth="0" Color="#000000" Opacity="0.95"/>
-                                        </TextBlock.Effect>
-                                    </TextBlock>
+                                        </Path.Effect>
+                                    </Path>
                                 </Grid>
                             </Border>
 
-                            <!-- Battery Positive Terminal Cap -->
                             <Border x:Name="ToastBatteryCap"
                                     Width="3.5" Height="10"
                                     CornerRadius="0,2,2,0"
@@ -365,7 +368,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- STATE 4: EXPANDED DASHBOARD (NotchNook Unified Aesthetic) -->
+                    <!-- STATE 4: EXPANDED DASHBOARD (Signature Cyber-Minimalist Vector UI) -->
                     <Grid x:Name="ExpandedDashboardPanel"
                           Margin="20,10,20,14"
                           Visibility="Collapsed">
@@ -374,39 +377,77 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Top Switcher Bar (Modern iOS 18 Segmented Pill Control) -->
+                        <!-- Top Switcher Bar (Segmented Pill Control with Vector SVG Icons) -->
                         <Grid Grid.Row="0" Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Modern Segmented Pill Glass Container -->
                             <Border Grid.Column="0"
-                                    Background="#14FFFFFF"
-                                    BorderBrush="#1AFFFFFF"
+                                    Background="#12FFFFFF"
+                                    BorderBrush="#1FFFFFFF"
                                     BorderThickness="1"
-                                    CornerRadius="13"
-                                    Padding="2"
+                                    CornerRadius="12"
+                                    Padding="2.5"
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="TabMediaBtn"
                                             Style="{StaticResource TabPillButtonStyle}"
-                                            Content="🎵 Musik"
-                                            Click="OnTabMediaClick"/>
+                                            Click="OnTabMediaClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource GeomMusic}"
+                                                  Width="11.5" Height="11.5"
+                                                  Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  Margin="0,0,5.5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Musik" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
                                     <Button x:Name="TabShelfBtn"
                                             Style="{StaticResource TabPillButtonStyle}"
-                                            Content="📥 File"
-                                            Click="OnTabShelfClick"/>
+                                            Click="OnTabShelfClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource GeomFolderTray}"
+                                                  Width="11.5" Height="11.5"
+                                                  Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  Margin="0,0,5.5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Rak File" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
                                     <Button x:Name="TabPomodoroBtn"
                                             Style="{StaticResource TabPillButtonStyle}"
-                                            Content="⏱️ Fokus"
-                                            Click="OnTabPomodoroClick"/>
+                                            Click="OnTabPomodoroClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource GeomFocusTimer}"
+                                                  Width="11.5" Height="11.5"
+                                                  Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  Margin="0,0,5.5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Fokus" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
                                     <Button x:Name="TabSystemBtn"
                                             Style="{StaticResource TabPillButtonStyle}"
-                                            Content="⚙️ Sistem"
-                                            Click="OnTabSystemClick"/>
+                                            Click="OnTabSystemClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource GeomSliders}"
+                                                  Width="11.5" Height="11.5"
+                                                  Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  Margin="0,0,5.5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Sistem" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
                             </Border>
 
@@ -419,11 +460,19 @@
                                            Margin="0,0,8,0"
                                            VerticalAlignment="Center"/>
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="9,3.5"
-                                        FontSize="10.5"
-                                        Content="▲ Simpan"
+                                        Padding="9,4"
                                         ToolTip="Lipat ke bibir atas layar agar tab/tombol aplikasi di belakangnya bisa diklik"
-                                        Click="OnManualTuckClick"/>
+                                        Click="OnManualTuckClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource GeomChevronUp}"
+                                              Width="10" Height="10"
+                                              Stretch="Uniform"
+                                              Fill="#CBD5E1"
+                                              Margin="0,0,4,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock Text="Simpan" FontSize="10.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </Grid>
 
@@ -435,7 +484,7 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <!-- Album Art + Song Metadata + Transport Buttons -->
+                            <!-- Album Art + Song Metadata + Bespoke Vector Transport Buttons -->
                             <Grid Grid.Row="0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -447,76 +496,127 @@
                                 <Border Grid.Column="0"
                                         Width="58" Height="58"
                                         CornerRadius="14"
-                                        Background="#18181F"
-                                        BorderBrush="#25FFFFFF"
+                                        Background="#14141D"
+                                        BorderBrush="#28FFFFFF"
                                         BorderThickness="1"
                                         ClipToBounds="True">
                                     <Border.Effect>
                                         <DropShadowEffect x:Name="AlbumShadowEffect" BlurRadius="16" ShadowDepth="2" Opacity="0.5" Color="#38BDF8"/>
                                     </Border.Effect>
                                     <Grid>
-                                        <TextBlock Text="🎵"
-                                                   FontSize="24"
-                                                   Foreground="#64748B"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"/>
+                                        <Path Data="{StaticResource GeomMusic}"
+                                              Width="22" Height="22"
+                                              Stretch="Uniform"
+                                              Fill="#475569"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
                                         <Image x:Name="ExpandedAlbumImage" Stretch="UniformToFill"/>
                                     </Grid>
                                 </Border>
 
                                 <StackPanel Grid.Column="1" Margin="14,1,12,0" VerticalAlignment="Center">
-                                    <TextBlock x:Name="ExpandedSongTitleText"
-                                               Text="Tidak Ada Media Aktif"
-                                               Foreground="#F8FAFC"
-                                               FontSize="15"
-                                               FontWeight="Bold"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                        <!-- Real-time Active Audio Destination Badge (e.g. 🎧 Galaxy Buds or 🔊 Speaker) -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="ExpandedSongTitleText"
+                                                   Grid.Column="0"
+                                                   Text="Tidak Ada Media Aktif"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="15"
+                                                   FontWeight="Bold"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"/>
+
+                                        <!-- Live 5-Bar Song Spectrum in Expanded Mode -->
+                                        <StackPanel Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center"
+                                                    Height="16"
+                                                    Margin="8,0,4,0">
+                                            <Rectangle x:Name="ExpWaveBar0" Width="2.8" Height="4" RadiusX="1.4" RadiusY="1.4" Fill="#38BDF8" Margin="1.1,0" VerticalAlignment="Center"/>
+                                            <Rectangle x:Name="ExpWaveBar1" Width="2.8" Height="7" RadiusX="1.4" RadiusY="1.4" Fill="#38BDF8" Margin="1.1,0" VerticalAlignment="Center"/>
+                                            <Rectangle x:Name="ExpWaveBar2" Width="2.8" Height="11" RadiusX="1.4" RadiusY="1.4" Fill="#38BDF8" Margin="1.1,0" VerticalAlignment="Center"/>
+                                            <Rectangle x:Name="ExpWaveBar3" Width="2.8" Height="7" RadiusX="1.4" RadiusY="1.4" Fill="#38BDF8" Margin="1.1,0" VerticalAlignment="Center"/>
+                                            <Rectangle x:Name="ExpWaveBar4" Width="2.8" Height="4" RadiusX="1.4" RadiusY="1.4" Fill="#38BDF8" Margin="1.1,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <!-- Real-time Active Audio Destination Pill (Vector Icon + Clean Device Name) -->
                                         <Border x:Name="AudioDeviceBadge"
                                                 Background="#2438BDF8"
-                                                CornerRadius="5"
-                                                Padding="5.5,1.5"
-                                                Margin="0,0,6,0"
+                                                BorderBrush="#2E38BDF8"
+                                                BorderThickness="1"
+                                                CornerRadius="6"
+                                                Padding="6,2"
+                                                Margin="0,0,7,0"
                                                 VerticalAlignment="Center">
-                                            <TextBlock x:Name="AudioDeviceBadgeText"
-                                                       Text="🔊 Speaker"
-                                                       Foreground="#38BDF8"
-                                                       FontSize="9.5"
-                                                       FontWeight="SemiBold"/>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Path x:Name="AudioDeviceIconPath"
+                                                      Data="{StaticResource GeomSpeakerOn}"
+                                                      Width="10" Height="10"
+                                                      Stretch="Uniform"
+                                                      Fill="#38BDF8"
+                                                      Margin="0,0,4.5,0"
+                                                      VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="AudioDeviceBadgeText"
+                                                           Text="Speaker"
+                                                           Foreground="#38BDF8"
+                                                           FontSize="9.5"
+                                                           FontWeight="SemiBold"
+                                                           MaxWidth="115"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
                                         </Border>
+
                                         <TextBlock x:Name="ExpandedArtistText"
                                                    Text="Putar lagu di Spotify, Chrome, Edge, atau VLC"
                                                    Foreground="#94A3B8"
                                                    FontSize="12"
+                                                   MaxWidth="215"
                                                    VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </StackPanel>
 
-                                <!-- Modern Circular & Hero Transport Buttons -->
+                                <!-- Bespoke Vector Transport Buttons (Zero Emoji Boxes!) -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                     <Button Style="{StaticResource IslandCircularButtonStyle}"
-                                            Content="⏮"
-                                            FontSize="12"
                                             ToolTip="Lagu Sebelumnya"
-                                            Click="OnMediaPrevClick"/>
+                                            Click="OnMediaPrevClick">
+                                        <Path Data="{StaticResource GeomSkipPrev}"
+                                              Width="12" Height="12"
+                                              Stretch="Uniform"
+                                              Fill="#F8FAFC"/>
+                                    </Button>
+
                                     <Button x:Name="PlayPauseButton"
                                             Style="{StaticResource PlayPauseHeroButtonStyle}"
-                                            Margin="5,0"
-                                            Content="▶"
-                                            FontSize="14"
+                                            Margin="6,0"
                                             ToolTip="Play / Pause (atau Klik Tengah)"
-                                            Click="OnMediaPlayPauseClick"/>
+                                            Click="OnMediaPlayPauseClick">
+                                        <Path x:Name="PlayPauseIconPath"
+                                              Data="{StaticResource GeomPlay}"
+                                              Width="13.5" Height="13.5"
+                                              Stretch="Uniform"
+                                              Fill="#09090B"/>
+                                    </Button>
+
                                     <Button Style="{StaticResource IslandCircularButtonStyle}"
-                                            Content="⏭"
-                                            FontSize="12"
                                             ToolTip="Lagu Berikutnya"
-                                            Click="OnMediaNextClick"/>
+                                            Click="OnMediaNextClick">
+                                        <Path Data="{StaticResource GeomSkipNext}"
+                                              Width="12" Height="12"
+                                              Stretch="Uniform"
+                                              Fill="#F8FAFC"/>
+                                    </Button>
                                 </StackPanel>
                             </Grid>
 
-                            <!-- Interactive Draggable Timeline Scrubber Bar (Modern Line-Only — Tanpa Titik Knob) -->
+                            <!-- Interactive Draggable Timeline Scrubber Bar (Modern Line-Only) -->
                             <Grid Grid.Row="1" Margin="0,10,0,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="38"/>
@@ -570,10 +670,10 @@
                                            VerticalAlignment="Center"/>
                             </Grid>
 
-                            <!-- ANIMATED 3-LINE LIVE LYRICS STAGE (Seamless Floating Glass Stage) -->
+                            <!-- ANIMATED 3-LINE LIVE LYRICS STAGE -->
                             <Border Grid.Row="2"
                                     Background="#0CFFFFFF"
-                                    BorderBrush="#14FFFFFF"
+                                    BorderBrush="#16FFFFFF"
                                     BorderThickness="1"
                                     CornerRadius="14"
                                     Padding="14,6"
@@ -610,7 +710,7 @@
                                                    Margin="0,0,0,2"/>
 
                                         <TextBlock x:Name="CurrentLyricLineText"
-                                                   Text="♪ Lirik otomatis muncul saat lagu diputar"
+                                                   Text="Lirik otomatis muncul saat lagu diputar"
                                                    Foreground="#FFFFFF"
                                                    FontSize="14.5"
                                                    FontWeight="Bold"
@@ -645,7 +745,7 @@
                                         </Border>
 
                                         <TextBlock x:Name="NextLyricLineText"
-                                                   Text="Mendukung sinkronisasi waktu real-time via LRCLIB"
+                                                   Text="Sinkronisasi waktu real-time via LRCLIB"
                                                    Foreground="#99CBD5E1"
                                                    FontSize="11.5"
                                                    FontWeight="Medium"
@@ -664,11 +764,19 @@
                             </Grid.RowDefinitions>
 
                             <Grid Grid.Row="0" Margin="0,0,0,6">
-                                <TextBlock x:Name="ShelfHeaderCountText"
-                                           Text="Taruh file/gambar sementara di sini (Drag Masuk &amp; Keluar)"
-                                           Foreground="#94A3B8"
-                                           FontSize="11.5"
-                                           VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Path Data="{StaticResource GeomFolderTray}"
+                                          Width="12" Height="12"
+                                          Stretch="Uniform"
+                                          Fill="#38BDF8"
+                                          Margin="0,0,6,0"
+                                          VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="ShelfHeaderCountText"
+                                               Text="Taruh file/gambar sementara di sini (Drag Masuk &amp; Keluar)"
+                                               Foreground="#94A3B8"
+                                               FontSize="11.5"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
                                         HorizontalAlignment="Right"
                                         Padding="8,3"
@@ -684,14 +792,22 @@
                                     CornerRadius="14"
                                     Padding="8">
                                 <Grid>
-                                    <TextBlock x:Name="EmptyShelfHintText"
-                                               Text="📥 Drag gambar atau file dari File Explorer / Browser ke Dynamic Island untuk disimpan sementara, lalu tarik keluar ke WhatsApp / Discord / aplikasi lain."
-                                               Foreground="#64748B"
-                                               FontSize="11.5"
-                                               TextWrapping="Wrap"
-                                               TextAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               Margin="16,0"/>
+                                    <StackPanel x:Name="EmptyShelfHintPanel"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center"
+                                                Margin="16,0">
+                                        <Path Data="{StaticResource GeomFolderTray}"
+                                              Width="22" Height="22"
+                                              Stretch="Uniform"
+                                              Fill="#475569"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,6"/>
+                                        <TextBlock Text="Drag gambar atau file dari File Explorer / Browser ke Dynamic Island untuk disimpan sementara, lalu tarik keluar ke WhatsApp / Discord / aplikasi lain."
+                                                   Foreground="#64748B"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   TextAlignment="Center"/>
+                                    </StackPanel>
 
                                     <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
                                         <ItemsControl x:Name="ShelfItemsControl">
@@ -734,7 +850,9 @@
                                                                     ClipToBounds="True">
                                                                 <Grid>
                                                                     <TextBlock Text="{Binding IconGlyph}"
-                                                                               FontSize="18"
+                                                                               FontSize="10"
+                                                                               FontWeight="Bold"
+                                                                               Foreground="#38BDF8"
                                                                                HorizontalAlignment="Center"
                                                                                VerticalAlignment="Center"
                                                                                Visibility="{Binding IconGlyphVisibility}"/>
@@ -809,9 +927,21 @@
                                             Style="{StaticResource IslandIconButtonStyle}"
                                             Padding="14,7"
                                             Margin="0,0,6,6"
-                                            Content="▶ Mulai"
-                                            FontWeight="SemiBold"
-                                            Click="OnPomodoroStartPauseClick"/>
+                                            Click="OnPomodoroStartPauseClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path x:Name="PomodoroPlayPauseIconPath"
+                                                  Data="{StaticResource GeomPlay}"
+                                                  Width="10" Height="10"
+                                                  Stretch="Uniform"
+                                                  Fill="#38BDF8"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="PomodoroStartPauseText"
+                                                       Text="Mulai"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
                                     <Button Style="{StaticResource IslandIconButtonStyle}"
                                             Padding="11,7"
                                             Margin="0,0,6,6"
@@ -839,7 +969,7 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <!-- Row 0: Interactive Volume & Brightness Sliders -->
+                            <!-- Row 0: Interactive Volume & Brightness Sliders (Overlap-Free 2-Column Headers!) -->
                             <Grid Grid.Row="0" Margin="0,0,0,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -856,13 +986,30 @@
                                         Margin="0,0,5,0">
                                     <StackPanel>
                                         <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Path x:Name="SysVolumeHeaderIconPath"
+                                                  Grid.Column="0"
+                                                  Data="{StaticResource GeomSpeakerOn}"
+                                                  Width="11" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="#38BDF8"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
                                             <TextBlock x:Name="SysVolumeLabelText"
-                                                       Text="🔊 VOLUME AUDIO"
+                                                       Grid.Column="1"
+                                                       Text="VOLUME AUDIO"
                                                        Foreground="#CBD5E1"
                                                        FontSize="10"
                                                        FontWeight="Bold"
+                                                       Margin="0,0,6,0"
+                                                       TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"/>
                                             <TextBlock x:Name="SysVolumePercentText"
+                                                       Grid.Column="2"
                                                        Text="65%"
                                                        Foreground="#38BDF8"
                                                        FontSize="11"
@@ -906,12 +1053,28 @@
                                         Margin="5,0,0,0">
                                     <StackPanel>
                                         <Grid Margin="0,0,0,6">
-                                            <TextBlock Text="☀️ KECERAHAN LAYAR"
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Path Grid.Column="0"
+                                                  Data="{StaticResource GeomBrightnessSun}"
+                                                  Width="11" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="#FBBF24"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="KECERAHAN LAYAR"
                                                        Foreground="#CBD5E1"
                                                        FontSize="10"
                                                        FontWeight="Bold"
+                                                       Margin="0,0,6,0"
+                                                       TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"/>
                                             <TextBlock x:Name="SysBrightnessPercentText"
+                                                       Grid.Column="2"
                                                        Text="20%"
                                                        Foreground="#FBBF24"
                                                        FontSize="11"
@@ -946,7 +1109,7 @@
                                 </Border>
                             </Grid>
 
-                            <!-- Row 1: Telemetry Info Cards -->
+                            <!-- Row 1: Telemetry Info Cards with Vector Icons -->
                             <Grid Grid.Row="1" Margin="0,0,0,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -959,15 +1122,25 @@
                                         Padding="11,6"
                                         Margin="0,0,5,0">
                                     <StackPanel>
-                                        <TextBlock x:Name="SysBatteryDetailText"
-                                                   Text="⚡ 100% (AC Connected)"
-                                                   Foreground="#F8FAFC"
-                                                   FontSize="11.5"
-                                                   FontWeight="SemiBold"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource GeomBolt}"
+                                                  Width="10" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="#22C55E"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="SysBatteryDetailText"
+                                                       Text="100% (AC Connected)"
+                                                       Foreground="#F8FAFC"
+                                                       FontSize="11.5"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock x:Name="SysNetworkDetailText"
                                                    Text="Wi-Fi Terhubung"
                                                    Foreground="#94A3B8"
                                                    FontSize="10"
+                                                   Margin="0,1,0,0"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </Border>
@@ -978,50 +1151,113 @@
                                         Padding="11,6"
                                         Margin="5,0,0,0">
                                     <StackPanel>
-                                        <TextBlock x:Name="SysPrivacyDetailText"
-                                                   Text="🛡️ Kamera &amp; Mic Aman"
-                                                   Foreground="#22C55E"
-                                                   FontSize="11.5"
-                                                   FontWeight="SemiBold"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path x:Name="SysPrivacyIconPath"
+                                                  Data="{StaticResource GeomShield}"
+                                                  Width="10.5" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="#22C55E"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="SysPrivacyDetailText"
+                                                       Text="Kamera &amp; Mic Aman"
+                                                       Foreground="#22C55E"
+                                                       FontSize="11.5"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock x:Name="SysMemoryDetailText"
                                                    Text="RAM Island: ~26 MB (0% Idle)"
                                                    Foreground="#94A3B8"
-                                                   FontSize="10"/>
+                                                   FontSize="10"
+                                                   Margin="0,1,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
 
-                            <!-- Row 2: Sound Mute, Mic Mute, Tuck & Exit Buttons -->
+                            <!-- Row 2: Sound Mute, Mic Mute, Tuck & Exit Buttons with Bespoke Vector Icons -->
                             <WrapPanel Grid.Row="2" Orientation="Horizontal">
                                 <Button x:Name="ToggleMuteBtn"
                                         Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="11,6"
                                         Margin="0,0,6,0"
-                                        FontSize="11"
-                                        Content="🔊 Sound: ON"
                                         ToolTip="Mute / Unmute Suara Output Sistem"
-                                        Click="OnToggleMuteClick"/>
+                                        Click="OnToggleMuteClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path x:Name="ToggleMuteIconPath"
+                                              Data="{StaticResource GeomSpeakerOn}"
+                                              Width="11.5" Height="11.5"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              Margin="0,0,5.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="ToggleMuteText"
+                                                   Text="Sound: ON"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
                                 <Button x:Name="ToggleMicMuteBtn"
                                         Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="11,6"
                                         Margin="0,0,6,0"
-                                        FontSize="11"
-                                        Content="🎙️ Mic: ON"
                                         ToolTip="Mute / Unmute Mikrofon Secara Global"
-                                        Click="OnToggleMicMuteClick"/>
+                                        Click="OnToggleMicMuteClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path x:Name="ToggleMicIconPath"
+                                              Data="{StaticResource GeomMicOn}"
+                                              Width="11.5" Height="11.5"
+                                              Stretch="Uniform"
+                                              Fill="#22C55E"
+                                              Margin="0,0,5.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="ToggleMicText"
+                                                   Text="Mic: ON"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="11,6"
                                         Margin="0,0,6,0"
-                                        FontSize="11"
-                                        Content="▲ Simpan"
                                         ToolTip="Lipat pulau ke bibir atas layar"
-                                        Click="OnManualTuckClick"/>
+                                        Click="OnManualTuckClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource GeomChevronUp}"
+                                              Width="10.5" Height="10.5"
+                                              Stretch="Uniform"
+                                              Fill="#CBD5E1"
+                                              Margin="0,0,4.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock Text="Simpan"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="11,6"
-                                        FontSize="11"
-                                        Foreground="#F87171"
-                                        Content="✖ Keluar"
-                                        Click="OnExitAppClick"/>
+                                        Click="OnExitAppClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource GeomClosePower}"
+                                              Width="10.5" Height="10.5"
+                                              Stretch="Uniform"
+                                              Fill="#F87171"
+                                              Margin="0,0,4.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock Text="Keluar"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F87171"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </WrapPanel>
                         </Grid>
                     </Grid>

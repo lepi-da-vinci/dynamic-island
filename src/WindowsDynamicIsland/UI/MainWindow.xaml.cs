@@ -16,7 +16,8 @@ using WindowsDynamicIsland.Services;
 namespace WindowsDynamicIsland.UI;
 
 /// <summary>
-/// Main overlay window hosting the unified one-piece NotchNook-style Dynamic Island and 60-120 FPS spring physics loop.
+/// Main overlay window hosting the unified one-piece NotchNook-style Dynamic Island,
+/// bespoke vector SVG iconography, and real-time WASAPI Loopback 5-band audio visualizer.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -37,8 +38,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _toastDismissTimer;
     private readonly DispatcherTimer _collapseDebounceTimer;
 
-    private readonly double[] _spectrumHeights = [5, 8, 12, 8, 5];
+    private readonly double[] _spectrumHeights = [4, 7, 11, 7, 4];
     private Rectangle[] _waveRectangles = [];
+    private Rectangle[] _expWaveRectangles = [];
 
     private IntPtr _hwnd;
     private Win32Interop.NOTIFYICONDATA _trayIconData;
@@ -68,6 +70,8 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _waveRectangles = [WaveBar0, WaveBar1, WaveBar2, WaveBar3, WaveBar4];
+        _expWaveRectangles = [ExpWaveBar0, ExpWaveBar1, ExpWaveBar2, ExpWaveBar3, ExpWaveBar4];
+
         ShelfItemsControl.ItemsSource = _fileShelfService.Items;
         _fileShelfService.Items.CollectionChanged += (_, _) => UpdateShelfUi();
 
@@ -166,7 +170,7 @@ public partial class MainWindow : Window
         UpdateWindowClickThroughState();
 
         TriggerToast(new ToastPayload(
-            Icon: "🏝️",
+            Icon: "BELL",
             Title: "Dynamic Island Aktif",
             Subtitle: "Scroll = Volume • Shift+Scroll = Kecerahan",
             AccentHex: "#38BDF8",
@@ -343,7 +347,7 @@ public partial class MainWindow : Window
                     }
 
                     TriggerToast(new ToastPayload(
-                        Icon: "📋",
+                        Icon: "FOLDER",
                         Title: "Tersalin ke Clipboard",
                         Subtitle: singleLine,
                         AccentHex: "#A855F7",
@@ -356,9 +360,9 @@ public partial class MainWindow : Window
                 if (files.Count > 0)
                 {
                     TriggerToast(new ToastPayload(
-                        Icon: "🗂️",
+                        Icon: "FOLDER",
                         Title: $"{files.Count} File Disalin",
-                        Subtitle: "Tip: Drag ke Island untuk simpan di Tray File",
+                        Subtitle: "Tip: Drag ke Island untuk simpan di Rak File",
                         AccentHex: "#38BDF8",
                         Duration: TimeSpan.FromSeconds(2.2)));
                 }
@@ -406,7 +410,7 @@ public partial class MainWindow : Window
 
     private void UpdateTabHighlight()
     {
-        var activeBrush = new SolidColorBrush(Color.FromArgb(42, 255, 255, 255));
+        var activeBrush = new SolidColorBrush(Color.FromArgb(46, 255, 255, 255));
         var inactiveBrush = Brushes.Transparent;
         var activeFg = Brushes.White;
         var inactiveFg = new SolidColorBrush(Color.FromRgb(148, 163, 184));
@@ -483,6 +487,13 @@ public partial class MainWindow : Window
         }
         else if (isExpandedMedia)
         {
+            // Drive real-time WASAPI Loopback 5-band waveform in Expanded Music Player too!
+            _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 15.0);
+            for (int i = 0; i < _expWaveRectangles.Length; i++)
+            {
+                _expWaveRectangles[i].Height = _spectrumHeights[i];
+            }
+
             float peak = _audioService.GetCurrentPeakLevel(_mediaService.CurrentTrack.IsPlaying);
             LyricsStageGlowOrb.Opacity = 0.14 + Math.Clamp(peak * 0.45, 0.0, 0.35);
             LyricsStageGlowOrb.Width = 180 + peak * 95;
@@ -681,8 +692,8 @@ public partial class MainWindow : Window
         string devName = _audioService.ActiveOutputDeviceName;
 
         string icon = isMuted || volumePercent == 0
-            ? "🔇"
-            : isHeadphones ? "🎧" : volumePercent < 45 ? "🔉" : "🔊";
+            ? "MUTE"
+            : isHeadphones ? "HEADPHONES" : "SPEAKER";
 
         string title = isMuted
             ? $"{devName}: Muted"
@@ -710,9 +721,8 @@ public partial class MainWindow : Window
     {
         UpdateSlidersAndMuteUi();
 
-        string icon = brightnessPercent < 35 ? "🔅" : "☀️";
         TriggerToast(new ToastPayload(
-            Icon: icon,
+            Icon: "SUN",
             Title: $"Kecerahan {brightnessPercent}%",
             Subtitle: "Layar Monitor • Shift+Scroll atau geser",
             AccentHex: "#FBBF24",
@@ -726,11 +736,48 @@ public partial class MainWindow : Window
         UpdateSlidersAndMuteUi();
 
         TriggerToast(new ToastPayload(
-            Icon: isMicMuted ? "🚫" : "🎙️",
+            Icon: isMicMuted ? "MIC_MUTE" : "MIC_ON",
             Title: isMicMuted ? "Mikrofon: MUTED" : "Mikrofon: ON (Aktif)",
             Subtitle: isMicMuted ? "Suara mikrofon Anda dibisukan" : "Mikrofon siap menerima suara",
             AccentHex: isMicMuted ? "#F87171" : "#22C55E",
             Duration: TimeSpan.FromSeconds(2.2)));
+    }
+
+    private Geometry GetVectorGeometry(string resourceKey)
+    {
+        return TryFindResource(resourceKey) as Geometry ?? Geometry.Empty;
+    }
+
+    private Geometry ResolveToastVectorGeometry(string iconCode, ToastSliderKind sliderKind)
+    {
+        if (sliderKind == ToastSliderKind.Brightness || iconCode.Contains("☀️") || iconCode.Contains("🔅") || iconCode == "SUN")
+            return GetVectorGeometry("GeomBrightnessSun");
+
+        if (sliderKind == ToastSliderKind.Battery || iconCode.Contains("⚡") || iconCode.Contains("🔋"))
+            return GetVectorGeometry("GeomBolt");
+
+        if (iconCode == "MUTE" || iconCode.Contains("🔇"))
+            return GetVectorGeometry("GeomSpeakerMuted");
+
+        if (iconCode == "HEADPHONES" || iconCode.Contains("🎧"))
+            return GetVectorGeometry("GeomHeadphones");
+
+        if (iconCode == "SPEAKER" || iconCode.Contains("🔊") || iconCode.Contains("🔉"))
+            return GetVectorGeometry("GeomSpeakerOn");
+
+        if (iconCode == "MIC_MUTE" || iconCode.Contains("🚫"))
+            return GetVectorGeometry("GeomMicMuted");
+
+        if (iconCode == "MIC_ON" || iconCode.Contains("🎙"))
+            return GetVectorGeometry("GeomMicOn");
+
+        if (iconCode == "FOLDER" || iconCode.Contains("🗂") || iconCode.Contains("📋"))
+            return GetVectorGeometry("GeomFolderTray");
+
+        if (iconCode.Contains("⏱") || iconCode.Contains("☕"))
+            return GetVectorGeometry("GeomFocusTimer");
+
+        return GetVectorGeometry("GeomBellNotif");
     }
 
     private void UpdateSlidersAndMuteUi()
@@ -738,29 +785,57 @@ public partial class MainWindow : Window
         int vol = _audioService.GetMasterVolumePercent();
         bool soundMuted = _audioService.IsMuted();
         bool micMuted = _audioService.IsMicrophoneMuted();
+        bool isHeadphones = _audioService.IsHeadphoneOrTws;
         int brt = _brightnessService.GetBrightnessPercent();
 
         SysVolumePercentText.Text = soundMuted ? "MUTED" : $"{vol}%";
-        SysVolumePercentText.Foreground = new SolidColorBrush(
-            soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248));
-        SysVolumeLabelText.Text = soundMuted ? "🔇 AUDIO MUTED" : $"🔊 VOLUME ({_audioService.ActiveOutputDeviceName})";
+        var volColor = soundMuted
+            ? Color.FromRgb(248, 113, 113)
+            : isHeadphones
+                ? Color.FromRgb(192, 132, 252)
+                : Color.FromRgb(56, 189, 248);
+
+        var volBrush = new SolidColorBrush(volColor);
+        SysVolumePercentText.Foreground = volBrush;
+        SysVolumeHeaderIconPath.Fill = volBrush;
+        SysVolumeHeaderIconPath.Data = soundMuted
+            ? GetVectorGeometry("GeomSpeakerMuted")
+            : isHeadphones
+                ? GetVectorGeometry("GeomHeadphones")
+                : GetVectorGeometry("GeomSpeakerOn");
+
+        SysVolumeLabelText.Text = soundMuted
+            ? "AUDIO MUTED"
+            : _audioService.ActiveOutputDeviceName.ToUpperInvariant();
 
         double volTrackW = SysVolumeTrackBorder.ActualWidth > 10 ? SysVolumeTrackBorder.ActualWidth : 185.0;
         double volFillPx = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
         SysVolumeFillBorder.Width = volFillPx;
+        SysVolumeFillBorder.Background = volBrush;
 
         SysBrightnessPercentText.Text = $"{brt}%";
         double brtTrackW = SysBrightnessTrackBorder.ActualWidth > 10 ? SysBrightnessTrackBorder.ActualWidth : 185.0;
         double brtFillPx = brtTrackW * Math.Clamp(brt / 100.0, 0.0, 1.0);
         SysBrightnessFillBorder.Width = brtFillPx;
 
-        ToggleMuteBtn.Content = soundMuted ? "🔇 Sound: MUTED" : "🔊 Sound: ON";
-        ToggleMuteBtn.Foreground = new SolidColorBrush(
+        ToggleMuteIconPath.Data = soundMuted
+            ? GetVectorGeometry("GeomSpeakerMuted")
+            : GetVectorGeometry("GeomSpeakerOn");
+        var soundBtnBrush = new SolidColorBrush(
+            soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248));
+        ToggleMuteIconPath.Fill = soundBtnBrush;
+        ToggleMuteText.Text = soundMuted ? "Sound: MUTED" : "Sound: ON";
+        ToggleMuteText.Foreground = new SolidColorBrush(
             soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(248, 250, 252));
 
-        ToggleMicMuteBtn.Content = micMuted ? "🚫 Mic: MUTED" : "🎙️ Mic: ON";
-        ToggleMicMuteBtn.Foreground = new SolidColorBrush(
+        ToggleMicIconPath.Data = micMuted
+            ? GetVectorGeometry("GeomMicMuted")
+            : GetVectorGeometry("GeomMicOn");
+        var micBtnBrush = new SolidColorBrush(
             micMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(34, 197, 94));
+        ToggleMicIconPath.Fill = micBtnBrush;
+        ToggleMicText.Text = micMuted ? "Mic: MUTED" : "Mic: ON";
+        ToggleMicText.Foreground = micBtnBrush;
     }
 
     private void UpdatePomodoroAndClockUi()
@@ -770,7 +845,7 @@ public partial class MainWindow : Window
 
         if (_pomodoroService.IsRunning)
         {
-            ClockTextBlock.Text = $"⏱ {_pomodoroService.FormattedRemaining}";
+            ClockTextBlock.Text = _pomodoroService.FormattedRemaining;
             IdlePulseDot.Fill = new SolidColorBrush(Color.FromRgb(249, 115, 22));
         }
         else
@@ -783,7 +858,11 @@ public partial class MainWindow : Window
         PomodoroModeLabel.Text = _pomodoroService.IsBreakMode ? "WAKTU ISTIRAHAT" : "SESI FOKUS";
         PomodoroModeLabel.Foreground = new SolidColorBrush(
             _pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(56, 189, 248));
-        PomodoroStartPauseBtn.Content = _pomodoroService.IsRunning ? "⏸ Jeda" : "▶ Mulai";
+
+        PomodoroPlayPauseIconPath.Data = _pomodoroService.IsRunning
+            ? GetVectorGeometry("GeomPause")
+            : GetVectorGeometry("GeomPlay");
+        PomodoroStartPauseText.Text = _pomodoroService.IsRunning ? "Jeda" : "Mulai";
     }
 
     private void UpdateHardwareUi()
@@ -801,8 +880,7 @@ public partial class MainWindow : Window
                 : Color.FromRgb(245, 158, 11);
 
         IdleBatteryFillBar.Background = new SolidColorBrush(batColor);
-        IdleBatteryIconText.Text = "⚡";
-        IdleBatteryIconText.Foreground = new SolidColorBrush(
+        IdleBatteryBoltPath.Fill = new SolidColorBrush(
             hw.IsCharging ? Color.FromRgb(254, 240, 138) : Color.FromRgb(248, 250, 252));
 
         CameraPrivacyDot.Visibility = hw.IsCameraInUse ? Visibility.Visible : Visibility.Collapsed;
@@ -812,25 +890,29 @@ public partial class MainWindow : Window
         _stateMachine.UpdateDynamicIdleWidth(hasExtraIdle);
 
         SysBatteryDetailText.Text = hw.HasBattery
-            ? $"{(hw.IsCharging ? "⚡ Charging" : "🔋 Baterai")} {hw.BatteryPercent}%"
-            : "⚡ Daya Desktop AC (100%)";
+            ? $"{(hw.IsCharging ? "Charging" : "Baterai")} • {hw.BatteryPercent}%"
+            : "Daya Desktop AC (100%)";
 
         SysNetworkDetailText.Text = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName)
-            ? $"🎧 {hw.ConnectedBluetoothName} • {hw.NetworkName}"
+            ? $"{hw.ConnectedBluetoothName} • {hw.NetworkName}"
             : hw.NetworkName;
 
         if (hw.IsCameraInUse || hw.IsMicrophoneInUse)
         {
             string activeDevices = (hw.IsCameraInUse && hw.IsMicrophoneInUse)
-                ? "🔴 Kamera & Mic Aktif"
-                : hw.IsCameraInUse ? "🟢 Kamera Aktif" : $"🟠 Mic Aktif ({hw.ActiveMicApp})";
+                ? "Kamera & Mic Aktif"
+                : hw.IsCameraInUse ? "Kamera Aktif" : $"Mic Aktif ({hw.ActiveMicApp})";
+            var warnBrush = new SolidColorBrush(Color.FromRgb(249, 115, 22));
             SysPrivacyDetailText.Text = activeDevices;
-            SysPrivacyDetailText.Foreground = new SolidColorBrush(Color.FromRgb(249, 115, 22));
+            SysPrivacyDetailText.Foreground = warnBrush;
+            SysPrivacyIconPath.Fill = warnBrush;
         }
         else
         {
-            SysPrivacyDetailText.Text = "🛡️ Kamera & Mic Aman (Idle)";
-            SysPrivacyDetailText.Foreground = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            var safeBrush = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            SysPrivacyDetailText.Text = "Kamera & Mic Aman (Idle)";
+            SysPrivacyDetailText.Foreground = safeBrush;
+            SysPrivacyIconPath.Fill = safeBrush;
         }
 
         SysMemoryDetailText.Text = $"RAM: {hw.AppMemoryMb:0.0} MB • {(_isRenderLoopAttached ? "Active 60FPS" : "0% CPU Idle")}";
@@ -885,6 +967,11 @@ public partial class MainWindow : Window
         {
             rect.Fill = barBrush;
         }
+
+        foreach (var rect in _expWaveRectangles)
+        {
+            rect.Fill = barBrush;
+        }
     }
 
     private void UpdateMediaAndLyricsUi()
@@ -895,16 +982,30 @@ public partial class MainWindow : Window
         ExpandedAlbumImage.Source = track.Thumbnail;
         ExpandedSongTitleText.Text = track.Title;
         ExpandedArtistText.Text = track.Artist;
-        PlayPauseButton.Content = track.IsPlaying ? "⏸" : "▶";
 
-        // Active output destination badge (e.g. 🎧 TWS / 🔊 Speaker)
+        PlayPauseIconPath.Data = track.IsPlaying
+            ? GetVectorGeometry("GeomPause")
+            : GetVectorGeometry("GeomPlay");
+
+        // Active output destination badge with custom Vector Icon + Clean Device Name
         string devName = _audioService.ActiveOutputDeviceName;
         bool isHeadphones = _audioService.IsHeadphoneOrTws;
-        AudioDeviceBadgeText.Text = isHeadphones ? $"🎧 {devName}" : $"🔊 {devName}";
+        AudioDeviceIconPath.Data = isHeadphones
+            ? GetVectorGeometry("GeomHeadphones")
+            : GetVectorGeometry("GeomSpeakerOn");
+
+        var badgeAccent = isHeadphones
+            ? Color.FromRgb(192, 132, 252)
+            : Color.FromRgb(56, 189, 248);
+        var badgeFgBrush = new SolidColorBrush(badgeAccent);
+
+        AudioDeviceIconPath.Fill = badgeFgBrush;
+        AudioDeviceBadgeText.Text = devName;
+        AudioDeviceBadgeText.Foreground = badgeFgBrush;
         AudioDeviceBadge.Background = new SolidColorBrush(
-            isHeadphones ? Color.FromArgb(42, 168, 85, 247) : Color.FromArgb(36, 56, 189, 248));
-        AudioDeviceBadgeText.Foreground = new SolidColorBrush(
-            isHeadphones ? Color.FromRgb(192, 132, 252) : Color.FromRgb(56, 189, 248));
+            isHeadphones ? Color.FromArgb(38, 168, 85, 247) : Color.FromArgb(34, 56, 189, 248));
+        AudioDeviceBadge.BorderBrush = new SolidColorBrush(
+            isHeadphones ? Color.FromArgb(65, 168, 85, 247) : Color.FromArgb(60, 56, 189, 248));
 
         TimeSpan dur = track.Duration;
         TimeSpan pos = _isDraggingTimeline && dur.TotalSeconds > 0
@@ -936,17 +1037,17 @@ public partial class MainWindow : Window
         string compactTargetText;
         if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "♪  •  •  •")
         {
-            compactTargetText = $"♪ {lyricSnap.CurrentLine}";
+            compactTargetText = lyricSnap.CurrentLine;
         }
         else if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.NextLine))
         {
-            compactTargetText = $"♪ {lyricSnap.NextLine}";
+            compactTargetText = lyricSnap.NextLine;
         }
         else
         {
             compactTargetText = track.IsPlaying
-                ? $"♪ {track.Title} • {track.Artist}"
-                : $"⏸ {track.Title}";
+                ? $"{track.Title} • {track.Artist}"
+                : track.Title;
         }
 
         if (compactTargetText != _lastDisplayedCompactText)
@@ -1012,7 +1113,6 @@ public partial class MainWindow : Window
     public void TriggerToast(ToastPayload toast)
     {
         _activeToastSliderKind = toast.SliderKind;
-        ToastIconText.Text = toast.Icon;
         ToastTitleText.Text = toast.Title;
         ToastSubtitleText.Text = toast.Subtitle;
 
@@ -1026,20 +1126,23 @@ public partial class MainWindow : Window
             accent = Color.FromRgb(56, 189, 248);
         }
 
-        ToastIconBadge.Background = new SolidColorBrush(Color.FromArgb(42, accent.R, accent.G, accent.B));
+        var accentBrush = new SolidColorBrush(accent);
+        ToastIconPath.Data = ResolveToastVectorGeometry(toast.Icon, toast.SliderKind);
+        ToastIconPath.Fill = accentBrush;
+        ToastIconBadge.Background = new SolidColorBrush(Color.FromArgb(38, accent.R, accent.G, accent.B));
+        ToastIconBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(68, accent.R, accent.G, accent.B));
         AmbientGlowBrush.Color = accent;
 
         if (toast.SliderKind == ToastSliderKind.Battery)
         {
-            // Render realistic Battery Graphic with Lightning Bolt ⚡ centered inside (NOT a slider)
+            // Render realistic Vector Battery Graphic with Lightning Bolt centered inside
             ToastProgressContainer.Visibility = Visibility.Collapsed;
             ToastBatteryContainer.Visibility = Visibility.Visible;
 
             double batRatio = Math.Clamp(toast.ProgressRatio ?? 1.0, 0.08, 1.0);
             ToastBatteryFill.Width = 46.5 * batRatio;
-            ToastBatteryFill.Background = new SolidColorBrush(accent);
-            ToastBatteryBoltIcon.Text = "⚡";
-            ToastBatteryBoltIcon.Foreground = new SolidColorBrush(
+            ToastBatteryFill.Background = accentBrush;
+            ToastBatteryBoltPath.Fill = new SolidColorBrush(
                 toast.IsBatteryCharging ? Color.FromRgb(254, 240, 138) : Color.FromRgb(255, 255, 255));
         }
         else if (toast.ProgressRatio.HasValue)
@@ -1049,7 +1152,7 @@ public partial class MainWindow : Window
             double ratio = Math.Clamp(toast.ProgressRatio.Value, 0.0, 1.0);
             double fillPx = 112.0 * ratio;
             ToastProgressFill.Width = fillPx;
-            ToastProgressFill.Background = new SolidColorBrush(accent);
+            ToastProgressFill.Background = accentBrush;
         }
         else
         {
@@ -1367,10 +1470,10 @@ public partial class MainWindow : Window
     {
         int count = _fileShelfService.Items.Count;
         _stateMachine.UpdateShelfCount(count);
-        EmptyShelfHintText.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyShelfHintPanel.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ShelfHeaderCountText.Text = count == 0
             ? "Taruh file/gambar sementara di sini (Drag Masuk & Keluar)"
-            : $"📦 {count} item tersimpan di rak sementara (Tarik keluar untuk kirim)";
+            : $"{count} item tersimpan di rak sementara (Tarik keluar untuk kirim)";
     }
 
     private void OnClearShelfClick(object sender, RoutedEventArgs e)

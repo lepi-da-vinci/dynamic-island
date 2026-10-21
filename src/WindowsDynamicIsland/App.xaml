@@ -4,8 +4,29 @@
              StartupUri="UI/MainWindow.xaml"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
+        <!-- BESPOKE VECTOR SVG GEOMETRIES (Zero Emojis — Signature Cyber-Minimalist Icons) -->
+        <Geometry x:Key="GeomMusic">M12,3V13.55C11.41,13.21 10.73,13 10,13C7.79,13 6,14.79 6,17C6,19.21 7.79,21 10,21C12.21,21 14,19.21 14,17V7H18V3H12Z</Geometry>
+        <Geometry x:Key="GeomFolderTray">M19,3H4.99C3.88,3 3.01,3.89 3.01,5L3,19C3,20.1 3.88,21 4.99,21H19C20.1,21 21,20.1 21,19V5C21,3.89 20.1,3 19,3ZM19,15H15C15,16.66 13.65,18 12,18C10.35,18 9,16.66 9,15H4.99V5H19V15Z</Geometry>
+        <Geometry x:Key="GeomFocusTimer">M15,1H9V3H15V1ZM11,14H13V8H11V14ZM19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,5.98C16.07,4.74 14.12,4 12,4C7.03,4 3,8.03 3,13C3,17.97 7.02,22 12,22C16.98,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39ZM12,20C8.13,20 5,16.87 5,13C5,9.13 8.13,6 12,6C15.87,6 19,9.13 19,13C19,16.87 15.87,20 12,20Z</Geometry>
+        <Geometry x:Key="GeomSliders">M3,17V19H9V17H3ZM3,5V7H13V5H3ZM13,21V19H21V17H13V15H11V21H13ZM7,9V11H3V13H7V15H9V9H7ZM21,13V11H11V13H21ZM15,9H17V7H21V5H17V3H15V9Z</Geometry>
+        <Geometry x:Key="GeomSkipPrev">M6,6H8.2V18H6V6ZM10,12L18.5,18V6L10,12Z</Geometry>
+        <Geometry x:Key="GeomPlay">M8,5.14V19.14L19,12.14L8,5.14Z</Geometry>
+        <Geometry x:Key="GeomPause">M6.5,19H10.2V5H6.5V19ZM13.8,5V19H17.5V5H13.8Z</Geometry>
+        <Geometry x:Key="GeomSkipNext">M5.5,18L14,12L5.5,6V18ZM15.8,6V18H18V6H15.8Z</Geometry>
+        <Geometry x:Key="GeomSpeakerOn">M3,9V15H7L12,20V4L7,9H3ZM16.5,12C16.5,10.23 15.48,8.71 14,7.97V16.02C15.48,15.29 16.5,13.77 16.5,12ZM14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18.01,19.86 21,16.28 21,12C21,7.72 18.01,4.14 14,3.23Z</Geometry>
+        <Geometry x:Key="GeomSpeakerMuted">M16.5,12C16.5,10.23 15.48,8.71 14,7.97V10.18L16.45,12.63C16.48,12.43 16.5,12.22 16.5,12ZM19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.63,14.91 21,13.5 21,12C21,7.72 18.01,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12ZM4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.52C15.58,18.04 14.83,18.45 14,18.7V20.76C15.38,20.45 16.63,19.81 17.69,18.95L19.73,21L21,19.73L12,10.73L4.27,3ZM12,4L9.91,6.09L12,8.18V4Z</Geometry>
+        <Geometry x:Key="GeomHeadphones">M12,1C7.03,1 3,5.03 3,10V17C3,18.66 4.34,20 6,20H9V12H5V10C5,6.13 8.13,3 12,3C15.87,3 19,6.13 19,10V12H15V20H18C19.66,20 21,18.66 21,17V10C21,5.03 16.97,1 12,1Z</Geometry>
+        <Geometry x:Key="GeomBrightnessSun">M12,7C9.24,7 7,9.24 7,12C7,14.76 9.24,17 12,17C14.76,17 17,14.76 17,12C17,9.24 14.76,7 12,7ZM2,13H4C4.55,13 5,12.55 5,12C5,11.45 4.55,11 4,11H2C1.45,11 1,11.45 1,12C1,12.55 1.45,13 2,13ZM20,13H22C22.55,13 23,12.55 23,12C23,11.45 22.55,11 22,11H20C19.45,11 19,11.45 19,12C19,12.55 19.45,13 20,13ZM11,2V4C11,4.55 11.45,5 12,5C12.55,5 13,4.55 13,4V2C13,1.45 12.55,1 12,1C11.45,1 11,1.45 11,2ZM11,20V22C11,22.55 11.45,23 12,23C12.55,23 13,22.55 13,22V20C13,19.45 12.55,19 12,19C11.45,19 11,19.45 11,20ZM5.99,4.58C5.6,4.19 4.96,4.19 4.58,4.58C4.19,4.97 4.19,5.61 4.58,5.99L5.64,7.05C6.03,7.44 6.67,7.44 7.05,7.05C7.44,6.66 7.44,6.02 7.05,5.64L5.99,4.58ZM18.36,16.95C17.97,16.56 17.33,16.56 16.95,16.95C16.56,17.34 16.56,17.98 16.95,18.36L18.01,19.42C18.4,19.81 19.04,19.81 19.42,19.42C19.81,19.03 19.81,18.39 19.42,18.01L18.36,16.95ZM19.42,5.99C19.81,5.6 19.81,4.96 19.42,4.58C19.03,4.19 18.39,4.19 18.01,4.58L16.95,5.64C16.56,6.03 16.56,6.67 16.95,7.05C17.34,7.44 17.98,7.44 18.36,7.05L19.42,5.99ZM7.05,18.36C7.44,17.97 7.44,17.33 7.05,16.95C6.66,16.56 6.02,16.56 5.64,16.95L4.58,18.01C4.19,18.4 4.19,19.04 4.58,19.42C4.97,19.81 5.61,19.81 5.99,19.42L7.05,18.36Z</Geometry>
+        <Geometry x:Key="GeomMicOn">M12,14C13.66,14 15,12.66 15,11V5C15,3.34 13.66,2 12,2C10.34,2 9,3.34 9,5V11C9,12.66 10.34,14 12,14ZM17,11C17,13.76 14.76,16 12,16C9.24,16 7,13.76 7,11H5C5,14.53 7.61,17.43 11,17.92V21H13V17.92C16.39,17.43 19,14.53 19,11H17Z</Geometry>
+        <Geometry x:Key="GeomMicMuted">M19,11H17.3C17.3,11.74 17.14,12.43 16.87,13.05L18.1,14.28C18.66,13.3 19,12.19 19,11ZM14.98,11.17C14.98,11.11 15,11.06 15,11V5C15,3.34 13.66,2 12,2C10.34,2 9,3.34 9,5V5.18L14.98,11.17ZM4.27,3L3,4.27L9.01,10.28V11C9.01,12.66 10.34,14 12,14C12.22,14 12.44,13.97 12.65,13.92L14.31,15.58C13.6,15.91 12.81,16.1 12,16.1C9.24,16.1 6.7,14 6.7,11H5C5,14.41 7.72,17.23 11,17.72V21H13V17.72C13.91,17.59 14.77,17.27 15.54,16.82L19.73,21L21,19.73L4.27,3Z</Geometry>
+        <Geometry x:Key="GeomBolt">M11,21H9.5L11,13.5H7.2C6.7,13.5 6.4,13.1 6.6,12.6L13.2,3H14.7L13.2,10.5H17C17.5,10.5 17.8,10.9 17.6,11.4L11,21Z</Geometry>
+        <Geometry x:Key="GeomShield">M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1ZM10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z</Geometry>
+        <Geometry x:Key="GeomChevronUp">M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z</Geometry>
+        <Geometry x:Key="GeomClosePower">M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z</Geometry>
+        <Geometry x:Key="GeomBellNotif">M12,22C13.1,22 14,21.1 14,20H10C10,21.1 10.9,22 12,22ZM18,16V11C18,7.93 16.37,5.36 13.5,4.68V4C13.5,3.17 12.83,2.5 12,2.5C11.17,2.5 10.5,3.17 10.5,4V4.68C7.64,5.36 6,7.92 6,11V16L4,18V19H20V18L18,16Z</Geometry>
+
         <Style x:Key="IslandIconButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#1AFFFFFF"/>
+            <Setter Property="Background" Value="#18FFFFFF"/>
             <Setter Property="Foreground" Value="#F8FAFC"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="#24FFFFFF"/>
@@ -24,11 +45,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background" Value="#30FFFFFF"/>
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#2EFFFFFF"/>
                                 <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#48FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background" Value="#45FFFFFF"/>
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#42FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -42,7 +63,7 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="11,5"/>
+            <Setter Property="Padding" Value="11,5.5"/>
             <Setter Property="Margin" Value="1.5,0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
@@ -66,9 +87,9 @@
             </Setter>
         </Style>
 
-        <!-- Modern Circular Media Control Button (⏮ / ⏭) -->
+        <!-- Modern Circular Media Control Button -->
         <Style x:Key="IslandCircularButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#1AFFFFFF"/>
+            <Setter Property="Background" Value="#18FFFFFF"/>
             <Setter Property="Foreground" Value="#F8FAFC"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="#24FFFFFF"/>
@@ -90,8 +111,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="CircleBorder" Property="Background" Value="#32FFFFFF"/>
-                                <Setter TargetName="CircleBorder" Property="BorderBrush" Value="#4CFFFFFF"/>
+                                <Setter TargetName="CircleBorder" Property="Background" Value="#30FFFFFF"/>
+                                <Setter TargetName="CircleBorder" Property="BorderBrush" Value="#50FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="CircleBorder" Property="Background" Value="#45FFFFFF"/>
@@ -102,7 +123,7 @@
             </Setter>
         </Style>
 
-        <!-- Prominent Hero Button for Play/Pause (Apple Music / Spotify Style) -->
+        <!-- Prominent Hero Button for Play/Pause -->
         <Style x:Key="PlayPauseHeroButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="#F8FAFC"/>
             <Setter Property="Foreground" Value="#09090B"/>
@@ -120,7 +141,7 @@
                                 CornerRadius="20"
                                 Background="{TemplateBinding Background}">
                             <Border.Effect>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="1" Color="#000000" Opacity="0.5"/>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="1" Color="#000000" Opacity="0.55"/>
                             </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -138,4 +159,3 @@
         </Style>
     </Application.Resources>
 </Application>
-

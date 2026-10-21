@@ -44,7 +44,7 @@ public sealed class FileShelfService
             if (string.IsNullOrWhiteSpace(name)) name = path;
 
             string sizeLabel = "Folder";
-            string icon = "📁";
+            string icon = "DIR";
             BitmapSource? preview = null;
 
             if (File.Exists(path))
@@ -63,7 +63,7 @@ public sealed class FileShelfService
                 catch
                 {
                     sizeLabel = "File";
-                    icon = "📄";
+                    icon = "FILE";
                 }
             }
 
@@ -151,12 +151,12 @@ public sealed class FileShelfService
 
     private static string GetExtensionIcon(string ext) => ext.ToLowerInvariant() switch
     {
-        ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif" or ".svg" or ".bmp" => "🖼️",
-        ".mp4" or ".mkv" or ".mov" or ".webm" => "🎬",
-        ".mp3" or ".wav" or ".flac" or ".ogg" => "🎵",
-        ".zip" or ".rar" or ".7z" or ".tar" => "📦",
-        ".pdf" or ".docx" or ".txt" or ".md" => "📑",
-        ".cs" or ".py" or ".js" or ".ts" or ".json" or ".html" => "💻",
-        _ => "📄"
+        ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif" or ".svg" or ".bmp" => "IMG",
+        ".mp4" or ".mkv" or ".mov" or ".webm" => "VID",
+        ".mp3" or ".wav" or ".flac" or ".ogg" => "AUD",
+        ".zip" or ".rar" or ".7z" or ".tar" => "ZIP",
+        ".pdf" or ".docx" or ".txt" or ".md" => "DOC",
+        ".cs" or ".py" or ".js" or ".ts" or ".json" or ".html" => "CODE",
+        _ => "FILE"
     };
 }
