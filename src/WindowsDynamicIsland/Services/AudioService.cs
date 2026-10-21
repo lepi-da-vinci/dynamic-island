@@ -36,6 +36,7 @@ public sealed class AudioService
     private float _latestRealtimePeak;
 
     private string _activeSpeakerDeviceId = string.Empty;
+    private string _activeCaptureDeviceId = string.Empty;
 
     public string ActiveOutputDeviceName { get; private set; } = "Speaker";
     public bool IsHeadphoneOrTws { get; private set; }
@@ -55,6 +56,7 @@ public sealed class AudioService
         try
         {
             Windows.Media.Devices.MediaDevice.DefaultAudioRenderDeviceChanged += (_, _) => ReinitializeEndpoints();
+            Windows.Media.Devices.MediaDevice.DefaultAudioCaptureDeviceChanged += (_, _) => ReinitializeEndpoints();
         }
         catch { }
 
@@ -107,12 +109,22 @@ public sealed class AudioService
                 InitializeLoopbackCapture(renderDevice);
             }
 
-            // 2. Microphone Capture Endpoint (eCapture = 1, eCommunications = 2)
-            if (_enumerator.GetDefaultAudioEndpoint(1, 2, out var captureDevice) == 0 && captureDevice != null)
+            // 2. Microphone Capture Endpoint across roles
+            _activeCaptureDeviceId = string.Empty;
+            _micVolume = null;
+            for (int role = 0; role < 3; role++)
             {
-                if (captureDevice.Activate(ref iidVolume, 23, IntPtr.Zero, out var micVolObj) == 0)
+                if (_enumerator.GetDefaultAudioEndpoint(1, role, out var captureDev) == 0 && captureDev != null)
                 {
-                    _micVolume = micVolObj as IAudioEndpointVolume;
+                    if (string.IsNullOrEmpty(_activeCaptureDeviceId) && captureDev.GetId(out string capId) == 0)
+                    {
+                        _activeCaptureDeviceId = capId ?? string.Empty;
+                    }
+
+                    if (_micVolume == null && captureDev.Activate(ref iidVolume, 23, IntPtr.Zero, out var micVolObj) == 0)
+                    {
+                        _micVolume = micVolObj as IAudioEndpointVolume;
+                    }
                 }
             }
 
@@ -265,12 +277,24 @@ public sealed class AudioService
 
     public void PollExternalChanges()
     {
-        if (_enumerator != null && _enumerator.GetDefaultAudioEndpoint(0, 1, out var checkDev) == 0 && checkDev != null)
+        if (_enumerator != null)
         {
-            if (checkDev.GetId(out string curId) == 0 && !string.Equals(curId, _activeSpeakerDeviceId, StringComparison.OrdinalIgnoreCase))
+            if (_enumerator.GetDefaultAudioEndpoint(0, 1, out var checkRender) == 0 && checkRender != null)
             {
-                ReinitializeEndpoints();
-                return;
+                if (checkRender.GetId(out string curRenderId) == 0 && !string.Equals(curRenderId, _activeSpeakerDeviceId, StringComparison.OrdinalIgnoreCase))
+                {
+                    ReinitializeEndpoints();
+                    return;
+                }
+            }
+
+            if (_enumerator.GetDefaultAudioEndpoint(1, 2, out var checkCapture) == 0 && checkCapture != null)
+            {
+                if (checkCapture.GetId(out string curCaptureId) == 0 && !string.Equals(curCaptureId, _activeCaptureDeviceId, StringComparison.OrdinalIgnoreCase))
+                {
+                    ReinitializeEndpoints();
+                    return;
+                }
             }
         }
 
@@ -577,9 +601,53 @@ public sealed class AudioService
     {
         try
         {
-            if (_micVolume != null && _micVolume.GetMute(out bool muted) == 0)
+            if (_enumerator == null) return false;
+
+            Guid iidVolume = typeof(IAudioEndpointVolume).GUID;
+
+            // 1. Check all default capture endpoint roles: Console (0), Multimedia (1), Communications (2)
+            for (int role = 0; role < 3; role++)
             {
-                return muted;
+                if (_enumerator.GetDefaultAudioEndpoint(1, role, out var dev) == 0 && dev != null)
+                {
+                    if (dev.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0 &&
+                        volObj is IAudioEndpointVolume vol)
+                    {
+                        if (vol.GetMute(out bool isMuted) == 0 && isMuted)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            // 2. Check all currently active capture devices (DEVICE_STATE_ACTIVE = 1)
+            // If the user hardware-muted their headset (e.g. EDIFIER) or laptop internal mic (Realtek), detect it immediately!
+            if (_enumerator.EnumAudioEndpoints(1, 1, out IntPtr pCol) == 0 && pCol != IntPtr.Zero)
+            {
+                var col = (IMMDeviceCollection)Marshal.GetObjectForIUnknown(pCol);
+                if (col.GetCount(out uint count) == 0 && count > 0)
+                {
+                    for (uint i = 0; i < count; i++)
+                    {
+                        if (col.Item(i, out var dev) == 0 && dev != null)
+                        {
+                            if (dev.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0 &&
+                                volObj is IAudioEndpointVolume vol)
+                            {
+                                if (vol.GetMute(out bool isMuted) == 0 && isMuted)
+                                {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (_micVolume != null && _micVolume.GetMute(out bool cachedMuted) == 0 && cachedMuted)
+            {
+                return true;
             }
         }
         catch { }
@@ -591,14 +659,54 @@ public sealed class AudioService
         try
         {
             _suppressExternalNotifyUntilUtc = DateTime.UtcNow.AddMilliseconds(250);
-            if (_micVolume != null && _micVolume.GetMute(out bool muted) == 0)
+            bool currentMuted = IsMicrophoneMuted();
+            bool targetMute = !currentMuted;
+            Guid ctx = Guid.Empty;
+            Guid iidVolume = typeof(IAudioEndpointVolume).GUID;
+
+            if (_enumerator != null)
             {
-                bool next = !muted;
-                Guid ctx = Guid.Empty;
-                _micVolume.SetMute(next, ref ctx);
-                _lastPolledMicMute = next;
-                return next;
+                // Toggle all default roles (Console, Multimedia, Communications)
+                for (int role = 0; role < 3; role++)
+                {
+                    if (_enumerator.GetDefaultAudioEndpoint(1, role, out var dev) == 0 && dev != null)
+                    {
+                        if (dev.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0 &&
+                            volObj is IAudioEndpointVolume vol)
+                        {
+                            vol.SetMute(targetMute, ref ctx);
+                        }
+                    }
+                }
+
+                // Also toggle on all active capture devices so no microphone is left open
+                if (_enumerator.EnumAudioEndpoints(1, 1, out IntPtr pCol) == 0 && pCol != IntPtr.Zero)
+                {
+                    var col = (IMMDeviceCollection)Marshal.GetObjectForIUnknown(pCol);
+                    if (col.GetCount(out uint count) == 0)
+                    {
+                        for (uint i = 0; i < count; i++)
+                        {
+                            if (col.Item(i, out var dev) == 0 && dev != null)
+                            {
+                                if (dev.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0 &&
+                                    volObj is IAudioEndpointVolume vol)
+                                {
+                                    vol.SetMute(targetMute, ref ctx);
+                                }
+                            }
+                        }
+                    }
+                }
             }
+
+            if (_micVolume != null)
+            {
+                _micVolume.SetMute(targetMute, ref ctx);
+            }
+
+            _lastPolledMicMute = targetMute;
+            return targetMute;
         }
         catch { }
         return false;
@@ -611,6 +719,15 @@ public sealed class AudioService
     {
         [PreserveSig] int EnumAudioEndpoints(int dataFlow, int dwStateMask, out IntPtr ppDevices);
         [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice? ppEndpoint);
+    }
+
+    [ComImport]
+    [Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDeviceCollection
+    {
+        [PreserveSig] int GetCount(out uint pcDevices);
+        [PreserveSig] int Item(uint nDevice, out IMMDevice? ppDevice);
     }
 
     [ComImport]

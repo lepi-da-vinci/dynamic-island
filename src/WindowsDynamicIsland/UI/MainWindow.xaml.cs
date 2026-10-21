@@ -621,6 +621,14 @@ public partial class MainWindow : Window
         _brightnessService.PollExternalChanges();
         _notificationService.PollNewNotifications();
 
+        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+            _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
+            !_isDraggingSysVolume &&
+            !_isDraggingSysBrightness)
+        {
+            UpdateSlidersAndMuteUi();
+        }
+
         if (_mediaService.CurrentTrack.HasActiveSession)
         {
             UpdateMediaAndLyricsUi();
