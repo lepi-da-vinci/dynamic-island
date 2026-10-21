@@ -6,6 +6,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using WindowsDynamicIsland.Core;
@@ -25,7 +27,7 @@ public partial class MainWindow : Window
     private readonly PomodoroTimerService _pomodoroService = new();
 
     private readonly DispatcherTimer _oneSecondTimer;
-    private readonly DispatcherTimer _fastKeyboardTimer;
+    private readonly DispatcherTimer _fastUpdateTimer;
     private readonly DispatcherTimer _toastDismissTimer;
     private readonly DispatcherTimer _collapseDebounceTimer;
 
@@ -37,7 +39,14 @@ public partial class MainWindow : Window
     private bool _isRenderLoopAttached;
     private long _lastRenderTick;
     private string _lastClipboardPreview = string.Empty;
-    private bool _autoHideFullScreen = true;
+    private readonly bool _autoHideFullScreen = true;
+
+    // Lyric animation tracking
+    private int _lastAnimatedLyricIndex = -999;
+    private string _lastDisplayedCompactText = string.Empty;
+    private double _marqueeOffset;
+    private double _marqueeDirection = 1.0;
+    private double _marqueePauseTimer;
 
     public MainWindow()
     {
@@ -50,8 +59,9 @@ public partial class MainWindow : Window
         _oneSecondTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.0) };
         _oneSecondTimer.Tick += OnOneSecondTick;
 
-        _fastKeyboardTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(140) };
-        _fastKeyboardTimer.Tick += OnFastKeyboardTick;
+        // 110ms fast timer for responsive lyric sync, keyboard indicators, and smart top-bar auto-tuck
+        _fastUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(110) };
+        _fastUpdateTimer.Tick += OnFastUpdateTick;
 
         _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.2) };
         _toastDismissTimer.Tick += (_, _) =>
@@ -90,7 +100,6 @@ public partial class MainWindow : Window
         HwndSource? source = HwndSource.FromHwnd(_hwnd);
         source?.AddHook(WndProc);
 
-        // Apply non-intrusive overlay styles: Topmost, ToolWindow (hidden from Alt+Tab), NoActivate (never steals focus)
         int exStyle = Win32Interop.GetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE);
         exStyle |= Win32Interop.WS_EX_TOOLWINDOW | Win32Interop.WS_EX_TOPMOST | Win32Interop.WS_EX_NOACTIVATE;
         Win32Interop.SetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE, exStyle);
@@ -109,14 +118,14 @@ public partial class MainWindow : Window
         UpdatePomodoroAndClockUi();
 
         _oneSecondTimer.Start();
-        _fastKeyboardTimer.Start();
+        _fastUpdateTimer.Start();
 
         TriggerToast(new ToastPayload(
             Icon: "🏝️",
             Title: "Dynamic Island Aktif",
-            Subtitle: "Arahkan kursor (Hover) ke pulau untuk membuka",
+            Subtitle: "Sentuh bibir atas layar untuk buka • Otomatis menghindar di tab",
             AccentHex: "#38BDF8",
-            Duration: TimeSpan.FromSeconds(3.0)));
+            Duration: TimeSpan.FromSeconds(2.8)));
 
         await _mediaService.InitializeAsync();
         EnsureRenderLoopRunning();
@@ -126,7 +135,7 @@ public partial class MainWindow : Window
     {
         StopRenderLoop();
         _oneSecondTimer.Stop();
-        _fastKeyboardTimer.Stop();
+        _fastUpdateTimer.Stop();
         _mediaService.Dispose();
 
         if (_hwnd != IntPtr.Zero)
@@ -153,16 +162,12 @@ public partial class MainWindow : Window
             uFlags = Win32Interop.NIF_MESSAGE | Win32Interop.NIF_ICON | Win32Interop.NIF_TIP,
             uCallbackMessage = Win32Interop.WM_USER_TRAY,
             hIcon = Win32Interop.LoadIcon(IntPtr.Zero, Win32Interop.IDI_APPLICATION),
-            szTip = "Windows Dynamic Island (Klik untuk Buka / Klik Kanan untuk Mode)"
+            szTip = "Windows Dynamic Island (Klik untuk Buka / Klik Kanan untuk Sistem)"
         };
 
         Win32Interop.Shell_NotifyIcon(Win32Interop.NIM_ADD, ref _trayIconData);
     }
 
-    /// <summary>
-    /// Custom Win32 WndProc for Dynamic Hit-Testing (HTTRANSPARENT outside pill bounds),
-    /// Alt+Hover click-through bypass, Clipboard Peek, and System Tray interactions.
-    /// </summary>
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == Win32Interop.WM_NCHITTEST)
@@ -184,10 +189,12 @@ public partial class MainWindow : Window
             int mouseMsg = (int)(lParam.ToInt64() & 0xFFFF);
             if (mouseMsg == Win32Interop.WM_LBUTTONUP || mouseMsg == Win32Interop.WM_LBUTTONDBLCLK)
             {
+                _stateMachine.SetManuallyTucked(false);
                 _stateMachine.TogglePinnedExpanded();
             }
             else if (mouseMsg == Win32Interop.WM_RBUTTONUP)
             {
+                _stateMachine.SetManuallyTucked(false);
                 _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
                 _stateMachine.TogglePinnedExpanded();
             }
@@ -236,16 +243,17 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // Clipboard may be locked by another process
+            // Ignore clipboard lock
         }
     }
 
     private void OnIslandStateChanged(IslandVisualState state, IslandDashboardTab tab)
     {
-        var (w, h, corner, glow) = _stateMachine.GetTargetDimensions();
+        var (w, h, corner, glow, topOffset) = _stateMachine.GetTargetDimensions();
         bool expanding = w > _morph.Width.Current || h > _morph.Height.Current;
-        _morph.MorphTo(w, h, corner, glow, bouncy: expanding);
+        _morph.MorphTo(w, h, corner, glow, topOffset, bouncy: expanding);
 
+        TuckedHandlePanel.Visibility = state == IslandVisualState.TuckedTopEdge ? Visibility.Visible : Visibility.Collapsed;
         IdlePillPanel.Visibility = state == IslandVisualState.IdlePill ? Visibility.Visible : Visibility.Collapsed;
         CompactMediaPanel.Visibility = state == IslandVisualState.CompactMedia ? Visibility.Visible : Visibility.Collapsed;
         ToastPanel.Visibility = state == IslandVisualState.ToastNotification ? Visibility.Visible : Visibility.Collapsed;
@@ -299,55 +307,166 @@ public partial class MainWindow : Window
     private void OnCompositionTargetRendering(object? sender, EventArgs e)
     {
         long now = Stopwatch.GetTimestamp();
-        double dt = (double)(now - _lastRenderTick) / Stopwatch.Frequency;
+        double dt = Math.Clamp((double)(now - _lastRenderTick) / Stopwatch.Frequency, 0.001, 0.05);
         _lastRenderTick = now;
 
         bool morphActive = _morph.Update(dt);
 
+        double topMargin = Math.Max(0, _morph.TopOffset.Current);
+        IslandBorder.Margin = new Thickness(0, topMargin, 0, 0);
         IslandBorder.Width = Math.Max(36, _morph.Width.Current);
         IslandBorder.Height = Math.Max(4, _morph.Height.Current);
         IslandBorder.CornerRadius = new CornerRadius(Math.Max(2, _morph.CornerRadius.Current));
 
+        AmbientGlowBorder.Margin = IslandBorder.Margin;
         AmbientGlowBorder.Width = IslandBorder.Width + 6;
         AmbientGlowBorder.Height = IslandBorder.Height + 6;
         AmbientGlowBorder.CornerRadius = IslandBorder.CornerRadius;
         AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
 
-        bool needAudioSpectrum =
+        bool isCompactMedia =
             _stateMachine.CurrentState == IslandVisualState.CompactMedia &&
             _mediaService.CurrentTrack.HasActiveSession;
 
-        if (needAudioSpectrum)
+        bool isExpandedMedia =
+            _stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+            _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics &&
+            _mediaService.CurrentTrack.HasActiveSession;
+
+        if (isCompactMedia)
         {
             _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 17.5);
             for (int i = 0; i < _waveRectangles.Length; i++)
             {
                 _waveRectangles[i].Height = _spectrumHeights[i];
             }
+
+            UpdateCompactMarqueeScroll(dt);
+        }
+        else if (isExpandedMedia)
+        {
+            float peak = _audioService.GetCurrentPeakLevel(_mediaService.CurrentTrack.IsPlaying);
+            LyricsStageGlowOrb.Opacity = 0.14 + Math.Clamp(peak * 0.45, 0.0, 0.35);
+            LyricsStageGlowOrb.Width = 170 + peak * 90;
         }
 
-        // Frame Rate Throttling: Drop to 0 FPS when spring animation settles and compact spectrum is not needed
-        if (!morphActive && !needAudioSpectrum)
+        if (!morphActive && !isCompactMedia && !isExpandedMedia)
         {
             StopRenderLoop();
         }
     }
 
-    private void OnFastKeyboardTick(object? sender, EventArgs e)
+    private void UpdateCompactMarqueeScroll(double dt)
+    {
+        double textWidth = CompactSongTitleText.ActualWidth;
+        double viewportWidth = CompactLyricViewport.ActualWidth;
+
+        if (viewportWidth <= 10 || textWidth <= viewportWidth + 4)
+        {
+            CompactLyricTranslate.X = 0;
+            _marqueeOffset = 0;
+            return;
+        }
+
+        if (_marqueePauseTimer > 0)
+        {
+            _marqueePauseTimer -= dt;
+            return;
+        }
+
+        double maxOverflow = textWidth - viewportWidth + 12;
+        _marqueeOffset += _marqueeDirection * 28.0 * dt;
+
+        if (_marqueeOffset >= maxOverflow)
+        {
+            _marqueeOffset = maxOverflow;
+            _marqueeDirection = -1.0;
+            _marqueePauseTimer = 1.1;
+        }
+        else if (_marqueeOffset <= 0)
+        {
+            _marqueeOffset = 0;
+            _marqueeDirection = 1.0;
+            _marqueePauseTimer = 1.4;
+        }
+
+        CompactLyricTranslate.X = -_marqueeOffset;
+    }
+
+    private void OnFastUpdateTick(object? sender, EventArgs e)
     {
         _hardwareService.PollFastKeyboardIndicators();
+
+        // Update live lyrics at ~9Hz so lyric transitions & karaoke progress bar feel instantaneous
+        if (_mediaService.CurrentTrack.HasActiveSession)
+        {
+            UpdateMediaAndLyricsUi();
+        }
+
+        UpdateSmartTopBarAutoTuck();
+    }
+
+    /// <summary>
+    /// Automatically tucks the Dynamic Island into a thin 6.5px strip at the top bezel ("Tersimpan di Atas")
+    /// when an application has clickable tabs/buttons at the top of the screen and the user moves their mouse
+    /// into the tab bar zone (Y = 7..52px). Touching the very top bezel (Y <= 5px) opens the Island!
+    /// </summary>
+    private void UpdateSmartTopBarAutoTuck()
+    {
+        if (!Win32Interop.GetCursorPos(out var pt)) return;
+
+        int screenW = (int)SystemParameters.PrimaryScreenWidth;
+        int centerPx = screenW / 2;
+        bool inHorizontalIslandZone = Math.Abs(pt.X - centerPx) <= 230;
+
+        // If user pushes cursor to the very top bezel (Y <= 4px) in the center, reveal & expand the island!
+        if (pt.Y <= 4 && Math.Abs(pt.X - centerPx) <= 95)
+        {
+            _collapseDebounceTimer.Stop();
+            _stateMachine.SetManuallyTucked(false);
+            _stateMachine.SetAutoDodgingTopBar(false);
+            _stateMachine.SetHovered(true);
+            return;
+        }
+
+        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+        {
+            return;
+        }
+
+        if (!_stateMachine.AutoDodgeEnabled)
+        {
+            _stateMachine.SetAutoDodgingTopBar(false);
+            return;
+        }
+
+        bool appCoversTop = Win32Interop.IsForegroundAppOccupyingTopBar(_hwnd, screenW);
+        if (!appCoversTop)
+        {
+            _stateMachine.SetAutoDodgingTopBar(false);
+            return;
+        }
+
+        // When an app (like Chrome/Edge/VS Code) covers the top bar:
+        // If cursor is in the tab bar band (Y = 6..54px), tuck the island into the top bezel so tabs are 100% clickable!
+        if (pt.Y >= 6 && pt.Y <= 54 && inHorizontalIslandZone)
+        {
+            _stateMachine.SetAutoDodgingTopBar(true);
+        }
+        else if (pt.Y > 62 || !inHorizontalIslandZone)
+        {
+            _stateMachine.SetAutoDodgingTopBar(false);
+        }
     }
 
     private void OnOneSecondTick(object? sender, EventArgs e)
     {
-        // 1. Check Full-Screen Game / Presentation Mode
         if (_autoHideFullScreen)
         {
             bool fullScreen = Win32Interop.IsFullScreenAppActive();
             _stateMachine.SetFullScreenHidden(fullScreen);
         }
 
-        // 2. Keep topmost z-order without stealing focus
         if (_hwnd != IntPtr.Zero && _stateMachine.CurrentState != IslandVisualState.Hidden)
         {
             Win32Interop.SetWindowPos(
@@ -357,19 +476,11 @@ public partial class MainWindow : Window
                 Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE);
         }
 
-        // 3. Tick Pomodoro & Clock
         _pomodoroService.TickOneSecond();
         UpdatePomodoroAndClockUi();
 
-        // 4. Refresh Hardware & Privacy Indicators
         _hardwareService.RefreshFullTelemetry();
         UpdateHardwareUi();
-
-        // 5. Update Media Timeline & Synchronized Lyrics
-        if (_mediaService.CurrentTrack.HasActiveSession)
-        {
-            UpdateMediaAndLyricsUi();
-        }
     }
 
     private void UpdatePomodoroAndClockUi()
@@ -434,6 +545,7 @@ public partial class MainWindow : Window
     {
         Dispatcher.InvokeAsync(async () =>
         {
+            _lastAnimatedLyricIndex = -999;
             bool hasSession = track.HasActiveSession && track.Title != "Tidak Ada Media";
             _stateMachine.SetMediaActive(hasSession);
 
@@ -465,8 +577,14 @@ public partial class MainWindow : Window
     private void ApplyDominantColor(Color c)
     {
         AmbientGlowBrush.Color = c;
+        LyricsStageOrbBrush.Color = c;
+        ActiveLyricGlowEffect.Color = c;
+
         var barBrush = new SolidColorBrush(c);
         TimelineFillBorder.Background = barBrush;
+        LyricLineProgressFill.Background = barBrush;
+        TuckedAccentBar.Background = barBrush;
+
         foreach (var rect in _waveRectangles)
         {
             rect.Fill = barBrush;
@@ -476,9 +594,6 @@ public partial class MainWindow : Window
     private void UpdateMediaAndLyricsUi()
     {
         var track = _mediaService.CurrentTrack;
-        CompactSongTitleText.Text = track.IsPlaying
-            ? $"{track.Title} • {track.Artist}"
-            : $"⏸ {track.Title}";
 
         CompactAlbumImage.Source = track.Thumbnail;
         ExpandedAlbumImage.Source = track.Thumbnail;
@@ -503,9 +618,86 @@ public partial class MainWindow : Window
             TimelineFillBorder.Width = 0;
         }
 
-        var (currentLine, nextLine) = _lyricsService.GetActiveLines(pos);
-        CurrentLyricLineText.Text = currentLine;
-        NextLyricLineText.Text = nextLine;
+        // Retrieve 3-line synchronized lyrics + karaoke progress
+        var lyricSnap = _lyricsService.GetActiveLyrics(pos);
+
+        // Update Karaoke Line Progress Bar smoothly
+        LyricLineProgressFill.Width = 110.0 * Math.Clamp(lyricSnap.LineProgressRatio, 0.0, 1.0);
+
+        // Determine what text to show in Compact Media Pill (Gambar 4: Live Moving Lyrics!)
+        string compactTargetText;
+        if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "♪  •  •  •")
+        {
+            compactTargetText = $"♪ {lyricSnap.CurrentLine}";
+        }
+        else if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.NextLine))
+        {
+            compactTargetText = $"♪ {lyricSnap.NextLine}";
+        }
+        else
+        {
+            compactTargetText = track.IsPlaying
+                ? $"♪ {track.Title} • {track.Artist}"
+                : $"⏸ {track.Title}";
+        }
+
+        if (compactTargetText != _lastDisplayedCompactText)
+        {
+            _lastDisplayedCompactText = compactTargetText;
+            CompactSongTitleText.Text = compactTargetText;
+            _marqueeOffset = 0;
+            _marqueeDirection = 1.0;
+            _marqueePauseTimer = 0.9;
+            CompactLyricTranslate.X = 0;
+
+            // Animate vertical slide-up + fade-in inside the Compact Pill
+            var slideUp = new DoubleAnimation(13.0, 0.0, TimeSpan.FromMilliseconds(320))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            var fadeIn = new DoubleAnimation(0.15, 1.0, TimeSpan.FromMilliseconds(280));
+            CompactLyricTranslate.BeginAnimation(TranslateTransform.YProperty, slideUp);
+            CompactSongTitleText.BeginAnimation(OpacityProperty, fadeIn);
+        }
+
+        // Animate 3-Line Expanded Lyrics Stage (Gambar 3) when moving to a new lyric line
+        if (lyricSnap.LineIndex != _lastAnimatedLyricIndex || CurrentLyricLineText.Text != lyricSnap.CurrentLine)
+        {
+            _lastAnimatedLyricIndex = lyricSnap.LineIndex;
+            PrevLyricLineText.Text = lyricSnap.PreviousLine;
+            CurrentLyricLineText.Text = lyricSnap.CurrentLine;
+            NextLyricLineText.Text = lyricSnap.NextLine;
+
+            AnimateExpandedLyricsTransition();
+        }
+    }
+
+    private void AnimateExpandedLyricsTransition()
+    {
+        var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var springBack = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 };
+
+        // 1. Cascade Slide-Up on the entire 3-line stack
+        var stageSlide = new DoubleAnimation(16.0, 0.0, TimeSpan.FromMilliseconds(360))
+        {
+            EasingFunction = easeOut
+        };
+        LyricsStageTranslate.BeginAnimation(TranslateTransform.YProperty, stageSlide);
+
+        // 2. Elastic Pop Scale on the Active Lyric Line
+        var scalePop = new DoubleAnimation(0.88, 1.0, TimeSpan.FromMilliseconds(400))
+        {
+            EasingFunction = springBack
+        };
+        ActiveLyricScale.BeginAnimation(ScaleTransform.ScaleXProperty, scalePop);
+        ActiveLyricScale.BeginAnimation(ScaleTransform.ScaleYProperty, scalePop);
+
+        // 3. Smooth Opacity Fade-In on the Active Lyric Line
+        var fade = new DoubleAnimation(0.20, 1.0, TimeSpan.FromMilliseconds(280))
+        {
+            EasingFunction = easeOut
+        };
+        CurrentLyricLineText.BeginAnimation(OpacityProperty, fade);
     }
 
     private static string FormatTimeSpan(TimeSpan ts)
@@ -557,6 +749,21 @@ public partial class MainWindow : Window
     private void OnIslandMouseEnter(object sender, MouseEventArgs e)
     {
         _collapseDebounceTimer.Stop();
+
+        // Check if an app has tabs behind the island and cursor entered below the top bezel (Y > 6px):
+        // If so, auto-tuck into the top bezel instead of blocking the user's browser tab!
+        if (_stateMachine.AutoDodgeEnabled &&
+            _stateMachine.CurrentState is IslandVisualState.CompactMedia or IslandVisualState.IdlePill &&
+            Win32Interop.GetCursorPos(out var pt) &&
+            pt.Y > 6 &&
+            Win32Interop.IsForegroundAppOccupyingTopBar(_hwnd, (int)SystemParameters.PrimaryScreenWidth))
+        {
+            _stateMachine.SetAutoDodgingTopBar(true);
+            return;
+        }
+
+        _stateMachine.SetManuallyTucked(false);
+        _stateMachine.SetAutoDodgingTopBar(false);
         _stateMachine.SetHovered(true);
         UpdateMediaAndLyricsUi();
     }
@@ -571,13 +778,15 @@ public partial class MainWindow : Window
     {
         if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
         {
+            _stateMachine.SetManuallyTucked(false);
+            _stateMachine.SetAutoDodgingTopBar(false);
             _stateMachine.SetHovered(true);
         }
     }
 
     private void OnIslandMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        // Right click cycles through dashboard tabs smoothly
+        _stateMachine.SetManuallyTucked(false);
         _stateMachine.CycleNextTab();
         _stateMachine.SetHovered(true);
         e.Handled = true;
@@ -585,7 +794,6 @@ public partial class MainWindow : Window
 
     private async void OnIslandMouseDown(object sender, MouseButtonEventArgs e)
     {
-        // Middle click: instant Play/Pause media toggle
         if (e.ChangedButton == MouseButton.Middle)
         {
             e.Handled = true;
@@ -595,7 +803,6 @@ public partial class MainWindow : Window
 
     private void OnIslandMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        // Scroll wheel over island: adjust system master volume with live toast OSD
         int step = e.Delta > 0 ? 4 : -4;
         int newVol = _audioService.AdjustMasterVolume(step);
         string icon = newVol == 0 ? "🔇" : newVol < 45 ? "🔉" : "🔊";
@@ -615,10 +822,12 @@ public partial class MainWindow : Window
 
     private void OnIslandDragEnter(object sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        if (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormats.Bitmap))
         {
             e.Effects = DragDropEffects.Copy;
             _collapseDebounceTimer.Stop();
+            _stateMachine.SetManuallyTucked(false);
+            _stateMachine.SetAutoDodgingTopBar(false);
             _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
             _stateMachine.SetHovered(true);
         }
@@ -631,22 +840,32 @@ public partial class MainWindow : Window
 
     private void OnIslandDragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Effects = (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormats.Bitmap))
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
         e.Handled = true;
     }
 
     private void OnIslandDrop(object sender, DragEventArgs e)
     {
+        int addedCount = 0;
+
         if (e.Data.GetDataPresent(DataFormats.FileDrop) &&
             e.Data.GetData(DataFormats.FileDrop) is string[] files)
         {
-            int count = _fileShelfService.AddFiles(files);
-            UpdateShelfUi();
-            if (count > 0)
-            {
-                _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
-                _stateMachine.SetHovered(true);
-            }
+            addedCount = _fileShelfService.AddFiles(files);
+        }
+        else if (e.Data.GetDataPresent(DataFormats.Bitmap) &&
+                 e.Data.GetData(DataFormats.Bitmap) is BitmapSource bmp)
+        {
+            addedCount = _fileShelfService.AddBitmapFromDrag(bmp);
+        }
+
+        UpdateShelfUi();
+        if (addedCount > 0)
+        {
+            _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
+            _stateMachine.SetHovered(true);
         }
         e.Handled = true;
     }
@@ -669,8 +888,8 @@ public partial class MainWindow : Window
         int count = _fileShelfService.Items.Count;
         EmptyShelfHintText.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ShelfHeaderCountText.Text = count == 0
-            ? "Taruh file sementara di sini (Drag Masuk & Keluar)"
-            : $"📦 {count} file tersimpan di rak sementara (Tarik keluar untuk kirim)";
+            ? "Taruh file/gambar sementara di sini (Drag Masuk & Keluar)"
+            : $"📦 {count} item tersimpan di rak sementara (Tarik keluar untuk kirim)";
     }
 
     private void OnClearShelfClick(object sender, RoutedEventArgs e)
@@ -686,6 +905,11 @@ public partial class MainWindow : Window
     private void OnTabPomodoroClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.Pomodoro);
     private void OnTabSystemClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
 
+    private void OnManualTuckClick(object sender, RoutedEventArgs e)
+    {
+        _stateMachine.SetManuallyTucked(true);
+    }
+
     private async void OnMediaPrevClick(object sender, RoutedEventArgs e) => await _mediaService.SkipPreviousAsync();
     private async void OnMediaPlayPauseClick(object sender, RoutedEventArgs e) => await _mediaService.TogglePlayPauseAsync();
     private async void OnMediaNextClick(object sender, RoutedEventArgs e) => await _mediaService.SkipNextAsync();
@@ -695,23 +919,18 @@ public partial class MainWindow : Window
     private void OnPomodoroBreakClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(5, isBreak: true);
     private void OnPomodoroAdd5MinClick(object sender, RoutedEventArgs e) => _pomodoroService.AddMinutes(5);
 
+    private void OnToggleAutoDodgeClick(object sender, RoutedEventArgs e)
+    {
+        _stateMachine.AutoDodgeEnabled = !_stateMachine.AutoDodgeEnabled;
+        ToggleAutoDodgeBtn.Content = _stateMachine.AutoDodgeEnabled
+            ? "🔼 Auto-Simpan Tab: ON"
+            : "📌 Auto-Simpan Tab: OFF";
+    }
+
     private void OnToggleMuteClick(object sender, RoutedEventArgs e)
     {
         bool muted = _audioService.ToggleMute();
         ToggleMuteBtn.Content = muted ? "🔇 Unmute Audio" : "🔊 Mute Audio";
-    }
-
-    private void OnToggleNotchModeClick(object sender, RoutedEventArgs e)
-    {
-        _stateMachine.IsNotchDockedMode = !_stateMachine.IsNotchDockedMode;
-        double topMargin = _stateMachine.IsNotchDockedMode ? 0 : 8;
-        IslandBorder.Margin = new Thickness(0, topMargin, 0, 0);
-        AmbientGlowBorder.Margin = new Thickness(0, topMargin, 0, 0);
-        ToggleNotchModeBtn.Content = _stateMachine.IsNotchDockedMode
-            ? "💻 Mode: Top Notch"
-            : "🏝️ Mode: Floating Pill";
-
-        OnIslandStateChanged(_stateMachine.CurrentState, _stateMachine.ActiveTab);
     }
 
     private void OnExitAppClick(object sender, RoutedEventArgs e)
@@ -719,4 +938,3 @@ public partial class MainWindow : Window
         Application.Current.Shutdown();
     }
 }
-

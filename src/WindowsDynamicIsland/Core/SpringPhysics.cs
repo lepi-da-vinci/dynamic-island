@@ -52,10 +52,7 @@ public sealed class SpringValue
             return false;
         }
 
-        // Clamp delta time to prevent instability if the thread hiccups
         double dt = Math.Clamp(dtSeconds, 0.001, 0.033);
-
-        // Sub-step twice for high-stiffness numerical stability
         const int subSteps = 2;
         double subDt = dt / subSteps;
 
@@ -87,13 +84,13 @@ public sealed class IslandMorphController
     public SpringValue Height { get; } = new(34, stiffness: 410, damping: 27);
     public SpringValue CornerRadius { get; } = new(17, stiffness: 420, damping: 30);
     public SpringValue GlowOpacity { get; } = new(0.0, stiffness: 250, damping: 24, precision: 0.01);
+    public SpringValue TopOffset { get; } = new(8.0, stiffness: 420, damping: 28, precision: 0.15);
 
     public bool IsAnimating =>
-        !Width.IsAtRest || !Height.IsAtRest || !CornerRadius.IsAtRest || !GlowOpacity.IsAtRest;
+        !Width.IsAtRest || !Height.IsAtRest || !CornerRadius.IsAtRest || !GlowOpacity.IsAtRest || !TopOffset.IsAtRest;
 
-    public void MorphTo(double width, double height, double cornerRadius, double glowOpacity, bool bouncy = true)
+    public void MorphTo(double width, double height, double cornerRadius, double glowOpacity, double topOffset, bool bouncy = true)
     {
-        // Slightly more bounce when expanding, tighter damping when collapsing
         Width.Stiffness = bouncy ? 380 : 440;
         Width.Damping = bouncy ? 23.5 : 31.0;
 
@@ -104,6 +101,7 @@ public sealed class IslandMorphController
         Height.SetTarget(height);
         CornerRadius.SetTarget(cornerRadius);
         GlowOpacity.SetTarget(glowOpacity);
+        TopOffset.SetTarget(topOffset);
     }
 
     public bool Update(double dtSeconds)
@@ -112,7 +110,7 @@ public sealed class IslandMorphController
         bool h = Height.Step(dtSeconds);
         bool c = CornerRadius.Step(dtSeconds);
         bool g = GlowOpacity.Step(dtSeconds);
-        return w || h || c || g;
+        bool t = TopOffset.Step(dtSeconds);
+        return w || h || c || g || t;
     }
 }
-

@@ -9,6 +9,14 @@ namespace WindowsDynamicIsland.Services;
 
 public sealed record LyricLine(TimeSpan Timestamp, string Text);
 
+public sealed record ActiveLyricSnapshot(
+    int LineIndex,
+    string PreviousLine,
+    string CurrentLine,
+    string NextLine,
+    double LineProgressRatio,
+    bool IsSynced);
+
 public sealed partial class LyricsService
 {
     private static readonly HttpClient Http = CreateHttpClient();
@@ -44,14 +52,14 @@ public sealed partial class LyricsService
         {
             Timeout = TimeSpan.FromSeconds(8)
         };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("WindowsDynamicIsland/1.0 (https://github.com/lepi-da-vinci/dynamic-island)");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("WindowsDynamicIsland/1.1 (https://github.com/lepi-da-vinci/dynamic-island)");
         return client;
     }
 
     public async Task LoadLyricsForTrackAsync(string title, string artist, string album, double durationSeconds)
     {
         string cleanTitle = CleanTrackTitle(title);
-        string cleanArtist = artist?.Trim() ?? string.Empty;
+        string cleanArtist = CleanArtistName(artist);
         string trackKey = $"{cleanArtist}|{cleanTitle}".ToLowerInvariant();
 
         if (string.IsNullOrWhiteSpace(cleanTitle))
@@ -83,7 +91,7 @@ public sealed partial class LyricsService
                 if (!string.IsNullOrWhiteSpace(cachedLrc))
                 {
                     _currentLines = ParseLrc(cachedLrc);
-                    StatusMessage = _currentLines.Count > 0 ? "Lirik sinkron aktif (Cache)" : "Lirik instrumental / teks biasa";
+                    StatusMessage = _currentLines.Count > 0 ? "Lirik sinkron aktif" : "Lirik instrumental / teks biasa";
                     LyricsUpdated?.Invoke();
                     return;
                 }
@@ -117,26 +125,32 @@ public sealed partial class LyricsService
             }
             else
             {
-                StatusMessage = "♪ Lirik sinkron belum tersedia untuk lagu ini";
+                StatusMessage = $"♪ {cleanTitle} — {cleanArtist}";
             }
         }
         catch
         {
-            StatusMessage = "♪ Mode offline / gagal memuat lirik";
+            StatusMessage = $"♪ {cleanTitle} — {cleanArtist}";
         }
 
         LyricsUpdated?.Invoke();
     }
 
-    public (string CurrentLine, string NextLine) GetActiveLines(TimeSpan position)
+    public ActiveLyricSnapshot GetActiveLyrics(TimeSpan position)
     {
         if (_currentLines.Count == 0)
         {
-            return (StatusMessage, string.Empty);
+            return new ActiveLyricSnapshot(
+                LineIndex: -1,
+                PreviousLine: string.Empty,
+                CurrentLine: StatusMessage,
+                NextLine: "Sinkronisasi lirik otomatis via LRCLIB",
+                LineProgressRatio: 0.0,
+                IsSynced: false);
         }
 
-        // Binary search / linear scan for the latest lyric line <= position + 180ms lookahead
-        TimeSpan adjusted = position + TimeSpan.FromMilliseconds(180);
+        // Lookahead by 200ms so visual animation lands right on the vocal beat
+        TimeSpan adjusted = position + TimeSpan.FromMilliseconds(200);
         int activeIndex = -1;
 
         for (int i = 0; i < _currentLines.Count; i++)
@@ -153,20 +167,49 @@ public sealed partial class LyricsService
 
         if (activeIndex < 0)
         {
-            return ("♪  •  •  •", _currentLines[0].Text);
+            TimeSpan firstTs = _currentLines[0].Timestamp;
+            double introRatio = firstTs.TotalSeconds > 0
+                ? Math.Clamp(adjusted.TotalSeconds / firstTs.TotalSeconds, 0.0, 1.0)
+                : 0.0;
+
+            return new ActiveLyricSnapshot(
+                LineIndex: -1,
+                PreviousLine: string.Empty,
+                CurrentLine: "♪  •  •  •",
+                NextLine: _currentLines[0].Text,
+                LineProgressRatio: introRatio,
+                IsSynced: true);
         }
 
+        string prev = activeIndex > 0 ? _currentLines[activeIndex - 1].Text : string.Empty;
         string current = _currentLines[activeIndex].Text;
         string next = (activeIndex + 1 < _currentLines.Count)
             ? _currentLines[activeIndex + 1].Text
-            : string.Empty;
+            : "♪  •  •  •";
 
-        return (current, next);
+        double progress = 1.0;
+        if (activeIndex + 1 < _currentLines.Count)
+        {
+            TimeSpan start = _currentLines[activeIndex].Timestamp;
+            TimeSpan end = _currentLines[activeIndex + 1].Timestamp;
+            double spanSec = (end - start).TotalSeconds;
+            if (spanSec > 0.15)
+            {
+                progress = Math.Clamp((adjusted - start).TotalSeconds / spanSec, 0.0, 1.0);
+            }
+        }
+
+        return new ActiveLyricSnapshot(
+            LineIndex: activeIndex,
+            PreviousLine: prev,
+            CurrentLine: current,
+            NextLine: next,
+            LineProgressRatio: progress,
+            IsSynced: true);
     }
 
     private static async Task<string?> FetchFromLrcLibAsync(string title, string artist, string album, double durationSeconds)
     {
-        // Primary lookup: /api/get if artist is known
         if (!string.IsNullOrWhiteSpace(artist))
         {
             var urlBuilder = new StringBuilder("https://lrclib.net/api/get?");
@@ -254,9 +297,14 @@ public sealed partial class LyricsService
     private static string CleanTrackTitle(string? rawTitle)
     {
         if (string.IsNullOrWhiteSpace(rawTitle)) return string.Empty;
-        // Strip common YouTube/Spotify suffixes like "(Official Music Video)", "[Official Audio]", "- YouTube"
         string cleaned = TitleNoiseRegex().Replace(rawTitle, string.Empty).Trim();
         return string.IsNullOrWhiteSpace(cleaned) ? rawTitle.Trim() : cleaned;
+    }
+
+    private static string CleanArtistName(string? rawArtist)
+    {
+        if (string.IsNullOrWhiteSpace(rawArtist)) return string.Empty;
+        return rawArtist.Replace(" - Topic", "", StringComparison.OrdinalIgnoreCase).Trim();
     }
 
     private string GetCacheFilePath(string trackKey)
@@ -269,7 +317,6 @@ public sealed partial class LyricsService
     [GeneratedRegex(@"^\[(\d{1,3}):(\d{2})\.(\d{2,3})\](.*)$")]
     private static partial Regex LrcLineRegex();
 
-    [GeneratedRegex(@"\s*(\((Official|Lyric|Music|Audio|HD|4K|Visualizer)[^)]*\)|\[(Official|Lyric|Music|Audio|HD|4K|Visualizer)[^\]]*\]|-\s*YouTube.*)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\s*(\((Official|Lyric|Music|Audio|HD|4K|Visualizer|Video)[^)]*\)|\[(Official|Lyric|Music|Audio|HD|4K|Visualizer|Video)[^\]]*\]|-\s*YouTube.*)$", RegexOptions.IgnoreCase)]
     private static partial Regex TitleNoiseRegex();
 }
-

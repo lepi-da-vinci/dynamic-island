@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace WindowsDynamicIsland.Core;
 
@@ -61,11 +62,57 @@ public static class Win32Interop
     [DllImport("user32.dll")]
     public static extern bool GetCursorPos(out POINT lpPoint);
 
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    /// <summary>
+    /// Checks if the user's active foreground application has its titlebar/tabs at the top center of the screen
+    /// where the Dynamic Island resides.
+    /// </summary>
+    public static bool IsForegroundAppOccupyingTopBar(IntPtr ownHwnd, int screenWidthPx)
+    {
+        IntPtr fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero || fg == ownHwnd) return false;
+
+        var classSb = new StringBuilder(64);
+        GetClassName(fg, classSb, 64);
+        string cls = classSb.ToString();
+
+        // Ignore desktop background and taskbar shells
+        if (cls is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+            return false;
+
+        if (GetWindowRect(fg, out var rect))
+        {
+            int centerPx = screenWidthPx / 2;
+            bool coversTopEdge = rect.Top <= 48 && rect.Bottom > 120;
+            bool coversHorizontalCenter = rect.Left <= (centerPx + 120) && rect.Right >= (centerPx - 120);
+            return coversTopEdge && coversHorizontalCenter;
+        }
+
+        return false;
     }
 
     // Full-screen game & presentation detection
@@ -136,4 +183,3 @@ public static class Win32Interop
 
     public static readonly IntPtr IDI_APPLICATION = new(32512);
 }
-

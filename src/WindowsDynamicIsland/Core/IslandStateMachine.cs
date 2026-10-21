@@ -3,6 +3,7 @@ namespace WindowsDynamicIsland.Core;
 public enum IslandVisualState
 {
     Hidden,
+    TuckedTopEdge,
     IdlePill,
     CompactMedia,
     ToastNotification,
@@ -35,33 +36,44 @@ public sealed class IslandStateMachine
     public bool IsPinnedExpanded { get; private set; }
     public bool IsMediaActive { get; private set; }
     public bool IsFullScreenHidden { get; private set; }
+    public bool IsManuallyTucked { get; private set; }
+    public bool IsAutoDodgingTopBar { get; private set; }
+    public bool AutoDodgeEnabled { get; set; } = true;
     public bool IsNotchDockedMode { get; set; }
 
     public event Action<IslandVisualState, IslandDashboardTab>? StateChanged;
 
-    public (double Width, double Height, double CornerRadius, double GlowOpacity) GetTargetDimensions()
+    public (double Width, double Height, double CornerRadius, double GlowOpacity, double TopOffset) GetTargetDimensions()
     {
         if (CurrentState == IslandVisualState.Hidden)
         {
-            return (80, 4, 2, 0.0);
+            return (80, 4, 2, 0.0, 0.0);
         }
 
-        double cornerBase = IsNotchDockedMode ? 16 : 18;
+        if (CurrentState == IslandVisualState.TuckedTopEdge)
+        {
+            // Tucked neatly into the very top bezel (6.5px thin drawer handle at Top = 0)
+            // Leaves all browser tabs and window buttons at Y = 8..45px 100% uncovered!
+            return (144, 6.5, 3.25, 0.30, 0.0);
+        }
+
+        double cornerBase = IsNotchDockedMode ? 16 : 19;
+        double topOffset = IsNotchDockedMode ? 0.0 : 8.0;
 
         return CurrentState switch
         {
-            IslandVisualState.IdlePill => (174, 34, cornerBase, 0.08),
-            IslandVisualState.CompactMedia => (258, 38, cornerBase + 1, 0.35),
-            IslandVisualState.ToastNotification => (296, 44, 22, 0.45),
+            IslandVisualState.IdlePill => (176, 34, cornerBase, 0.08, topOffset),
+            IslandVisualState.CompactMedia => (304, 38, cornerBase, 0.40, topOffset),
+            IslandVisualState.ToastNotification => (306, 44, 22, 0.48, topOffset),
             IslandVisualState.ExpandedDashboard => ActiveTab switch
             {
-                IslandDashboardTab.MediaLyrics => (420, 198, 28, 0.65),
-                IslandDashboardTab.FileShelf => (420, 186, 28, 0.45),
-                IslandDashboardTab.Pomodoro => (390, 174, 28, 0.45),
-                IslandDashboardTab.SystemStatus => (410, 184, 28, 0.40),
-                _ => (410, 190, 28, 0.50)
+                IslandDashboardTab.MediaLyrics => (434, 224, 28, 0.68, topOffset),
+                IslandDashboardTab.FileShelf => (434, 204, 28, 0.48, topOffset),
+                IslandDashboardTab.Pomodoro => (400, 182, 28, 0.45, topOffset),
+                IslandDashboardTab.SystemStatus => (420, 192, 28, 0.42, topOffset),
+                _ => (420, 200, 28, 0.50, topOffset)
             },
-            _ => (174, 34, 17, 0.0)
+            _ => (176, 34, 17, 0.0, topOffset)
         };
     }
 
@@ -90,9 +102,31 @@ public sealed class IslandStateMachine
         RecalculateState();
     }
 
+    public void SetManuallyTucked(bool tucked)
+    {
+        IsManuallyTucked = tucked;
+        if (tucked)
+        {
+            IsHovered = false;
+            IsPinnedExpanded = false;
+        }
+        RecalculateState();
+    }
+
+    public void SetAutoDodgingTopBar(bool dodging)
+    {
+        if (IsAutoDodgingTopBar == dodging) return;
+        IsAutoDodgingTopBar = dodging;
+        RecalculateState();
+    }
+
     public void TogglePinnedExpanded()
     {
         IsPinnedExpanded = !IsPinnedExpanded;
+        if (IsPinnedExpanded)
+        {
+            IsManuallyTucked = false;
+        }
         RecalculateState();
     }
 
@@ -133,6 +167,10 @@ public sealed class IslandStateMachine
         {
             next = IslandVisualState.ExpandedDashboard;
         }
+        else if (IsManuallyTucked || (AutoDodgeEnabled && IsAutoDodgingTopBar))
+        {
+            next = IslandVisualState.TuckedTopEdge;
+        }
         else if (ActiveToast != null)
         {
             next = IslandVisualState.ToastNotification;
@@ -150,4 +188,3 @@ public sealed class IslandStateMachine
         StateChanged?.Invoke(CurrentState, ActiveTab);
     }
 }
-
