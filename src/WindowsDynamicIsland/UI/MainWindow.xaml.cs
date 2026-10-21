@@ -118,6 +118,13 @@ public partial class MainWindow : Window
         _audioService.MicrophoneMuteChanged += micMuted =>
             Dispatcher.InvokeAsync(() => ShowMicMuteToast(micMuted));
 
+        _audioService.OutputDeviceChanged += (devName, isHeadphone) =>
+            Dispatcher.InvokeAsync(() =>
+            {
+                UpdateSlidersAndMuteUi();
+                UpdateMediaAndLyricsUi();
+            });
+
         _brightnessService.BrightnessChanged += brt =>
             Dispatcher.InvokeAsync(() => ShowBrightnessToast(brt));
 
@@ -670,12 +677,24 @@ public partial class MainWindow : Window
     {
         UpdateSlidersAndMuteUi();
 
-        string icon = isMuted || volumePercent == 0 ? "🔇" : volumePercent < 45 ? "🔉" : "🔊";
-        string title = isMuted ? "Sound: Muted" : $"Volume {volumePercent}%";
+        bool isHeadphones = _audioService.IsHeadphoneOrTws;
+        string devName = _audioService.ActiveOutputDeviceName;
+
+        string icon = isMuted || volumePercent == 0
+            ? "🔇"
+            : isHeadphones ? "🎧" : volumePercent < 45 ? "🔉" : "🔊";
+
+        string title = isMuted
+            ? $"{devName}: Muted"
+            : $"{devName} • {volumePercent}%";
+
         string sub = isMuted
             ? "Audio output dibisukan"
-            : muteToggled ? "Audio output aktif kembali" : "Geser slider atau scroll mouse";
-        string accent = isMuted ? "#F87171" : "#38BDF8";
+            : isHeadphones
+                ? "Output Earphone / TWS aktif"
+                : muteToggled ? "Audio output aktif kembali" : "Geser slider atau scroll mouse";
+
+        string accent = isMuted ? "#F87171" : isHeadphones ? "#A855F7" : "#38BDF8";
 
         TriggerToast(new ToastPayload(
             Icon: icon,
@@ -724,7 +743,7 @@ public partial class MainWindow : Window
         SysVolumePercentText.Text = soundMuted ? "MUTED" : $"{vol}%";
         SysVolumePercentText.Foreground = new SolidColorBrush(
             soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248));
-        SysVolumeLabelText.Text = soundMuted ? "🔇 AUDIO MUTED" : "🔊 VOLUME AUDIO";
+        SysVolumeLabelText.Text = soundMuted ? "🔇 AUDIO MUTED" : $"🔊 VOLUME ({_audioService.ActiveOutputDeviceName})";
 
         double volTrackW = SysVolumeTrackBorder.ActualWidth > 10 ? SysVolumeTrackBorder.ActualWidth : 185.0;
         double volFillPx = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
@@ -855,6 +874,7 @@ public partial class MainWindow : Window
         AmbientGlowBrush.Color = c;
         LyricsStageOrbBrush.Color = c;
         ActiveLyricGlowEffect.Color = c;
+        AlbumShadowEffect.Color = c;
 
         var barBrush = new SolidColorBrush(c);
         TimelineFillBorder.Background = barBrush;
@@ -877,6 +897,15 @@ public partial class MainWindow : Window
         ExpandedArtistText.Text = track.Artist;
         PlayPauseButton.Content = track.IsPlaying ? "⏸" : "▶";
 
+        // Active output destination badge (e.g. 🎧 TWS / 🔊 Speaker)
+        string devName = _audioService.ActiveOutputDeviceName;
+        bool isHeadphones = _audioService.IsHeadphoneOrTws;
+        AudioDeviceBadgeText.Text = isHeadphones ? $"🎧 {devName}" : $"🔊 {devName}";
+        AudioDeviceBadge.Background = new SolidColorBrush(
+            isHeadphones ? Color.FromArgb(42, 168, 85, 247) : Color.FromArgb(36, 56, 189, 248));
+        AudioDeviceBadgeText.Foreground = new SolidColorBrush(
+            isHeadphones ? Color.FromRgb(192, 132, 252) : Color.FromRgb(56, 189, 248));
+
         TimeSpan dur = track.Duration;
         TimeSpan pos = _isDraggingTimeline && dur.TotalSeconds > 0
             ? TimeSpan.FromSeconds(dur.TotalSeconds * _draggedTimelineRatio)
@@ -893,12 +922,10 @@ public partial class MainWindow : Window
                 : Math.Clamp(pos.TotalSeconds / dur.TotalSeconds, 0.0, 1.0);
             double fillPx = trackWidth * ratio;
             TimelineFillBorder.Width = fillPx;
-            TimelineThumb.Margin = new Thickness(fillPx - 6, 0, 0, 0);
         }
         else
         {
             TimelineFillBorder.Width = 0;
-            TimelineThumb.Margin = new Thickness(-6, 0, 0, 0);
         }
 
         var lyricSnap = _lyricsService.GetActiveLyrics(pos);

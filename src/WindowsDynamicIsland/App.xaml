@@ -40,10 +40,10 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#94A3B8"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="9,4"/>
-            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Padding" Value="11,5"/>
+            <Setter Property="Margin" Value="1.5,0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Template">
@@ -51,14 +51,85 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="TabBorder"
                                 Background="{TemplateBinding Background}"
-                                CornerRadius="8"
+                                CornerRadius="10"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="#1EFFFFFF"/>
+                                <Setter TargetName="TabBorder" Property="Background" Value="#22FFFFFF"/>
                                 <Setter Property="Foreground" Value="#F8FAFC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Circular Media Control Button (⏮ / ⏭) -->
+        <Style x:Key="IslandCircularButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#1AFFFFFF"/>
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#24FFFFFF"/>
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CircleBorder"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}"
+                                CornerRadius="17"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CircleBorder" Property="Background" Value="#32FFFFFF"/>
+                                <Setter TargetName="CircleBorder" Property="BorderBrush" Value="#4CFFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="CircleBorder" Property="Background" Value="#45FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Prominent Hero Button for Play/Pause (Apple Music / Spotify Style) -->
+        <Style x:Key="PlayPauseHeroButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="Foreground" Value="#09090B"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="HeroBorder"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}"
+                                CornerRadius="20"
+                                Background="{TemplateBinding Background}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" ShadowDepth="1" Color="#000000" Opacity="0.5"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeroBorder" Property="Background" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="HeroBorder" Property="Background" Value="#CBD5E1"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

@@ -8,10 +8,15 @@ namespace WindowsDynamicIsland.Services;
 /// </summary>
 public sealed class AudioService
 {
+    private IMMDeviceEnumerator? _enumerator;
     private IAudioEndpointVolume? _speakerVolume;
     private IAudioMeterInformation? _speakerMeter;
     private IAudioEndpointVolume? _micVolume;
     private double _phase;
+    private string _activeSpeakerDeviceId = string.Empty;
+
+    public string ActiveOutputDeviceName { get; private set; } = "Speaker";
+    public bool IsHeadphoneOrTws { get; private set; }
 
     private bool _baselineCaptured;
     private int _lastPolledVolume = -1;
@@ -21,9 +26,16 @@ public sealed class AudioService
 
     public event Action<int, bool, bool>? SpeakerVolumeOrMuteChanged;
     public event Action<bool>? MicrophoneMuteChanged;
+    public event Action<string, bool>? OutputDeviceChanged;
 
     public AudioService()
     {
+        try
+        {
+            Windows.Media.Devices.MediaDevice.DefaultAudioRenderDeviceChanged += (_, _) => ReinitializeEndpoints();
+        }
+        catch { }
+
         InitializeCoreAudio();
     }
 
@@ -31,24 +43,33 @@ public sealed class AudioService
     {
         InitializeCoreAudio();
         _baselineCaptured = false;
+        PollExternalChanges();
     }
 
     private void InitializeCoreAudio()
     {
         try
         {
-            var enumeratorType = Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"));
-            if (enumeratorType == null) return;
+            if (_enumerator == null)
+            {
+                var enumeratorType = Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"));
+                if (enumeratorType == null) return;
+                _enumerator = (IMMDeviceEnumerator?)Activator.CreateInstance(enumeratorType);
+            }
 
-            var enumerator = (IMMDeviceEnumerator?)Activator.CreateInstance(enumeratorType);
-            if (enumerator == null) return;
+            if (_enumerator == null) return;
 
             Guid iidVolume = typeof(IAudioEndpointVolume).GUID;
             Guid iidMeter = typeof(IAudioMeterInformation).GUID;
 
-            // 1. Speaker Output Endpoint (eRender = 0, eMultimedia = 1)
-            if (enumerator.GetDefaultAudioEndpoint(0, 1, out var renderDevice) == 0 && renderDevice != null)
+            // 1. Speaker / Headphone / TWS Output Endpoint (eRender = 0, eMultimedia = 1)
+            if (_enumerator.GetDefaultAudioEndpoint(0, 1, out var renderDevice) == 0 && renderDevice != null)
             {
+                if (renderDevice.GetId(out string devId) == 0)
+                {
+                    _activeSpeakerDeviceId = devId ?? string.Empty;
+                }
+
                 if (renderDevice.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0)
                 {
                     _speakerVolume = volObj as IAudioEndpointVolume;
@@ -61,13 +82,15 @@ public sealed class AudioService
             }
 
             // 2. Microphone Capture Endpoint (eCapture = 1, eCommunications = 2 / eMultimedia = 1)
-            if (enumerator.GetDefaultAudioEndpoint(1, 2, out var captureDevice) == 0 && captureDevice != null)
+            if (_enumerator.GetDefaultAudioEndpoint(1, 2, out var captureDevice) == 0 && captureDevice != null)
             {
                 if (captureDevice.Activate(ref iidVolume, 23, IntPtr.Zero, out var micVolObj) == 0)
                 {
                     _micVolume = micVolObj as IAudioEndpointVolume;
                 }
             }
+
+            RefreshDeviceNameAsync();
         }
         catch
         {
@@ -75,11 +98,63 @@ public sealed class AudioService
         }
     }
 
+    private async void RefreshDeviceNameAsync()
+    {
+        try
+        {
+            string id = Windows.Media.Devices.MediaDevice.GetDefaultAudioRenderId(Windows.Media.Devices.AudioDeviceRole.Default);
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                var info = await Windows.Devices.Enumeration.DeviceInformation.CreateFromIdAsync(id);
+                if (info != null && !string.IsNullOrWhiteSpace(info.Name))
+                {
+                    string name = info.Name.Trim();
+                    ActiveOutputDeviceName = name;
+                    IsHeadphoneOrTws = CheckIfHeadphoneOrTws(name);
+                    OutputDeviceChanged?.Invoke(ActiveOutputDeviceName, IsHeadphoneOrTws);
+                    return;
+                }
+            }
+        }
+        catch { }
+
+        // Fallback name heuristic
+        IsHeadphoneOrTws = CheckIfHeadphoneOrTws(_activeSpeakerDeviceId);
+        ActiveOutputDeviceName = IsHeadphoneOrTws ? "Earphone / TWS" : "Speaker Laptop";
+        OutputDeviceChanged?.Invoke(ActiveOutputDeviceName, IsHeadphoneOrTws);
+    }
+
+    private static bool CheckIfHeadphoneOrTws(string str)
+    {
+        if (string.IsNullOrWhiteSpace(str)) return false;
+        return str.Contains("buds", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("airpod", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("headphone", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("earphone", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("headset", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("tws", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("wireless", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("bluetooth", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("wh-", StringComparison.OrdinalIgnoreCase) ||
+               str.Contains("wf-", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
-    /// Detects external volume / mute changes (e.g. physical keyboard Fn volume keys, rotary knob, or Windows taskbar).
+    /// Detects external volume / mute changes (e.g. physical keyboard Fn volume keys, rotary knob, or Windows taskbar)
+    /// and auto-switches to newly connected audio endpoints (e.g. TWS, Bluetooth earphones).
     /// </summary>
     public void PollExternalChanges()
     {
+        // 1. Auto-switch if default endpoint changed (e.g. TWS connected/disconnected)
+        if (_enumerator != null && _enumerator.GetDefaultAudioEndpoint(0, 1, out var checkDev) == 0 && checkDev != null)
+        {
+            if (checkDev.GetId(out string curId) == 0 && !string.Equals(curId, _activeSpeakerDeviceId, StringComparison.OrdinalIgnoreCase))
+            {
+                ReinitializeEndpoints();
+                return;
+            }
+        }
+
         int currentVol = GetMasterVolumePercent();
         bool currentMute = IsMuted();
         bool currentMicMute = IsMicrophoneMuted();
@@ -292,6 +367,12 @@ public sealed class AudioService
     {
         [PreserveSig]
         int Activate(ref Guid iid, uint dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.IUnknown)] out object? ppInterface);
+        [PreserveSig]
+        int OpenPropertyStore(int stgmAccess, out IntPtr ppProperties);
+        [PreserveSig]
+        int GetId([MarshalAs(UnmanagedType.LPWStr)] out string ppstrId);
+        [PreserveSig]
+        int GetState(out int pdwState);
     }
 
     [ComImport]
