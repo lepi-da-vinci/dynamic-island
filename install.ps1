@@ -70,6 +70,9 @@ try {
 
 # 5. Launch Application
 Write-Host "[4/4] Starting Windows Dynamic Island..." -ForegroundColor Yellow
+try {
+    Unblock-File -Path $targetExe.FullName -ErrorAction SilentlyContinue
+} catch { }
 Start-Process -FilePath $targetExe.FullName -WorkingDirectory $targetExe.DirectoryName
 
 Write-Host "==========================================================" -ForegroundColor Green

@@ -117,6 +117,16 @@ File executable mandiri siap pakai akan berada di folder `./publish/WindowsDynam
 
 ---
 
+### Catatan Keamanan Windows SmartScreen
+
+Jika muncul jendela biru bertuliskan *"Windows protected your PC"* saat pertama kali dijalankan:
+1. Klik teks bergaris bawah **More info** (atau *Informasi selengkapnya*).
+2. Klik tombol **Run anyway** (atau *Tetap jalankan*).
+
+Hal ini normal terjadi pada aplikasi open-source independen yang belum memiliki sertifikat tanda tangan berbayar (EV Code Signing). Kode aplikasi 100% aman dan transparan di repository ini.
+
+---
+
 ### Menjalankan Otomatis saat Windows Dinyalakan (Autostart)
 
 Agar Dynamic Island otomatis menyala setiap kali komputer dihidupkan:
