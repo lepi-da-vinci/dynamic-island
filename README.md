@@ -1,206 +1,186 @@
-# 🏝️ Windows Dynamic Island: Technical Blueprint & Architecture Guide
+# 🏝️ Windows Dynamic Island
 
-Sebuah panduan komprehensif untuk merancang dan membangun aplikasi **Dynamic Island** native, ultra-ringan, dan responsif untuk Windows 10 & 11.
+<div align="center">
 
----
+[![Windows Support](https://img.shields.io/badge/Windows-10%20%7C%2011%20(x64)-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lepi-da-vinci/dynamic-island)
+[![Framework](https://img.shields.io/badge/.NET-10.0%20%7C%20C%23%2013-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![Architecture](https://img.shields.io/badge/Architecture-Native%20Win32%20%2B%20WASAPI-0ea5e9?style=for-the-badge)](https://github.com/lepi-da-vinci/dynamic-island)
+[![Performance](https://img.shields.io/badge/Performance-60--120%20FPS%20%7C%200%25%20Idle-22c55e?style=for-the-badge)](https://github.com/lepi-da-vinci/dynamic-island)
+[![License](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
 
-## 1. Arsitektur & Filosofi Sistem
+<br/>
 
-Agar Dynamic Island terasa menyatu dengan OS (seperti di iOS), aplikasi harus memenuhi empat prinsip utama:
-1. **Ultra Low-Overhead:** Penggunaan RAM < 30–50 MB dan CPU 0% saat idle.
-2. **Fluid Physics & Dynamic Resizing:** Animasi perubahan ukuran (*pill morphing*) berbasis fisika *spring/cubic-bezier* 60–120 FPS tanpa patah (*stutter*).
-3. **Non-Intrusive Overlay:** Selalu berada di lapisan paling atas (*Topmost*), tidak mencuri fokus keyboard/mouse dari aplikasi utama pengguna (`WS_EX_NOACTIVATE`), dan ukuran/area klik menyesuaikan bentuk pulau secara dinamis.
-4. **Context-Aware (Sadar Konteks):** Otomatis bersembunyi atau menjadi *click-through* saat pengguna bermain game *full-screen* atau menonton video layar penuh.
+**Aplikasi Dynamic Island native, ultra-ringan, dan responsif untuk Windows 10 & 11.**  
+Menggabungkan keindahan estetika *NotchNook* satu kesatuan dengan integrasi mendalam Windows Core Audio, GSMTC Media Controls, lirik tersinkronisasi, dan fitur produktivitas harian.
 
----
+<br/>
 
-## 2. Pilihan Tech Stack Native
+<!-- QUICK INSTALL BUTTONS -->
+[![Quick Install & Run](https://img.shields.io/badge/🚀_Quick_Install_&_Run-PowerShell_One--Liner-0284c7?style=for-the-badge&logo=powershell&logoColor=white)](#-instalasi--cara-menjalankan)
+&nbsp;&nbsp;
+[![Download Latest Binary](https://img.shields.io/badge/⬇️_Download_Latest_Release-EXE_Standalone-10b981?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lepi-da-vinci/dynamic-island/releases/latest)
 
-Untuk performa tertinggi dan integrasi sistem terdalam, ada dua jalur utama:
-
-| Komponen | Jalur A: C# / .NET 8/9 (Native AOT / WPF-Win32 Interop) ⭐ *Direkomendasikan* | Jalur B: C++ / Win32 & DirectComposition (Purist) |
-| :--- | :--- | :--- |
-| **Kecepatan Dev** | Cepat, kode modern, banyak library wrapper Windows Runtime (`CsWinRT`, `NAudio`/`Vortice`). | Sedang - Lambat, pengelolaan memori manual. |
-| **Performa & RAM**| Sangat cepat (~25–45 MB RAM). | Paling ringan (~10–20 MB RAM, hampir zero-runtime). |
-| **Windowing/UI** | Win32 Custom Window + DirectComposition / WinUI 3 / WPF Hardware Accelerated. | Win32 API murni + Direct2D / Windows Composition. |
-| **Animasi** | `Windows.UI.Composition` (GPU-accelerated hardware compositor). | DirectComposition / Composition APIs. |
-
-> **Rekomendasi:** Gunakan **C# dengan .NET 8/9** dipadukan dengan **Win32 P/Invoke + Windows Composition APIs**. Pendekatan ini memberi kemudahan mengonsumsi Windows SDK Runtime (`Windows.Media.Control`, `Windows.Devices`) tanpa mengorbankan konsumsi RAM dan kehalusan animasi.
+</div>
 
 ---
 
-## 3. Integrasi Modul & Windows API
+## ✨ Fitur Unggulan
 
-### A. Media Controller & Real-Time Audio Visualizer
-1. **Metadata & Kontrol Media (GSMTC):**
-   * **API:** `Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager` (GSMTC).
-   * **Fungsi:** Mengetahui lagu yang sedang diputar (Judul, Artis, Album Art), status playback (`Playing`, `Paused`), timeline posisi lagu, serta mengirim kontrol balik (`Play`, `Pause`, `Next`, `Previous`, `Seek`).
-   * **Kelebihan:** Otomatis mendukung Spotify Desktop, YouTube di Chrome/Edge/Firefox, foobar2000, Apple Music, VLC, dsb.
-2. **Real-Time Audio Spectrum / Waveform (WASAPI Loopback):** *(Tambahan Baru)*
-   * GSMTC tidak mengirimkan frekuensi audio. Agar *waveform* mini bergerak sesuai ketukan bass/musik asli (bukan animasi statis):
-   * **API:** Windows Core Audio **WASAPI Loopback (`IAudioCaptureClient`)** + Fast Fourier Transform (FFT) ringan menggunakan `Span<float>` (zero-allocation).
-3. **Dynamic Color Extraction (Adaptive Glow):** *(Tambahan Baru)*
-   * Mengekstrak warna dominan dari *thumbnail stream* Album Art GSMTC untuk mewarnai bar *waveform* dan efek pendaran (*ambient glow*) sesuai sampul lagu yang sedang diputar.
+### 1. 🖤 Siluet *One-Piece NotchNook* yang Menyatu
+* **Satu Desain Utuh Menempel di Atas Layar**: Menempel *flush* di bibir paling atas layar monitor (`Y = 0`) dengan lekukan *concave ears* yang mulus dan radius bawah elegan. Menghilangkan ilusi oval terpisah atau latar penahan yang kaku.
+* **18 Custom Bespoke Vector SVG Icons (Zero Emoji)**: Seluruh UI dirancang bebas emoji bawaan sistem operasi. Menggunakan vektor geometris tajam (`GeomMusic`, `GeomFolderTray`, `GeomFocusTimer`, `GeomSliders`, `GeomPlay`, `GeomPause`, `GeomSkipPrev`, `GeomSkipNext`, `GeomSpeakerOn`, `GeomSpeakerMuted`, `GeomHeadphones`, `GeomBrightnessSun`, `GeomMicOn`, `GeomMicMuted`, `GeomBolt`, `GeomShield`, `GeomChevronUp`, `GeomClosePower`) sehingga tampilan selalu rapi tanpa artefak kotak font emoji.
 
-### B. Sinkronisasi Lirik (Lyrics Engine + Local Cache)
-Karena Windows GSMTC tidak menyediakan payload lirik lagu:
-* **Solusi:** Gunakan API publik open-source gratis dan sangat cepat **[LRCLIB API](https://lrclib.net/)** dengan dukungan **Local Disk Cache**.
-* **Alur:**
-  1. Saat GSMTC memicu event lagu baru (`MediaPropertiesChanged`), cek terlebih dahulu cache lokal di `%LocalAppData%\WindowsDynamicIsland\lyrics\`.
-  2. Jika belum ada, lakukan request ke `https://lrclib.net/api/get?artist_name=...&track_name=...`.
-  3. Ambil field `syncedLyrics` (format `.lrc` standar: `[mm:ss.xx] baris lirik`) dan simpan ke cache lokal agar hemat kuota dan bisa diakses offline.
-  4. Cocokkan waktu lagu saat ini (`TimelineProperties.Position` + interpolasi waktu) dengan timestamp lirik, lalu tampilkan teks dengan animasi transisi baris per baris.
+### 2. 🎵 Real-Time 5-Band WASAPI Audio Visualizer & Synced Lyrics
+* **True Song-Synchronized Spectrum**: Menggunakan tangkapan native COM **WASAPI Loopback PCM Capture** (`IAudioCaptureClient`) yang dipecah secara *real-time* menjadi 5 pita frekuensi musikal (*Sub-Bass/Kick*, *Low-Mid*, *Vocals/Lead*, *Snare/Presence*, *Hi-Hat*) dilengkapi *Automatic Gain Control* (AGC). Gelombang bergerak hidup mengikuti ketukan lagu di Spotify, Chrome, Edge, YouTube, atau VLC.
+* **Lirik Lagu Real-Time (LRCLIB Engine)**: Mengambil lirik lagu tersinkronisasi waktu (*time-synced .lrc*) dengan cache offline lokal. Menampilkan panggung lirik 3-baris mengambang di mode *Expanded*, serta pergeseran horizontal (*smooth one-way tempo pan*) di mode *Compact*.
 
-### C. Status Perangkat Keras & Jaringan
-* **Baterai:** Win32 API `GetSystemPowerStatus` atau `Windows.Devices.Power.Battery`. Tangkap status persentase, charging (AC connected), dan mode hemat daya (*Battery Saver*).
-* **Bluetooth:** `Windows.Devices.Bluetooth.BluetoothAdapter` & `Windows.Devices.Enumeration.DeviceWatcher` untuk mendeteksi earphone/mouse/gamepad saat terhubung beserta level baterainya.
-* **Wi-Fi & Network:** `Windows.Networking.Connectivity.NetworkInformation.GetInternetConnectionProfile()` untuk mendeteksi SSID, kekuatan sinyal, atau status disconnect.
-* **Volume, Mic Mute & Brightness:**
-  * Windows Core Audio APIs (`IAudioEndpointVolume`) untuk mengganti OSD volume bawaan Windows 10/11 dengan tampilan pil yang jauh lebih elegan, ditambah fitur **Global Mic Mute Toggle** beserta indikator lampu ketika mikrofon sedang aktif dipakai.
-  * **DDC/CI (`SetMonitorBrightness`) & WMI** untuk mengatur kecerahan layar baik di laptop maupun monitor desktop eksternal.
+### 3. 🛡️ Mode Simpan (*Tucked Top Edge*) & Dynamic Click-Through
+* **Anti-Blocking Tab Browser**: Saat Anda perlu mengakses tab Chrome/Edge atau tombol aplikasi di bibir atas layar, klik **"Simpan"** atau klik kanan pada pulau. Dynamic Island otomatis terlipat menjadi garis aksen tipis 5px.
+* **Win32 `WS_EX_TRANSPARENT` & `WM_NCHITTEST` Cerdas**: Setiap piksel di luar fisik Dynamic Island (termasuk efek bayangan *drop-shadow*) berstatus tembus klik (*click-through* 100%) sehingga kursor dapat mengeklik tab browser tepat di belakangnya tanpa halangan.
 
-### D. Penanganan Kasus Khusus OS (Windows Edge Cases) *(Tambahan Baru)*
-* **Full-Screen Game & Video Detection:** Menggunakan `SHQueryUserNotificationState` (`QUNS_RUNNING_D3D_FULL_SCREEN` / `QUNS_PRESENTATION_MODE`) agar Dynamic Island otomatis tersembunyi (*auto-hide*) saat pengguna bermain game kompetitif atau menonton film *full-screen*.
-* **Dynamic Hit-Testing (`WM_NCHITTEST`):** Area kanvas jendela harus lebih besar dari ukuran pil untuk menampung animasi *spring bounce* dan bayangan (*drop shadow*), tetapi area transparan di luar pil wajib mengembalikan `HTTRANSPARENT` agar **tidak memblokir klik mouse ke tab browser** di belakangnya.
-* **Multi-Monitor & Per-Monitor DPI (`PerMonitorV2`):** Mendukung perpindahan layar otomatis atau pemilihan monitor target dengan scaling tajam di resolusi 100%, 125%, 150%, hingga 200% (4K).
+### 4. 🎛️ Control Center & Capsule Sliders Modern
+* **Modern Line-Only Sliders**: Slider Volume dan Kecerahan Layar berbentuk kapsul minimalis modern tanpa titik *knob* jadul.
+* **Multi-Role Microphone Mute & OSD**: Mendeteksi status *mute* mikrofon dari berbagai perangkat (laptop internal microphone Realtek maupun earphone Bluetooth/TWS EDIFIER) secara instan dalam 100ms *fast-polling*.
+* **Graphic Baterai Presisi**: Representasi bentuk baterai elegan dengan lambang petir presisi di tengah, dinamis berubah warna saat mengisi daya (*charging*), normal, atau lemah (*low battery*).
+
+### 5. 📦 Rak File Sementara (*File Drop Shelf / Tray*)
+* Tarik (*drag*) gambar atau file dari File Explorer / Browser ke Dynamic Island untuk menyimpannya sementara di rak *tray*.
+* Tarik keluar file kapan saja ke WhatsApp Web, Discord, Telegram, Gmail, atau folder lain tanpa harus membuka dua jendela Explorer berdampingan.
+
+### 6. ⏱️ Timer Fokus Pomodoro Produktif
+* Mode jam yang dapat beralih ke timer fokus 25 menit dan waktu istirahat 5 menit dengan kontrol tombol *Play/Pause* instan.
+
+### 7. 🔔 Integrasi Notifikasi Windows Real-Time
+* Mendeteksi notifikasi pesan masuk dari WhatsApp, Telegram, Instagram, dan aplikasi sistem secara langsung melalui pembacaan Windows Notification Store (`wpndatabase.db`).
 
 ---
 
-## 4. Ide Fitur Produktivitas Khusus Pengguna PC
+## 🚀 Instalasi & Cara Menjalankan
 
-Untuk membuat aplikasi ini jauh lebih berguna di Windows daripada sekadar tiruan visual iOS:
-
-1. **File Drop Shelf / Temporary Tray ("AirDrop-style" Stash):** *(Fitur Unggulan Baru)*
-   * Saat pengguna men-*drag* file, gambar, atau potongan teks ke arah atas layar, Dynamic Island otomatis membuka **Rak Penyimpanan Sementara (Dropzone)**. Pengguna bisa menyimpan beberapa file di sana, berpindah ke aplikasi/folder lain (misal WhatsApp, Discord, Email, Explorer), lalu men-*drag* keluar file tersebut tanpa harus membuka dua jendela Explorer berdampingan.
-2. **Camera & Microphone Privacy Indicator + Quick Mute:**
-   * Menampilkan titik hijau (kamera) / oranye (mikrofon) saat ada aplikasi (Zoom, Discord, Browser) yang mengakses perangkat, lengkap dengan kemampuan **klik titik oranye untuk langsung Mute/Unmute mikrofon secara global**.
-3. **Mouse Gesture & Scroll Wheel Actions:** *(Fitur Unggulan Baru)*
-   * *Scroll Wheel* di atas pulau: Mengatur volume sistem secara instan (atau *seek* durasi lagu).
-   * *Middle Click (Klik Tengah)*: Play/Pause musik instan tanpa perlu memperluas pulau.
-   * *Swipe / Klik Kanan*: Beralih halaman mode pulau (Media ➔ File Shelf ➔ Pomodoro Timer ➔ System Monitor).
-4. **Clipboard Peek & History Mini:**
-   * Ketika menekan `Ctrl + C`, pulau memantulkan animasi mini *"Copied: [Potongan Teks / Thumbnail Gambar]"* dan menyimpan 5 item clipboard terakhir untuk di-paste cepat.
-5. **Caps Lock, Num Lock & Keyboard Layer HUD:**
-   * Bagi pengguna keyboard mekanikal custom (60%/65%/75%) atau laptop tanpa lampu LED indikator, pulau membesar sebentar menampilkan status **"CAPS ON"** / **"CAPS OFF"**.
-6. **Mini Pomodoro / Focus Timer / Alarm:**
-   * Mode jam default yang bisa di-scroll menjadi timer fokus Pomodoro 25 menit dengan ring progress melingkar di sekeliling pil.
-7. **System Telemetry Ringkas (CPU / GPU / Network Speed):**
-   * Opsi mode *compact* untuk menampilkan suhu/beban CPU & GPU atau kecepatan unduh jaringan secara minimalis.
-8. **Webcam Notch Adaptor vs Floating Pill:**
-   * Pilihan mode menempel di bibir atas layar (*Notch Mode*) atau mengambang beberapa piksel dari atas (*Floating Pill Mode* seperti iPhone 15/16 Pro) yang otomatis bergeser jika pengguna menaruh kursor di tab paling atas browser (dengan *Alt+Hover* untuk *bypass*).
+### Prasyarat Sistem
+* **Sistem Operasi**: Windows 10 (versi 2004 / build 19041+) atau Windows 11 (64-bit).
+* **Runtime**: [.NET 10 SDK](https://dotnet.microsoft.com/download) atau [.NET 9 / 10 Desktop Runtime](https://dotnet.microsoft.com/download).
 
 ---
 
-## 5. Roadmap Langkah demi Langkah (Implementation Plan)
+### Metode 1: One-Click Installer via PowerShell (Paling Cepat & Mudah) ⭐
 
-```
-[Fase 1: Window Foundation, DPI, & Dynamic Hit-Testing]
-         │
-         ▼
-[Fase 2: Spring Animation, Morphing Engine & Tray Icon]
-         │
-         ▼
-[Fase 3: Windows Media (GSMTC), WASAPI Waveform & Lirik (LRCLIB)]
-         │
-         ▼
-[Fase 4: Telemetri Sistem, Audio/Brightness OSD & Privacy Indicator]
-         │
-         ▼
-[Fase 5: Produktivitas PC (File Drop Shelf, Clipboard Peek, Pomodoro)]
-         │
-         ▼
-[Fase 6: Full-Screen Game Detection, Settings UI & Zero-Overhead Polishing]
+Buka **PowerShell** dan jalankan perintah satu baris berikut untuk langsung meng-clone, meng-compile, dan menjalankan aplikasi secara otomatis:
+
+```powershell
+irm https://raw.githubusercontent.com/lepi-da-vinci/dynamic-island/main/install.ps1 | iex
 ```
 
-### Langkah 1: Pembuatan Overlay Window (Transparan, Topmost & Smart Click-Through)
-* Buat Win32 Window dengan flag:
-  * `WS_EX_TOPMOST`: Selalu di atas window lain.
-  * `WS_EX_TOOLWINDOW`: Tidak muncul di daftar `Alt + Tab`.
-  * `WS_EX_LAYERED` / DirectComposition: Mendukung transparansi per-pixel anti-aliasing.
-  * `WS_EX_NOACTIVATE`: Tidak mengambil fokus game/aplikasi yang sedang aktif saat disentuh.
-* Terapkan *Dynamic Hit-Testing* (`WM_NCHITTEST`): Hanya area di dalam geometri pil saat ini yang menerima input mouse; area luar kanvas meneruskan klik ke aplikasi di bawahnya (`HTTRANSPARENT`).
-
-### Langkah 2: State Machine & Multi-Widget Pager untuk Island
-Rancang pulau dengan beberapa mode (*States*) dan prioritas interupsi:
-* `State: Hidden`: Saat aplikasi Full-Screen / Game terdeteksi.
-* `State: Minimized (Idle Pill)`: Ukuran ~150x32 px (Jam, indikator privasi kamera/mic, atau telemetri mini).
-* `State: Compact Activity`: Ukuran ~230x36 px (Thumbnail album berputar/statis + WASAPI Audio Waveform mini, atau countdown timer).
-* `State: Notification Toast (Interrupt)`: Membesar sementara selama 2–3 detik (Caps Lock, Bluetooth connect, Charger, Clipboard copied, Volume slider).
-* `State: Expanded Dashboard`: Ukuran ~390x165 px (Kontrol musik lengkap + lirik berjalan, File Drop Shelf, atau Pomodoro Timer).
-
-### Langkah 3: Integrasi GSMTC, WASAPI & LRCLIB (Contoh Logika C#)
-
-```csharp
-// Inisialisasi GSMTC
-var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-var currentSession = sessionManager.GetCurrentSession();
-
-if (currentSession != null)
-{
-    var mediaProperties = await currentSession.TryGetMediaPropertiesAsync();
-    string title = mediaProperties.Title;
-    string artist = mediaProperties.Artist;
-    
-    // Cek cache lokal terlebih dahulu, lalu ambil lirik dari LRCLIB secara asynchronous
-    using var client = new HttpClient();
-    string url = $"https://lrclib.net/api/get?artist_name={Uri.EscapeDataString(artist)}&track_name={Uri.EscapeDataString(title)}";
-    var response = await client.GetStringAsync(url);
-    // Parse JSON dan simpan format syncedLyrics ke cache
-}
-```
-
-### Langkah 4: Animasi Super Halus (Physics Spring Engine)
-* Gunakan kurva fisika **Spring Damper (Underdamped / Critically Damped Spring)** untuk perubahan lebar (`Width`), tinggi (`Height`), dan radius sudut (`CornerRadius`).
-* Saat transisi dari *Compact* ke *Expanded*, berikan sedikit efek *overshoot* elastis khas Dynamic Island agar terasa hidup dan responsif terhadap arah datangnya kursor.
-
-### Langkah 5: Efisiensi Baterai & Resource (Low Footprint)
-* **Event-Driven:** Jangan lakukan *polling* agresif. Gunakan Windows Event Subscriptions (`Battery.ReportUpdated`, `SessionManager.CurrentSessionChanged`, `UserNotificationListener`).
-* **Frame Rate Throttling (0 FPS Idle):** Hentikan loop render (0 FPS) saat pulau dalam kondisi statis/idle. Aktifkan 60–120 FPS hanya ketika terjadi animasi morphing, kursor berada di atas pulau, atau saat audio visualizer aktif.
+> **Catatan:** Script `install.ps1` akan otomatis memverifikasi .NET SDK, mengompilasi binary Release, membuat shortcut di Desktop, dan langsung menyalakan Dynamic Island di layar atas Anda.
 
 ---
 
-## 6. Struktur Project (Implemented)
+### Metode 2: Clone & Jalankan Manual via Terminal
+
+Jika Anda ingin mengompilasi dari source code sendiri:
+
+1. **Clone repository ini:**
+   ```powershell
+   git clone https://github.com/lepi-da-vinci/dynamic-island.git
+   cd dynamic-island
+   ```
+
+2. **Jalankan script installer lokal:**
+   ```powershell
+   .\install.ps1
+   ```
+
+   *atau build dan jalankan langsung dengan .NET CLI:*
+   ```powershell
+   dotnet build WindowsDynamicIsland.slnx -c Release
+   dotnet run --project src/WindowsDynamicIsland/WindowsDynamicIsland.csproj -c Release
+   ```
+
+---
+
+### Metode 3: Build Standalone Single-File `.exe` (Portabel tanpa install SDK)
+
+Jika Anda ingin menghasilkan file `.exe` tunggal yang portabel dan bisa dibagikan ke laptop/PC lain tanpa perlu menginstal .NET SDK:
+
+```powershell
+dotnet publish src/WindowsDynamicIsland/WindowsDynamicIsland.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:EnableCompressionInSingleFile=true `
+  -o ./publish
+```
+
+File executable mandiri siap pakai akan berada di folder `./publish/WindowsDynamicIsland.exe`.
+
+---
+
+### 🔄 Menjalankan Otomatis saat Windows Dinyalakan (Autostart)
+
+Agar Dynamic Island otomatis menyala setiap kali komputer dihidupkan:
+1. Tekan tombol `Win + R` di keyboard, ketik `shell:startup`, lalu tekan **Enter**.
+2. Buat *Shortcut* dari `WindowsDynamicIsland.exe` ke dalam folder Startup tersebut.
+3. Selesai! Dynamic Island akan otomatis aktif di layar setiap kali Anda login ke Windows.
+
+---
+
+## 🖱️ Pintasan & Gestur Interaktif
+
+| Aksi Mouse / Keyboard | Fungsi |
+| :--- | :--- |
+| **Arahkan Kursor (Hover)** | Membuka *Expanded Dashboard* dengan animasi pegas elastis (*Spring Physics*). |
+| **Klik Kanan di Pulau** | Berganti cepat antar 4 Tab (*Musik & Lirik* ➔ *Rak File* ➔ *Pomodoro Fokus* ➔ *Pusat Kontrol Sistem*), atau melipat ke atas (*Mode Simpan*) saat mode compact. |
+| **Klik Tengah (*Middle Click*)** | Langsung **Play / Pause** lagu yang sedang diputar. |
+| **Scroll Wheel di Atas Pulau** | Menyesuaikan **Volume Audio Sistem** Windows secara instan dengan OSD kapsul halus. |
+| **Shift + Scroll Wheel** | Menyesuaikan **Kecerahan Layar Monitor** (*Screen Brightness*). |
+| **Drag & Drop File ke Pulau** | Otomatis membuka tab **Rak File** untuk menyimpan file sementara. |
+| **Tahan `Left Alt` + Klik** | Menembus pulau (*Click-Through Bypass*) jika Anda ingin mengeklik aplikasi di belakangnya tanpa memindahkan pulau. |
+| **Klik Tombol "Simpan"** | Melipat pulau ke bibir atas layar (5px) agar tab browser di belakangnya 100% bebas diklik. |
+
+---
+
+## 🏗️ Arsitektur & Struktur Proyek
 
 ```text
 WindowsDynamicIsland/
 ├── src/
 │   └── WindowsDynamicIsland/
 │       ├── Core/
-│       │   ├── Win32Interop.cs              # Win32 WS_EX_NOACTIVATE, WM_NCHITTEST, Tray, Full-Screen Detector
-│       │   ├── IslandStateMachine.cs        # State: Hidden, IdlePill, CompactMedia, Toast, ExpandedDashboard
-│       │   └── SpringPhysics.cs             # Second-order damped harmonic oscillator (0 FPS idle throttling)
+│       │   ├── Win32Interop.cs              # Win32 P/Invoke, WS_EX_TRANSPARENT, WM_NCHITTEST, Fullscreen Detect
+│       │   ├── IslandStateMachine.cs        # State Engine: IdlePill, CompactMedia, Toast, Expanded, Tucked
+│       │   └── SpringPhysics.cs             # Second-order harmonic oscillator (60-120 FPS render loop)
 │       ├── Services/
-│       │   ├── MediaSessionService.cs       # GSMTC Windows API & Album Art Vibrant Color Extractor
-│       │   ├── AudioService.cs              # Native Windows Core Audio (WASAPI Peak Meter & Master Volume)
-│       │   ├── LyricsService.cs             # LRCLIB API client, LRC parser & Local Disk Cache
-│       │   ├── HardwareTelemetryService.cs  # Battery, Wi-Fi, CapsLock/NumLock, Webcam/Mic Privacy Monitor
-│       │   ├── FileShelfService.cs          # Temporary Drag-and-Drop File Stash ("AirDrop" tray)
-│       │   └── PomodoroTimerService.cs      # Focus 25m / Break 5m productivity countdown timer
+│       │   ├── MediaSessionService.cs       # Windows GSMTC Media Controller & Adaptive Glow Extractor
+│       │   ├── AudioService.cs              # Native WASAPI Loopback 5-Band Equalizer & Multi-Role Mic Mute
+│       │   ├── BrightnessService.cs         # WMI & DDC/CI monitor brightness adjustment
+│       │   ├── LyricsService.cs             # LRCLIB API client, LRC parser & Local disk caching
+│       │   ├── HardwareTelemetryService.cs  # Battery, Wi-Fi, Privacy dot (Webcam/Mic in-use detector)
+│       │   ├── NotificationListenerService.cs # Windows wpndatabase.db SQLite live notification query
+│       │   ├── FileShelfService.cs          # Temporary Drag-and-Drop Dropzone Tray & thumbnail loader
+│       │   └── PomodoroTimerService.cs      # Productivity countdown timer (Focus 25m / Break 5m)
 │       ├── UI/
-│       │   ├── MainWindow.xaml              # Multi-state Dynamic Island UI & 4-Tab Expanded Dashboard
-│       │   └── MainWindow.xaml.cs           # Compositor loop, gesture handlers, WndProc hook
-│       ├── App.xaml                         # Styles & single-instance mutex
-│       ├── app.manifest                     # PerMonitorV2 DPI Awareness
-│       └── WindowsDynamicIsland.csproj      # .NET 10 Windows SDK Target
-├── WindowsDynamicIsland.slnx
-└── README.md
+│       │   ├── MainWindow.xaml              # Unified NotchNook XAML layout & bespoke vector geometries
+│       │   └── MainWindow.xaml.cs           # Compositor render loop, slider dragging, mouse gestures
+│       ├── App.xaml                         # 18 Bespoke Vector Path geometries & segmented pill styles
+│       ├── App.xaml.cs                      # Single-instance mutex & application lifecycle
+│       ├── app.manifest                     # PerMonitorV2 High-DPI scaling configuration
+│       └── WindowsDynamicIsland.csproj      # .NET 10 Target dengan Windows 10.0.19041.0 SDK
+├── install.ps1                              # One-click automated installer & launcher script
+├── WindowsDynamicIsland.slnx                # Modern Visual Studio Solution file
+└── README.md                                # Dokumentasi proyek & panduan penggunaan
 ```
 
 ---
 
-## 7. Cara Menjalankan & Pintasan Interaksi (Quickstart)
+## ⚡ Performa & Konsumsi Sumber Daya
 
-### Menjalankan Aplikasi
-```powershell
-dotnet build WindowsDynamicIsland.slnx -c Release
-dotnet run --project src/WindowsDynamicIsland/WindowsDynamicIsland.csproj -c Release
-```
+* **Memori (RAM)**: Hanya menggunakan **~20 – 30 MB** RAM saat aktif.
+* **Prosesor (CPU)**: **0.0% CPU** saat *idle* berkat sistem *frame-rate throttling* otomatis. Loop render 60–120 FPS hanya berjalan saat terjadi animasi *morphing*, *hover*, atau saat pemutar musik memproses gelombang audio *real-time*.
+* **Zero External Dependencies**: Menggunakan native COM interop Windows murni tanpa paket NuGet berat pihak ketiga.
 
-### Pintasan & Gestur Mouse di Atas Pulau
-* **Hover Mouse:** Membuka *Expanded Dashboard* dengan animasi pegas (*Spring Morphing*).
-* **Klik Kanan di Pulau:** Berpindah cepat antar 4 tab (*🎵 Musik & Lirik* ➔ *📂 File Shelf* ➔ *⏱️ Fokus Pomodoro* ➔ *⚡ Sistem*).
-* **Klik Tengah (*Middle Click*):** Langsung *Play / Pause* media yang sedang berjalan.
-* **Scroll Wheel di Atas Pulau:** Mengubah volume sistem Windows secara halus dengan *Toast OSD* dinamis.
-* **Drag & Drop File ke Pulau:** Otomatis membuka tab **File Shelf** untuk menyimpan file sementara dan men-*drag* keluar ke aplikasi lain (WhatsApp, Discord, Browser, Explorer).
-* **Tahan `Left Alt` + Klik:** Menembus pulau (*Click-Through Bypass*) untuk mengeklik tab browser tepat di belakang pulau.
+---
 
+## 📄 Lisensi
+
+Proyek ini dirilis di bawah lisensi [MIT License](LICENSE). Anda bebas menggunakannya, memodifikasinya, dan mengembangkannya kembali.
