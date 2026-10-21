@@ -62,8 +62,8 @@ public sealed class IslandStateMachine
 
         if (CurrentState == IslandVisualState.TuckedTopEdge)
         {
-            // Flush thin NotchNook lip at Y = 0
-            return (148, 9, 7, 8, 0.25);
+            // Ultra-slim 5px flush lip at Y = 0 with zero glow so Chrome tabs at Y >= 6px are completely clear
+            return (118, 5, 4, 4, 0.0);
         }
 
         return CurrentState switch

@@ -32,6 +32,7 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _oneSecondTimer;
     private readonly DispatcherTimer _fastUpdateTimer;
+    private readonly DispatcherTimer _hitTestTimer;
     private readonly DispatcherTimer _toastDismissTimer;
     private readonly DispatcherTimer _collapseDebounceTimer;
 
@@ -41,6 +42,7 @@ public partial class MainWindow : Window
     private IntPtr _hwnd;
     private Win32Interop.NOTIFYICONDATA _trayIconData;
     private bool _isRenderLoopAttached;
+    private bool _isWindowClickThrough;
     private long _lastRenderTick;
     private string _lastClipboardPreview = string.Empty;
     private readonly bool _autoHideFullScreen = true;
@@ -74,6 +76,9 @@ public partial class MainWindow : Window
         _fastUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _fastUpdateTimer.Tick += OnFastUpdateTick;
 
+        _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
+        _hitTestTimer.Tick += (_, _) => UpdateWindowClickThroughState();
+
         _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         _toastDismissTimer.Tick += (_, _) =>
         {
@@ -86,7 +91,7 @@ public partial class MainWindow : Window
         _collapseDebounceTimer.Tick += (_, _) =>
         {
             _collapseDebounceTimer.Stop();
-            if (!IslandBorder.IsMouseOver &&
+            if (!IsCursorInsideIslandBounds() &&
                 !_isDraggingTimeline &&
                 !_isDraggingSysVolume &&
                 !_isDraggingSysBrightness &&
@@ -148,6 +153,8 @@ public partial class MainWindow : Window
 
         _oneSecondTimer.Start();
         _fastUpdateTimer.Start();
+        _hitTestTimer.Start();
+        UpdateWindowClickThroughState();
 
         TriggerToast(new ToastPayload(
             Icon: "🏝️",
@@ -165,6 +172,7 @@ public partial class MainWindow : Window
         StopRenderLoop();
         _oneSecondTimer.Stop();
         _fastUpdateTimer.Stop();
+        _hitTestTimer.Stop();
         _mediaService.Dispose();
         _hardwareService.Dispose();
 
@@ -202,9 +210,17 @@ public partial class MainWindow : Window
     {
         if (msg == Win32Interop.WM_NCHITTEST)
         {
-            if ((Win32Interop.GetAsyncKeyState(Win32Interop.VK_LMENU) & 0x8000) != 0 ||
-                _stateMachine.CurrentState == IslandVisualState.Hidden)
+            bool isAltBypass = (Win32Interop.GetAsyncKeyState(Win32Interop.VK_LMENU) & 0x8000) != 0;
+            bool isHidden = _stateMachine.CurrentState == IslandVisualState.Hidden;
+            bool isDraggingControl =
+                _isDraggingTimeline ||
+                _isDraggingToastSlider ||
+                _isDraggingSysVolume ||
+                _isDraggingSysBrightness;
+
+            if (isAltBypass || isHidden || (!IsCursorInsideIslandBounds() && !isDraggingControl))
             {
+                UpdateWindowClickThroughState();
                 handled = true;
                 return new IntPtr(Win32Interop.HTTRANSPARENT);
             }
@@ -230,6 +246,75 @@ public partial class MainWindow : Window
         }
 
         return IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// Checks whether the mouse cursor is strictly inside the active Dynamic Island rectangle.
+    /// Any pixel outside (including DropShadowEffect and BlurEffect areas) is treated as click-through.
+    /// </summary>
+    private bool IsCursorInsideIslandBounds()
+    {
+        if (_hwnd == IntPtr.Zero || !Win32Interop.GetCursorPos(out var pt))
+            return false;
+
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        double dipX = (pt.X / dpi.DpiScaleX) - Left;
+        double dipY = (pt.Y / dpi.DpiScaleY) - Top;
+
+        double bodyWidth = Math.Max(48, _morph.Width.Current);
+        double bodyHeight = Math.Max(4, _morph.Height.Current);
+
+        // In TuckedTopEdge ("Mode Simpan"), restrict clickable zone to top 0..5px
+        // so Chrome tabs right below (Y >= 6px) are 100% clickable!
+        if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge)
+        {
+            bodyHeight = Math.Min(bodyHeight, 5.0);
+        }
+
+        double leftEdge = (Width - bodyWidth) / 2.0;
+        double rightEdge = leftEdge + bodyWidth;
+
+        return dipX >= leftEdge && dipX <= rightEdge && dipY >= 0 && dipY <= bodyHeight;
+    }
+
+    /// <summary>
+    /// Dynamically toggles WS_EX_TRANSPARENT on the Win32 layered window so that
+    /// clicks outside the exact Dynamic Island body pass 100% directly to Chrome and other apps underneath.
+    /// </summary>
+    private void UpdateWindowClickThroughState()
+    {
+        if (_hwnd == IntPtr.Zero) return;
+
+        bool isAltBypass = (Win32Interop.GetAsyncKeyState(Win32Interop.VK_LMENU) & 0x8000) != 0;
+        bool isHidden = _stateMachine.CurrentState == IslandVisualState.Hidden;
+        bool isDraggingControl =
+            _isDraggingTimeline ||
+            _isDraggingToastSlider ||
+            _isDraggingSysVolume ||
+            _isDraggingSysBrightness;
+
+        bool cursorInside = IsCursorInsideIslandBounds();
+        bool shouldBeClickThrough = isAltBypass || isHidden || (!cursorInside && !isDraggingControl);
+
+        if (shouldBeClickThrough != _isWindowClickThrough)
+        {
+            _isWindowClickThrough = shouldBeClickThrough;
+            int exStyle = Win32Interop.GetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE);
+            if (shouldBeClickThrough)
+            {
+                exStyle |= Win32Interop.WS_EX_TRANSPARENT;
+            }
+            else
+            {
+                exStyle &= ~Win32Interop.WS_EX_TRANSPARENT;
+            }
+            Win32Interop.SetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE, exStyle);
+        }
+
+        if (!cursorInside && !isDraggingControl && _stateMachine.IsHovered && !_collapseDebounceTimer.IsEnabled)
+        {
+            _collapseDebounceTimer.Start();
+        }
     }
 
     private void OnClipboardUpdated()
@@ -290,6 +375,11 @@ public partial class MainWindow : Window
         UnifiedNotchPath.Opacity = visibleOpacity;
         UnifiedNotchRimPath.Opacity = visibleOpacity;
 
+        // Completely remove drop-shadow and glow bleed when tucked or hidden so pixels below Y=5px have Alpha=0
+        bool suppressShadowAndGlow = state is IslandVisualState.TuckedTopEdge or IslandVisualState.Hidden;
+        UnifiedNotchShadow.Opacity = suppressShadowAndGlow ? 0.0 : 0.72;
+        AmbientGlowBorder.Visibility = suppressShadowAndGlow ? Visibility.Collapsed : Visibility.Visible;
+
         MediaTabGrid.Visibility = tab == IslandDashboardTab.MediaLyrics ? Visibility.Visible : Visibility.Collapsed;
         ShelfTabGrid.Visibility = tab == IslandDashboardTab.FileShelf ? Visibility.Visible : Visibility.Collapsed;
         PomodoroTabGrid.Visibility = tab == IslandDashboardTab.Pomodoro ? Visibility.Visible : Visibility.Collapsed;
@@ -301,6 +391,7 @@ public partial class MainWindow : Window
         }
 
         UpdateTabHighlight();
+        UpdateWindowClickThroughState();
         EnsureRenderLoopRunning();
     }
 
@@ -360,6 +451,7 @@ public partial class MainWindow : Window
         AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
 
         UpdateUnifiedNotchGeometry(bodyWidth, height, bottomRadius, topEarRadius);
+        UpdateWindowClickThroughState();
 
         bool isCompactMedia =
             _stateMachine.CurrentState == IslandVisualState.CompactMedia &&

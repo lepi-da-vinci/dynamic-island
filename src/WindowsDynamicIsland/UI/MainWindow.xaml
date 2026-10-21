@@ -6,7 +6,7 @@
         Height="310"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="Transparent"
+        Background="{x:Null}"
         Topmost="True"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
@@ -46,7 +46,7 @@
                   VerticalAlignment="Top"
                   IsHitTestVisible="False">
                 <Path.Effect>
-                    <DropShadowEffect BlurRadius="22" ShadowDepth="5" Opacity="0.72" Color="#000000"/>
+                    <DropShadowEffect x:Name="UnifiedNotchShadow" BlurRadius="22" ShadowDepth="5" Opacity="0.72" Color="#000000"/>
                 </Path.Effect>
             </Path>
 
@@ -85,11 +85,11 @@
                           Cursor="Hand"
                           ToolTip="Dynamic Island tersimpan di atas (Klik untuk membuka)">
                         <Border x:Name="TuckedAccentBar"
-                                Width="68"
-                                Height="3"
-                                CornerRadius="1.5"
+                                Width="56"
+                                Height="2.5"
+                                CornerRadius="1.25"
                                 Background="#38BDF8"
-                                Opacity="0.88"
+                                Opacity="0.90"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"/>
                     </Grid>
