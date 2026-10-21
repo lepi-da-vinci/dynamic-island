@@ -228,6 +228,33 @@ public sealed class HardwareTelemetryService : IDisposable
                 AccentHex: num ? "#38BDF8" : "#94A3B8",
                 Duration: TimeSpan.FromSeconds(1.8)));
         }
+
+        // Fast 100ms check for charger plug/unplug so Battery Toast responds immediately
+        if (Win32Interop.GetSystemPowerStatus(out var fastPower))
+        {
+            bool hasBat = (fastPower.BatteryFlag & 128) == 0 && fastPower.BatteryFlag != 255;
+            bool chargingNow = fastPower.ACLineStatus == 1;
+            int batPct = fastPower.BatteryLifePercent <= 100 ? fastPower.BatteryLifePercent : 100;
+
+            if (hasBat && chargingNow != _lastCharging)
+            {
+                _lastCharging = chargingNow;
+                EmitBatteryChargingToast(chargingNow, batPct);
+            }
+        }
+    }
+
+    private void EmitBatteryChargingToast(bool isCharging, int batteryPct)
+    {
+        HardwareToastTriggered?.Invoke(new ToastPayload(
+            Icon: "⚡",
+            Title: isCharging ? $"Charging • {batteryPct}%" : $"Baterai • {batteryPct}%",
+            Subtitle: isCharging ? "Adaptor Daya AC Terhubung" : "Adaptor Dilepas (Mode Baterai)",
+            AccentHex: isCharging ? "#22C55E" : "#F59E0B",
+            ProgressRatio: batteryPct / 100.0,
+            Duration: TimeSpan.FromSeconds(2.8),
+            SliderKind: ToastSliderKind.Battery,
+            IsBatteryCharging: isCharging));
     }
 
     public void RefreshFullTelemetry(bool emitToasts = true)
@@ -246,13 +273,7 @@ public sealed class HardwareTelemetryService : IDisposable
         if (emitToasts && _initialized && hasBattery && isCharging != _lastCharging)
         {
             _lastCharging = isCharging;
-            HardwareToastTriggered?.Invoke(new ToastPayload(
-                Icon: isCharging ? "⚡" : "🔋",
-                Title: isCharging ? $"Charging ({batteryPct}%)" : $"On Battery ({batteryPct}%)",
-                Subtitle: isCharging ? "Daya AC terhubung" : "Menggunakan daya baterai",
-                AccentHex: isCharging ? "#22C55E" : "#F59E0B",
-                ProgressRatio: batteryPct / 100.0,
-                Duration: TimeSpan.FromSeconds(2.6)));
+            EmitBatteryChargingToast(isCharging, batteryPct);
         }
         _lastCharging = isCharging;
 

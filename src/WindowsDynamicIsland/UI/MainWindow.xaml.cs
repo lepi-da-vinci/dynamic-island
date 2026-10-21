@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly AudioService _audioService = new();
     private readonly BrightnessService _brightnessService = new();
     private readonly HardwareTelemetryService _hardwareService = new();
+    private readonly NotificationListenerService _notificationService = new();
     private readonly FileShelfService _fileShelfService = new();
     private readonly PomodoroTimerService _pomodoroService = new();
 
@@ -106,6 +107,7 @@ public partial class MainWindow : Window
         _mediaService.PlaybackStateChanged += OnMediaPlaybackStateChanged;
         _lyricsService.LyricsUpdated += () => Dispatcher.InvokeAsync(UpdateMediaAndLyricsUi);
         _hardwareService.HardwareToastTriggered += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
+        _notificationService.NotificationReceived += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
         _pomodoroService.TimerTicked += () => Dispatcher.InvokeAsync(UpdatePomodoroAndClockUi);
         _pomodoroService.TimerCompleted += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
 
@@ -599,6 +601,7 @@ public partial class MainWindow : Window
         _hardwareService.PollFastKeyboardIndicators();
         _audioService.PollExternalChanges();
         _brightnessService.PollExternalChanges();
+        _notificationService.PollNewNotifications();
 
         if (_mediaService.CurrentTrack.HasActiveSession)
         {
@@ -726,13 +729,11 @@ public partial class MainWindow : Window
         double volTrackW = SysVolumeTrackBorder.ActualWidth > 10 ? SysVolumeTrackBorder.ActualWidth : 185.0;
         double volFillPx = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
         SysVolumeFillBorder.Width = volFillPx;
-        SysVolumeThumb.Margin = new Thickness(Math.Max(0, volFillPx - 6), 0, 0, 0);
 
         SysBrightnessPercentText.Text = $"{brt}%";
         double brtTrackW = SysBrightnessTrackBorder.ActualWidth > 10 ? SysBrightnessTrackBorder.ActualWidth : 185.0;
         double brtFillPx = brtTrackW * Math.Clamp(brt / 100.0, 0.0, 1.0);
         SysBrightnessFillBorder.Width = brtFillPx;
-        SysBrightnessThumb.Margin = new Thickness(Math.Max(0, brtFillPx - 6), 0, 0, 0);
 
         ToggleMuteBtn.Content = soundMuted ? "🔇 Sound: MUTED" : "🔊 Sound: ON";
         ToggleMuteBtn.Foreground = new SolidColorBrush(
@@ -771,10 +772,19 @@ public partial class MainWindow : Window
         var hw = _hardwareService.Current;
 
         IdleBatteryPercentText.Text = $"{hw.BatteryPercent}%";
-        IdleBatteryIconText.Text = hw.IsCharging ? "⚡" : "🔋";
+        double idleBatRatio = Math.Clamp(hw.BatteryPercent / 100.0, 0.08, 1.0);
+        IdleBatteryFillBar.Width = 20.5 * idleBatRatio;
+
+        Color batColor = hw.IsCharging
+            ? Color.FromRgb(34, 197, 94)
+            : hw.BatteryPercent <= 20
+                ? Color.FromRgb(239, 68, 68)
+                : Color.FromRgb(245, 158, 11);
+
+        IdleBatteryFillBar.Background = new SolidColorBrush(batColor);
+        IdleBatteryIconText.Text = "⚡";
         IdleBatteryIconText.Foreground = new SolidColorBrush(
-            hw.IsCharging ? Color.FromRgb(34, 197, 94) :
-            hw.BatteryPercent <= 20 ? Color.FromRgb(239, 68, 68) : Color.FromRgb(148, 163, 184));
+            hw.IsCharging ? Color.FromRgb(254, 240, 138) : Color.FromRgb(248, 250, 252));
 
         CameraPrivacyDot.Visibility = hw.IsCameraInUse ? Visibility.Visible : Visibility.Collapsed;
         MicPrivacyDot.Visibility = hw.IsMicrophoneInUse ? Visibility.Visible : Visibility.Collapsed;
@@ -992,18 +1002,32 @@ public partial class MainWindow : Window
         ToastIconBadge.Background = new SolidColorBrush(Color.FromArgb(42, accent.R, accent.G, accent.B));
         AmbientGlowBrush.Color = accent;
 
-        if (toast.ProgressRatio.HasValue)
+        if (toast.SliderKind == ToastSliderKind.Battery)
         {
+            // Render realistic Battery Graphic with Lightning Bolt ⚡ centered inside (NOT a slider)
+            ToastProgressContainer.Visibility = Visibility.Collapsed;
+            ToastBatteryContainer.Visibility = Visibility.Visible;
+
+            double batRatio = Math.Clamp(toast.ProgressRatio ?? 1.0, 0.08, 1.0);
+            ToastBatteryFill.Width = 46.5 * batRatio;
+            ToastBatteryFill.Background = new SolidColorBrush(accent);
+            ToastBatteryBoltIcon.Text = "⚡";
+            ToastBatteryBoltIcon.Foreground = new SolidColorBrush(
+                toast.IsBatteryCharging ? Color.FromRgb(254, 240, 138) : Color.FromRgb(255, 255, 255));
+        }
+        else if (toast.ProgressRatio.HasValue)
+        {
+            ToastBatteryContainer.Visibility = Visibility.Collapsed;
             ToastProgressContainer.Visibility = Visibility.Visible;
             double ratio = Math.Clamp(toast.ProgressRatio.Value, 0.0, 1.0);
             double fillPx = 112.0 * ratio;
             ToastProgressFill.Width = fillPx;
             ToastProgressFill.Background = new SolidColorBrush(accent);
-            ToastSliderThumb.Margin = new Thickness(Math.Clamp(fillPx - 6.5, 0, 100), 0, 0, 0);
         }
         else
         {
             ToastProgressContainer.Visibility = Visibility.Collapsed;
+            ToastBatteryContainer.Visibility = Visibility.Collapsed;
         }
 
         _stateMachine.ShowToast(toast);

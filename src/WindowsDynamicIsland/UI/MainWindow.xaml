@@ -137,14 +137,45 @@
                                      Visibility="Collapsed"/>
                         </StackPanel>
 
-                        <!-- Battery / Status Right Side -->
+                        <!-- Battery Graphic + Percentage Right Side (Battery shape with lightning bolt centered inside) -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock x:Name="IdleBatteryIconText"
-                                       Text="⚡"
-                                       FontSize="10.5"
-                                       Foreground="#22C55E"
-                                       Margin="0,0,4,0"
-                                       VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
+                                <!-- Battery Body -->
+                                <Border x:Name="IdleBatteryBodyBorder"
+                                        Width="26" Height="13.5"
+                                        CornerRadius="4"
+                                        BorderThickness="1.3"
+                                        BorderBrush="#70FFFFFF"
+                                        Background="#1AFFFFFF"
+                                        Padding="1.4"
+                                        VerticalAlignment="Center">
+                                    <Grid ClipToBounds="True">
+                                        <Border x:Name="IdleBatteryFillBar"
+                                                HorizontalAlignment="Left"
+                                                Width="20"
+                                                Height="8.5"
+                                                CornerRadius="2.2"
+                                                Background="#22C55E"/>
+                                        <TextBlock x:Name="IdleBatteryIconText"
+                                                   Text="⚡"
+                                                   FontSize="8.5"
+                                                   FontWeight="Bold"
+                                                   Foreground="#FFFFFF"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Effect>
+                                                <DropShadowEffect BlurRadius="3" ShadowDepth="0" Color="#000000" Opacity="0.9"/>
+                                            </TextBlock.Effect>
+                                        </TextBlock>
+                                    </Grid>
+                                </Border>
+                                <!-- Battery Positive Terminal Cap -->
+                                <Border Width="2.2" Height="5.5"
+                                        CornerRadius="0,1.5,1.5,0"
+                                        Background="#70FFFFFF"
+                                        Margin="1,0,0,0"
+                                        VerticalAlignment="Center"/>
+                            </StackPanel>
                             <TextBlock x:Name="IdleBatteryPercentText"
                                        Text="100%"
                                        Foreground="#CBD5E1"
@@ -256,7 +287,7 @@
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
 
-                        <!-- Interactive Toast Slider (Volume / Brightness) -->
+                        <!-- Modern Line-Only Interactive Toast Slider (Volume / Brightness — Tanpa Titik Pembatas) -->
                         <Grid x:Name="ToastProgressContainer"
                               Grid.Column="2"
                               Width="112"
@@ -270,31 +301,68 @@
                               MouseMove="OnToastSliderMouseMove"
                               MouseLeftButtonUp="OnToastSliderMouseLeftButtonUp">
                             <Border x:Name="ToastProgressTrack"
-                                    Width="112" Height="7"
-                                    CornerRadius="3.5"
-                                    Background="#28FFFFFF"
+                                    Width="112" Height="8"
+                                    CornerRadius="4"
+                                    Background="#26FFFFFF"
+                                    ClipToBounds="True"
                                     VerticalAlignment="Center">
                                 <Border x:Name="ToastProgressFill"
                                         HorizontalAlignment="Left"
                                         Width="65"
-                                        Height="7"
-                                        CornerRadius="3.5"
+                                        Height="8"
+                                        CornerRadius="4"
                                         Background="#38BDF8"/>
                             </Border>
-
-                            <Ellipse x:Name="ToastSliderThumb"
-                                     Width="13"
-                                     Height="13"
-                                     Fill="#FFFFFF"
-                                     HorizontalAlignment="Left"
-                                     VerticalAlignment="Center"
-                                     Margin="58,0,0,0"
-                                     IsHitTestVisible="False">
-                                <Ellipse.Effect>
-                                    <DropShadowEffect BlurRadius="6" ShadowDepth="0" Color="#000000" Opacity="0.7"/>
-                                </Ellipse.Effect>
-                            </Ellipse>
                         </Grid>
+
+                        <!-- Dedicated Battery Shape Graphic for Charger Plug/Unplug Toast (dengan Lambang Petir ⚡ di Tengah) -->
+                        <StackPanel x:Name="ToastBatteryContainer"
+                                    Grid.Column="2"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Margin="14,0,2,0"
+                                    Visibility="Collapsed">
+                            <!-- Battery Casing -->
+                            <Border x:Name="ToastBatteryBody"
+                                    Width="54" Height="24"
+                                    CornerRadius="6.5"
+                                    BorderThickness="1.6"
+                                    BorderBrush="#88FFFFFF"
+                                    Background="#1EFFFFFF"
+                                    Padding="2.2"
+                                    VerticalAlignment="Center">
+                                <Grid ClipToBounds="True">
+                                    <!-- Dynamic Battery Level Fill -->
+                                    <Border x:Name="ToastBatteryFill"
+                                            HorizontalAlignment="Left"
+                                            Width="40"
+                                            Height="16.5"
+                                            CornerRadius="4"
+                                            Background="#22C55E"/>
+
+                                    <!-- Center Lightning Bolt Emblem (⚡) -->
+                                    <TextBlock x:Name="ToastBatteryBoltIcon"
+                                               Text="⚡"
+                                               FontSize="12.5"
+                                               FontWeight="Bold"
+                                               Foreground="#FFFFFF"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect BlurRadius="4" ShadowDepth="0" Color="#000000" Opacity="0.95"/>
+                                        </TextBlock.Effect>
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+
+                            <!-- Battery Positive Terminal Cap -->
+                            <Border x:Name="ToastBatteryCap"
+                                    Width="3.5" Height="10"
+                                    CornerRadius="0,2,2,0"
+                                    Background="#88FFFFFF"
+                                    Margin="1.5,0,0,0"
+                                    VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Grid>
 
                     <!-- STATE 4: EXPANDED DASHBOARD (NotchNook Unified Aesthetic) -->
@@ -793,24 +861,18 @@
                                               MouseMove="OnSysVolumeMouseMove"
                                               MouseLeftButtonUp="OnSysVolumeMouseUp">
                                             <Border x:Name="SysVolumeTrackBorder"
-                                                    Height="6"
-                                                    CornerRadius="3"
+                                                    Height="8"
+                                                    CornerRadius="4"
                                                     Background="#28FFFFFF"
+                                                    ClipToBounds="True"
                                                     VerticalAlignment="Center">
                                                 <Border x:Name="SysVolumeFillBorder"
                                                         HorizontalAlignment="Left"
                                                         Width="110"
-                                                        Height="6"
-                                                        CornerRadius="3"
+                                                        Height="8"
+                                                        CornerRadius="4"
                                                         Background="#38BDF8"/>
                                             </Border>
-                                            <Ellipse x:Name="SysVolumeThumb"
-                                                     Width="12" Height="12"
-                                                     Fill="#FFFFFF"
-                                                     HorizontalAlignment="Left"
-                                                     VerticalAlignment="Center"
-                                                     Margin="104,0,0,0"
-                                                     IsHitTestVisible="False"/>
                                         </Grid>
                                     </StackPanel>
                                 </Border>
@@ -848,24 +910,18 @@
                                               MouseMove="OnSysBrightnessMouseMove"
                                               MouseLeftButtonUp="OnSysBrightnessMouseUp">
                                             <Border x:Name="SysBrightnessTrackBorder"
-                                                    Height="6"
-                                                    CornerRadius="3"
+                                                    Height="8"
+                                                    CornerRadius="4"
                                                     Background="#28FFFFFF"
+                                                    ClipToBounds="True"
                                                     VerticalAlignment="Center">
                                                 <Border x:Name="SysBrightnessFillBorder"
                                                         HorizontalAlignment="Left"
                                                         Width="40"
-                                                        Height="6"
-                                                        CornerRadius="3"
+                                                        Height="8"
+                                                        CornerRadius="4"
                                                         Background="#FBBF24"/>
                                             </Border>
-                                            <Ellipse x:Name="SysBrightnessThumb"
-                                                     Width="12" Height="12"
-                                                     Fill="#FFFFFF"
-                                                     HorizontalAlignment="Left"
-                                                     VerticalAlignment="Center"
-                                                     Margin="34,0,0,0"
-                                                     IsHitTestVisible="False"/>
                                         </Grid>
                                     </StackPanel>
                                 </Border>

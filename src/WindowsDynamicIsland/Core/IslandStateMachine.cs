@@ -22,7 +22,8 @@ public enum ToastSliderKind
 {
     None = 0,
     Volume = 1,
-    Brightness = 2
+    Brightness = 2,
+    Battery = 3
 }
 
 public sealed record ToastPayload(
@@ -32,7 +33,8 @@ public sealed record ToastPayload(
     string AccentHex = "#38BDF8",
     double? ProgressRatio = null,
     TimeSpan? Duration = null,
-    ToastSliderKind SliderKind = ToastSliderKind.None);
+    ToastSliderKind SliderKind = ToastSliderKind.None,
+    bool IsBatteryCharging = false);
 
 public sealed class IslandStateMachine
 {
