@@ -87,8 +87,7 @@ public static class Win32Interop
     {
         if (SHQueryUserNotificationState(out var state) == 0)
         {
-            return state is QUERY_USER_NOTIFICATION_STATE.QUNS_RUNNING_D3D_FULL_SCREEN
-                or QUERY_USER_NOTIFICATION_STATE.QUNS_PRESENTATION_MODE;
+            return state == QUERY_USER_NOTIFICATION_STATE.QUNS_RUNNING_D3D_FULL_SCREEN;
         }
         return false;
     }

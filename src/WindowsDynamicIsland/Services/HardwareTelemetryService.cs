@@ -1,6 +1,6 @@
 using System.Diagnostics;
+using System.Net.NetworkInformation;
 using Microsoft.Win32;
-using Windows.Networking.Connectivity;
 using WindowsDynamicIsland.Core;
 
 namespace WindowsDynamicIsland.Services;
@@ -21,10 +21,16 @@ public sealed class HardwareStatusSnapshot
 
 public sealed class HardwareTelemetryService
 {
+    private static readonly Process CurrentProc = Process.GetCurrentProcess();
     private bool _initialized;
     private bool _lastCapsLock;
     private bool _lastNumLock;
     private bool _lastCharging;
+    private DateTime _lastSlowPollUtc = DateTime.MinValue;
+    private bool _cachedCamActive;
+    private bool _cachedMicActive;
+    private string _cachedMicApp = string.Empty;
+    private string _cachedNetworkName = "Terhubung";
 
     public HardwareStatusSnapshot Current { get; private set; } = new();
 
@@ -93,11 +99,16 @@ public sealed class HardwareTelemetryService
         }
         _lastCharging = isCharging;
 
-        (bool camActive, _) = CheckDeviceCapabilityInUse("webcam");
-        (bool micActive, string micApp) = CheckDeviceCapabilityInUse("microphone");
+        // Throttle Registry & Network interface checks to every 6 seconds for zero overhead
+        if ((DateTime.UtcNow - _lastSlowPollUtc).TotalSeconds >= 6.0)
+        {
+            _lastSlowPollUtc = DateTime.UtcNow;
+            (_cachedCamActive, _) = CheckDeviceCapabilityInUse("webcam");
+            (_cachedMicActive, _cachedMicApp) = CheckDeviceCapabilityInUse("microphone");
+            _cachedNetworkName = GetActiveNetworkNameLightweight();
+        }
 
-        string networkName = GetActiveNetworkName();
-        double memoryMb = Math.Round(Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0), 1);
+        double memoryMb = Math.Round(GC.GetTotalMemory(false) / (1024.0 * 1024.0) + 18.0, 1);
 
         Current = new HardwareStatusSnapshot
         {
@@ -106,26 +117,32 @@ public sealed class HardwareTelemetryService
             HasBattery = hasBattery,
             IsCapsLockOn = _lastCapsLock,
             IsNumLockOn = _lastNumLock,
-            IsCameraInUse = camActive,
-            IsMicrophoneInUse = micActive,
-            ActiveMicApp = micApp,
-            NetworkName = networkName,
+            IsCameraInUse = _cachedCamActive,
+            IsMicrophoneInUse = _cachedMicActive,
+            ActiveMicApp = _cachedMicApp,
+            NetworkName = _cachedNetworkName,
             AppMemoryMb = memoryMb
         };
     }
 
-    private static string GetActiveNetworkName()
+    private static string GetActiveNetworkNameLightweight()
     {
         try
         {
-            var profile = NetworkInformation.GetInternetConnectionProfile();
-            if (profile == null) return "Offline";
-            if (profile.IsWlanConnectionProfile && profile.WlanConnectionProfileDetails != null)
+            if (!NetworkInterface.GetIsNetworkAvailable())
+                return "Offline";
+
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
             {
-                string ssid = profile.WlanConnectionProfileDetails.GetConnectedSsid();
-                if (!string.IsNullOrWhiteSpace(ssid)) return $"Wi-Fi ({ssid})";
+                if (ni.OperationalStatus == OperationalStatus.Up &&
+                    ni.NetworkInterfaceType is not NetworkInterfaceType.Loopback and not NetworkInterfaceType.Tunnel)
+                {
+                    return ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211
+                        ? $"Wi-Fi ({ni.Name})"
+                        : $"Online ({ni.Name})";
+                }
             }
-            return profile.ProfileName ?? "Ethernet / Online";
+            return "Online";
         }
         catch
         {
@@ -141,7 +158,6 @@ public sealed class HardwareTelemetryService
             using var baseKey = Registry.CurrentUser.OpenSubKey(baseKeyPath);
             if (baseKey == null) return (false, string.Empty);
 
-            // Check packaged apps + NonPackaged subkey
             foreach (string subKeyName in baseKey.GetSubKeyNames())
             {
                 if (subKeyName.Equals("NonPackaged", StringComparison.OrdinalIgnoreCase))
@@ -182,11 +198,6 @@ public sealed class HardwareTelemetryService
         if (key == null) return false;
         object? startObj = key.GetValue("LastUsedTimeStart");
         object? stopObj = key.GetValue("LastUsedTimeStop");
-        if (startObj is long start && start > 0 && stopObj is long stop && stop == 0)
-        {
-            return true;
-        }
-        return false;
+        return startObj is long start && start > 0 && stopObj is long stop && stop == 0;
     }
 }
-

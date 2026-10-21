@@ -15,7 +15,7 @@
         SnapsToDevicePixels="True">
 
     <Grid x:Name="RootCanvas"
-          Background="Transparent"
+          Background="{x:Null}"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Top">
 

@@ -13,5 +13,11 @@
     <OptimizationPreference>Speed</OptimizationPreference>
   </PropertyGroup>
 
-</Project>
+  <!-- Automatically stop any previous running instance before build/run so MSB3027 file-lock never happens -->
+  <Target Name="StopRunningDynamicIsland" BeforeTargets="BeforeBuild;PrepareForBuild;CopyFilesToOutputDirectory">
+    <Exec Command="powershell -NoProfile -Command &quot;Get-Process -Name 'WindowsDynamicIsland' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue&quot;"
+          IgnoreExitCode="true"
+           EchoOff="true" />
+  </Target>
 
+</Project>

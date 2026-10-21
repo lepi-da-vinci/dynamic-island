@@ -111,6 +111,13 @@ public partial class MainWindow : Window
         _oneSecondTimer.Start();
         _fastKeyboardTimer.Start();
 
+        TriggerToast(new ToastPayload(
+            Icon: "🏝️",
+            Title: "Dynamic Island Aktif",
+            Subtitle: "Arahkan kursor (Hover) ke pulau untuk membuka",
+            AccentHex: "#38BDF8",
+            Duration: TimeSpan.FromSeconds(3.0)));
+
         await _mediaService.InitializeAsync();
         EnsureRenderLoopRunning();
     }
@@ -163,24 +170,6 @@ public partial class MainWindow : Window
             // Hold Left Alt to click straight through the Dynamic Island to browser tabs behind it
             if ((Win32Interop.GetAsyncKeyState(Win32Interop.VK_LMENU) & 0x8000) != 0 ||
                 _stateMachine.CurrentState == IslandVisualState.Hidden)
-            {
-                handled = true;
-                return new IntPtr(Win32Interop.HTTRANSPARENT);
-            }
-
-            long lp = lParam.ToInt64();
-            int screenX = (short)(lp & 0xFFFF);
-            int screenY = (short)((lp >> 16) & 0xFFFF);
-
-            Point pt = PointFromScreen(new Point(screenX, screenY));
-            double pillW = IslandBorder.Width;
-            double pillH = IslandBorder.Height;
-            double pillLeft = (ActualWidth - pillW) / 2.0;
-            double pillTop = IslandBorder.Margin.Top;
-
-            // Expand hit area slightly by 4px for smooth hover entry, while keeping the rest 100% click-through
-            Rect activePillRect = new(pillLeft - 4, Math.Max(0, pillTop - 4), pillW + 8, pillH + 8);
-            if (!activePillRect.Contains(pt))
             {
                 handled = true;
                 return new IntPtr(Win32Interop.HTTRANSPARENT);
