@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly MediaSessionService _mediaService = new();
     private readonly LyricsService _lyricsService = new();
     private readonly AudioService _audioService = new();
+    private readonly BrightnessService _brightnessService = new();
     private readonly HardwareTelemetryService _hardwareService = new();
     private readonly FileShelfService _fileShelfService = new();
     private readonly PomodoroTimerService _pomodoroService = new();
@@ -51,9 +52,13 @@ public partial class MainWindow : Window
     private double _currentPanX;
     private int _topBezelHoldTicks;
 
-    // Interactive timeline scrubbing state
+    // Interactive timeline & slider scrubbing states
     private bool _isDraggingTimeline;
     private double _draggedTimelineRatio;
+    private bool _isDraggingToastSlider;
+    private bool _isDraggingSysVolume;
+    private bool _isDraggingSysBrightness;
+    private ToastSliderKind _activeToastSliderKind = ToastSliderKind.None;
 
     public MainWindow()
     {
@@ -72,6 +77,7 @@ public partial class MainWindow : Window
         _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         _toastDismissTimer.Tick += (_, _) =>
         {
+            if (_isDraggingToastSlider) return;
             _toastDismissTimer.Stop();
             _stateMachine.ClearToast();
         };
@@ -80,7 +86,11 @@ public partial class MainWindow : Window
         _collapseDebounceTimer.Tick += (_, _) =>
         {
             _collapseDebounceTimer.Stop();
-            if (!IslandBorder.IsMouseOver && !_isDraggingTimeline)
+            if (!IslandBorder.IsMouseOver &&
+                !_isDraggingTimeline &&
+                !_isDraggingSysVolume &&
+                !_isDraggingSysBrightness &&
+                !_isDraggingToastSlider)
             {
                 _stateMachine.SetHovered(false);
             }
@@ -93,6 +103,16 @@ public partial class MainWindow : Window
         _hardwareService.HardwareToastTriggered += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
         _pomodoroService.TimerTicked += () => Dispatcher.InvokeAsync(UpdatePomodoroAndClockUi);
         _pomodoroService.TimerCompleted += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
+
+        // Subscribe to external keyboard Volume / Mute / Mic Mute / Brightness key events
+        _audioService.SpeakerVolumeOrMuteChanged += (vol, muted, muteToggled) =>
+            Dispatcher.InvokeAsync(() => ShowVolumeToast(vol, muted, muteToggled));
+
+        _audioService.MicrophoneMuteChanged += micMuted =>
+            Dispatcher.InvokeAsync(() => ShowMicMuteToast(micMuted));
+
+        _brightnessService.BrightnessChanged += brt =>
+            Dispatcher.InvokeAsync(() => ShowBrightnessToast(brt));
 
         Loaded += OnWindowLoaded;
         Closed += OnWindowClosed;
@@ -120,7 +140,10 @@ public partial class MainWindow : Window
         PositionTopCenter();
         UpdateTabHighlight();
         _hardwareService.RefreshFullTelemetry(emitToasts: false);
+        _audioService.PollExternalChanges();
+        _brightnessService.PollExternalChanges();
         UpdateHardwareUi();
+        UpdateSlidersAndMuteUi();
         UpdatePomodoroAndClockUi();
 
         _oneSecondTimer.Start();
@@ -129,7 +152,7 @@ public partial class MainWindow : Window
         TriggerToast(new ToastPayload(
             Icon: "🏝️",
             Title: "Dynamic Island Aktif",
-            Subtitle: "Hover untuk buka • Klik Kanan pil untuk simpan ke atas",
+            Subtitle: "Scroll = Volume • Shift+Scroll = Kecerahan",
             AccentHex: "#38BDF8",
             Duration: TimeSpan.FromSeconds(2.6)));
 
@@ -272,6 +295,11 @@ public partial class MainWindow : Window
         PomodoroTabGrid.Visibility = tab == IslandDashboardTab.Pomodoro ? Visibility.Visible : Visibility.Collapsed;
         SystemTabGrid.Visibility = tab == IslandDashboardTab.SystemStatus ? Visibility.Visible : Visibility.Collapsed;
 
+        if (state == IslandVisualState.ExpandedDashboard && tab == IslandDashboardTab.SystemStatus)
+        {
+            UpdateSlidersAndMuteUi();
+        }
+
         UpdateTabHighlight();
         EnsureRenderLoopRunning();
     }
@@ -331,7 +359,6 @@ public partial class MainWindow : Window
         AmbientGlowBorder.CornerRadius = new CornerRadius(0, 0, bottomRadius, bottomRadius);
         AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
 
-        // Draw the ONE-PIECE UNIFIED NOTCHNOOK SHAPE (Gambar 2 Reference)
         UpdateUnifiedNotchGeometry(bodyWidth, height, bottomRadius, topEarRadius);
 
         bool isCompactMedia =
@@ -366,14 +393,8 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Constructs a single seamless NotchNook geometry (Gambar 2 reference):
-    /// Flush top ceiling at Y = 0, outward-flaring concave top ears, vertical walls, and rounded bottom corners.
-    /// Zero separate ovals or overlapping layers.
-    /// </summary>
     private void UpdateUnifiedNotchGeometry(double bodyWidth, double height, double bottomRadius, double topEarRadius)
     {
-        // Ensure topEarRadius + bottomRadius never exceed total height
         if (topEarRadius + bottomRadius > height)
         {
             double scale = height / Math.Max(1.0, topEarRadius + bottomRadius);
@@ -385,7 +406,6 @@ public partial class MainWindow : Window
         double xLeft = topEarRadius;
         double xRight = topEarRadius + bodyWidth;
 
-        // Build closed fill geometry
         var fillGeom = new StreamGeometry();
         using (StreamGeometryContext ctx = fillGeom.Open())
         {
@@ -397,7 +417,6 @@ public partial class MainWindow : Window
         UnifiedNotchPath.Height = height;
         UnifiedNotchPath.Data = fillGeom;
 
-        // Build open rim stroke geometry (traces left ear -> left wall -> bottom -> right wall -> right ear, no top line)
         var rimGeom = new StreamGeometry();
         using (StreamGeometryContext ctx = rimGeom.Open())
         {
@@ -421,49 +440,41 @@ public partial class MainWindow : Window
         bool isFilled,
         bool isClosed)
     {
-        // Start at top-left ceiling flare tip (0, 0)
         ctx.BeginFigure(new Point(0, 0), isFilled: isFilled, isClosed: isClosed);
 
-        // 1. Top-Left Concave Ear: curves smoothly from (0, 0) inward & downward to (xLeft, topEarRadius)
         ctx.QuadraticBezierTo(
             new Point(xLeft, 0),
             new Point(xLeft, topEarRadius),
             isStroked: true,
             isSmoothJoin: true);
 
-        // 2. Left Vertical Wall: straight down to (xLeft, height - bottomRadius)
         ctx.LineTo(
             new Point(xLeft, height - bottomRadius),
             isStroked: true,
             isSmoothJoin: true);
 
-        // 3. Bottom-Left Convex Rounded Corner: curves to (xLeft + bottomRadius, height)
         ctx.QuadraticBezierTo(
             new Point(xLeft, height),
             new Point(xLeft + bottomRadius, height),
             isStroked: true,
             isSmoothJoin: true);
 
-        // 4. Bottom Horizontal Edge: across to (xRight - bottomRadius, height)
         ctx.LineTo(
             new Point(xRight - bottomRadius, height),
             isStroked: true,
             isSmoothJoin: true);
 
-        // 5. Bottom-Right Convex Rounded Corner: curves to (xRight, height - bottomRadius)
         ctx.QuadraticBezierTo(
             new Point(xRight, height),
             new Point(xRight, height - bottomRadius),
             isStroked: true,
             isSmoothJoin: true);
 
-        // 6. Right Vertical Wall: straight up to (xRight, topEarRadius)
         ctx.LineTo(
             new Point(xRight, topEarRadius),
             isStroked: true,
             isSmoothJoin: true);
 
-        // 7. Top-Right Concave Ear: curves smoothly upward & outward from (xRight, topEarRadius) to (totalWidth, 0)
         ctx.QuadraticBezierTo(
             new Point(xRight, 0),
             new Point(totalWidth, 0),
@@ -494,6 +505,8 @@ public partial class MainWindow : Window
     private void OnFastUpdateTick(object? sender, EventArgs e)
     {
         _hardwareService.PollFastKeyboardIndicators();
+        _audioService.PollExternalChanges();
+        _brightnessService.PollExternalChanges();
 
         if (_mediaService.CurrentTrack.HasActiveSession)
         {
@@ -546,6 +559,96 @@ public partial class MainWindow : Window
 
         _hardwareService.RefreshFullTelemetry();
         UpdateHardwareUi();
+
+        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+            _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
+            !_isDraggingSysVolume &&
+            !_isDraggingSysBrightness)
+        {
+            UpdateSlidersAndMuteUi();
+        }
+    }
+
+    // --- VOLUME, BRIGHTNESS & MUTE OSD TOAST HELPERS ---
+
+    private void ShowVolumeToast(int volumePercent, bool isMuted, bool muteToggled)
+    {
+        UpdateSlidersAndMuteUi();
+
+        string icon = isMuted || volumePercent == 0 ? "🔇" : volumePercent < 45 ? "🔉" : "🔊";
+        string title = isMuted ? "Sound: Muted" : $"Volume {volumePercent}%";
+        string sub = isMuted
+            ? "Audio output dibisukan"
+            : muteToggled ? "Audio output aktif kembali" : "Geser slider atau scroll mouse";
+        string accent = isMuted ? "#F87171" : "#38BDF8";
+
+        TriggerToast(new ToastPayload(
+            Icon: icon,
+            Title: title,
+            Subtitle: sub,
+            AccentHex: accent,
+            ProgressRatio: isMuted ? 0.0 : volumePercent / 100.0,
+            Duration: TimeSpan.FromSeconds(1.8),
+            SliderKind: ToastSliderKind.Volume));
+    }
+
+    private void ShowBrightnessToast(int brightnessPercent)
+    {
+        UpdateSlidersAndMuteUi();
+
+        string icon = brightnessPercent < 35 ? "🔅" : "☀️";
+        TriggerToast(new ToastPayload(
+            Icon: icon,
+            Title: $"Kecerahan {brightnessPercent}%",
+            Subtitle: "Layar Monitor • Shift+Scroll atau geser",
+            AccentHex: "#FBBF24",
+            ProgressRatio: brightnessPercent / 100.0,
+            Duration: TimeSpan.FromSeconds(1.8),
+            SliderKind: ToastSliderKind.Brightness));
+    }
+
+    private void ShowMicMuteToast(bool isMicMuted)
+    {
+        UpdateSlidersAndMuteUi();
+
+        TriggerToast(new ToastPayload(
+            Icon: isMicMuted ? "🚫" : "🎙️",
+            Title: isMicMuted ? "Mikrofon: MUTED" : "Mikrofon: ON (Aktif)",
+            Subtitle: isMicMuted ? "Suara mikrofon Anda dibisukan" : "Mikrofon siap menerima suara",
+            AccentHex: isMicMuted ? "#F87171" : "#22C55E",
+            Duration: TimeSpan.FromSeconds(2.2)));
+    }
+
+    private void UpdateSlidersAndMuteUi()
+    {
+        int vol = _audioService.GetMasterVolumePercent();
+        bool soundMuted = _audioService.IsMuted();
+        bool micMuted = _audioService.IsMicrophoneMuted();
+        int brt = _brightnessService.GetBrightnessPercent();
+
+        SysVolumePercentText.Text = soundMuted ? "MUTED" : $"{vol}%";
+        SysVolumePercentText.Foreground = new SolidColorBrush(
+            soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248));
+        SysVolumeLabelText.Text = soundMuted ? "🔇 AUDIO MUTED" : "🔊 VOLUME AUDIO";
+
+        double volTrackW = SysVolumeTrackBorder.ActualWidth > 10 ? SysVolumeTrackBorder.ActualWidth : 185.0;
+        double volFillPx = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
+        SysVolumeFillBorder.Width = volFillPx;
+        SysVolumeThumb.Margin = new Thickness(Math.Max(0, volFillPx - 6), 0, 0, 0);
+
+        SysBrightnessPercentText.Text = $"{brt}%";
+        double brtTrackW = SysBrightnessTrackBorder.ActualWidth > 10 ? SysBrightnessTrackBorder.ActualWidth : 185.0;
+        double brtFillPx = brtTrackW * Math.Clamp(brt / 100.0, 0.0, 1.0);
+        SysBrightnessFillBorder.Width = brtFillPx;
+        SysBrightnessThumb.Margin = new Thickness(Math.Max(0, brtFillPx - 6), 0, 0, 0);
+
+        ToggleMuteBtn.Content = soundMuted ? "🔇 Sound: MUTED" : "🔊 Sound: ON";
+        ToggleMuteBtn.Foreground = new SolidColorBrush(
+            soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(248, 250, 252));
+
+        ToggleMicMuteBtn.Content = micMuted ? "🚫 Mic: MUTED" : "🎙️ Mic: ON";
+        ToggleMicMuteBtn.Foreground = new SolidColorBrush(
+            micMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(34, 197, 94));
     }
 
     private void UpdatePomodoroAndClockUi()
@@ -779,6 +882,7 @@ public partial class MainWindow : Window
 
     public void TriggerToast(ToastPayload toast)
     {
+        _activeToastSliderKind = toast.SliderKind;
         ToastIconText.Text = toast.Icon;
         ToastTitleText.Text = toast.Title;
         ToastSubtitleText.Text = toast.Subtitle;
@@ -800,8 +904,10 @@ public partial class MainWindow : Window
         {
             ToastProgressContainer.Visibility = Visibility.Visible;
             double ratio = Math.Clamp(toast.ProgressRatio.Value, 0.0, 1.0);
-            ToastProgressFill.Width = 64.0 * ratio;
+            double fillPx = 112.0 * ratio;
+            ToastProgressFill.Width = fillPx;
             ToastProgressFill.Background = new SolidColorBrush(accent);
+            ToastSliderThumb.Margin = new Thickness(Math.Clamp(fillPx - 6.5, 0, 100), 0, 0, 0);
         }
         else
         {
@@ -811,8 +917,121 @@ public partial class MainWindow : Window
         _stateMachine.ShowToast(toast);
 
         _toastDismissTimer.Stop();
-        _toastDismissTimer.Interval = toast.Duration ?? TimeSpan.FromSeconds(2.4);
+        _toastDismissTimer.Interval = toast.Duration ?? TimeSpan.FromSeconds(2.2);
         _toastDismissTimer.Start();
+    }
+
+    // --- INTERACTIVE TOAST SLIDER HANDLERS (VOLUME / BRIGHTNESS IN TOAST PILL) ---
+
+    private void OnToastSliderMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_activeToastSliderKind == ToastSliderKind.None) return;
+        _isDraggingToastSlider = true;
+        _toastDismissTimer.Stop();
+        ToastProgressContainer.CaptureMouse();
+        ApplyToastSliderFromMouse(e.GetPosition(ToastProgressTrack).X);
+        e.Handled = true;
+    }
+
+    private void OnToastSliderMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingToastSlider) return;
+        ApplyToastSliderFromMouse(e.GetPosition(ToastProgressTrack).X);
+        e.Handled = true;
+    }
+
+    private void OnToastSliderMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingToastSlider) return;
+        ApplyToastSliderFromMouse(e.GetPosition(ToastProgressTrack).X);
+        _isDraggingToastSlider = false;
+        ToastProgressContainer.ReleaseMouseCapture();
+        _toastDismissTimer.Interval = TimeSpan.FromSeconds(1.6);
+        _toastDismissTimer.Start();
+        e.Handled = true;
+    }
+
+    private void ApplyToastSliderFromMouse(double mouseX)
+    {
+        double ratio = Math.Clamp(mouseX / 112.0, 0.0, 1.0);
+        int pct = (int)Math.Round(ratio * 100);
+
+        if (_activeToastSliderKind == ToastSliderKind.Volume)
+        {
+            int newVol = _audioService.SetMasterVolumePercent(pct);
+            ShowVolumeToast(newVol, isMuted: false, muteToggled: false);
+        }
+        else if (_activeToastSliderKind == ToastSliderKind.Brightness)
+        {
+            int newBrt = _brightnessService.SetBrightnessPercent(pct);
+            ShowBrightnessToast(newBrt);
+        }
+    }
+
+    // --- INTERACTIVE SYSTEM TAB VOLUME & BRIGHTNESS SLIDER HANDLERS ---
+
+    private void OnSysVolumeMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingSysVolume = true;
+        SysVolumeSliderHitArea.CaptureMouse();
+        ApplySysVolumeFromMouse(e.GetPosition(SysVolumeTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnSysVolumeMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingSysVolume) return;
+        ApplySysVolumeFromMouse(e.GetPosition(SysVolumeTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnSysVolumeMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingSysVolume) return;
+        ApplySysVolumeFromMouse(e.GetPosition(SysVolumeTrackBorder).X);
+        _isDraggingSysVolume = false;
+        SysVolumeSliderHitArea.ReleaseMouseCapture();
+        e.Handled = true;
+    }
+
+    private void ApplySysVolumeFromMouse(double mouseX)
+    {
+        double trackW = Math.Max(1.0, SysVolumeTrackBorder.ActualWidth);
+        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100);
+        _audioService.SetMasterVolumePercent(pct);
+        UpdateSlidersAndMuteUi();
+    }
+
+    private void OnSysBrightnessMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingSysBrightness = true;
+        SysBrightnessSliderHitArea.CaptureMouse();
+        ApplySysBrightnessFromMouse(e.GetPosition(SysBrightnessTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnSysBrightnessMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingSysBrightness) return;
+        ApplySysBrightnessFromMouse(e.GetPosition(SysBrightnessTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnSysBrightnessMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingSysBrightness) return;
+        ApplySysBrightnessFromMouse(e.GetPosition(SysBrightnessTrackBorder).X);
+        _isDraggingSysBrightness = false;
+        SysBrightnessSliderHitArea.ReleaseMouseCapture();
+        e.Handled = true;
+    }
+
+    private void ApplySysBrightnessFromMouse(double mouseX)
+    {
+        double trackW = Math.Max(1.0, SysBrightnessTrackBorder.ActualWidth);
+        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100);
+        _brightnessService.SetBrightnessPercent(pct);
+        UpdateSlidersAndMuteUi();
     }
 
     // --- INTERACTIVE TIMELINE SCRUBBER HANDLERS ---
@@ -867,7 +1086,7 @@ public partial class MainWindow : Window
     {
         _collapseDebounceTimer.Stop();
 
-        if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge)
+        if (_stateMachine.CurrentState is IslandVisualState.TuckedTopEdge or IslandVisualState.ToastNotification)
         {
             return;
         }
@@ -884,8 +1103,11 @@ public partial class MainWindow : Window
 
     private void OnIslandMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_isDraggingToastSlider) return;
+
         if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
         {
+            _stateMachine.ClearToast();
             _stateMachine.SetTuckedMode(false);
             _stateMachine.SetHovered(true);
             UpdateMediaAndLyricsUi();
@@ -918,16 +1140,18 @@ public partial class MainWindow : Window
     private void OnIslandMouseWheel(object sender, MouseWheelEventArgs e)
     {
         int step = e.Delta > 0 ? 4 : -4;
-        int newVol = _audioService.AdjustMasterVolume(step);
-        string icon = newVol == 0 ? "🔇" : newVol < 45 ? "🔉" : "🔊";
 
-        TriggerToast(new ToastPayload(
-            Icon: icon,
-            Title: $"Volume {newVol}%",
-            Subtitle: "Output Audio Sistem",
-            AccentHex: "#38BDF8",
-            ProgressRatio: newVol / 100.0,
-            Duration: TimeSpan.FromSeconds(1.5)));
+        // Hold Shift + Scroll Wheel to adjust Screen Brightness!
+        if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+        {
+            int newBrt = _brightnessService.AdjustBrightness(step);
+            ShowBrightnessToast(newBrt);
+        }
+        else
+        {
+            int newVol = _audioService.AdjustMasterVolume(step);
+            ShowVolumeToast(newVol, isMuted: false, muteToggled: false);
+        }
 
         e.Handled = true;
     }
@@ -1017,7 +1241,11 @@ public partial class MainWindow : Window
     private void OnTabMediaClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.MediaLyrics);
     private void OnTabShelfClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
     private void OnTabPomodoroClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.Pomodoro);
-    private void OnTabSystemClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
+    private void OnTabSystemClick(object sender, RoutedEventArgs e)
+    {
+        _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
+        UpdateSlidersAndMuteUi();
+    }
 
     private void OnManualTuckClick(object sender, RoutedEventArgs e)
     {
@@ -1035,8 +1263,14 @@ public partial class MainWindow : Window
 
     private void OnToggleMuteClick(object sender, RoutedEventArgs e)
     {
-        bool muted = _audioService.ToggleMute();
-        ToggleMuteBtn.Content = muted ? "🔇 Unmute Audio" : "🔊 Mute Audio";
+        _audioService.ToggleMute();
+        UpdateSlidersAndMuteUi();
+    }
+
+    private void OnToggleMicMuteClick(object sender, RoutedEventArgs e)
+    {
+        _audioService.ToggleMicrophoneMute();
+        UpdateSlidersAndMuteUi();
     }
 
     private void OnExitAppClick(object sender, RoutedEventArgs e)

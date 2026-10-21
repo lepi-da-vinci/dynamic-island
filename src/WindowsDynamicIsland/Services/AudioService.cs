@@ -4,17 +4,33 @@ namespace WindowsDynamicIsland.Services;
 
 /// <summary>
 /// Zero-dependency Windows Core Audio service using native COM interfaces (WASAPI / EndpointVolume)
-/// for real-time audio peak visualization and system master volume / mute control.
+/// for real-time audio peak visualization, speaker master volume/mute, and global microphone mute.
 /// </summary>
 public sealed class AudioService
 {
-    private IAudioEndpointVolume? _endpointVolume;
-    private IAudioMeterInformation? _meterInfo;
+    private IAudioEndpointVolume? _speakerVolume;
+    private IAudioMeterInformation? _speakerMeter;
+    private IAudioEndpointVolume? _micVolume;
     private double _phase;
+
+    private bool _baselineCaptured;
+    private int _lastPolledVolume = -1;
+    private bool _lastPolledSpeakerMute;
+    private bool _lastPolledMicMute;
+    private DateTime _suppressExternalNotifyUntilUtc = DateTime.MinValue;
+
+    public event Action<int, bool, bool>? SpeakerVolumeOrMuteChanged;
+    public event Action<bool>? MicrophoneMuteChanged;
 
     public AudioService()
     {
         InitializeCoreAudio();
+    }
+
+    public void ReinitializeEndpoints()
+    {
+        InitializeCoreAudio();
+        _baselineCaptured = false;
     }
 
     private void InitializeCoreAudio()
@@ -27,25 +43,83 @@ public sealed class AudioService
             var enumerator = (IMMDeviceEnumerator?)Activator.CreateInstance(enumeratorType);
             if (enumerator == null) return;
 
-            // eRender = 0, eMultimedia = 1
-            if (enumerator.GetDefaultAudioEndpoint(0, 1, out var device) == 0 && device != null)
+            Guid iidVolume = typeof(IAudioEndpointVolume).GUID;
+            Guid iidMeter = typeof(IAudioMeterInformation).GUID;
+
+            // 1. Speaker Output Endpoint (eRender = 0, eMultimedia = 1)
+            if (enumerator.GetDefaultAudioEndpoint(0, 1, out var renderDevice) == 0 && renderDevice != null)
             {
-                Guid iidVolume = typeof(IAudioEndpointVolume).GUID;
-                if (device.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0)
+                if (renderDevice.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0)
                 {
-                    _endpointVolume = volObj as IAudioEndpointVolume;
+                    _speakerVolume = volObj as IAudioEndpointVolume;
                 }
 
-                Guid iidMeter = typeof(IAudioMeterInformation).GUID;
-                if (device.Activate(ref iidMeter, 23, IntPtr.Zero, out var meterObj) == 0)
+                if (renderDevice.Activate(ref iidMeter, 23, IntPtr.Zero, out var meterObj) == 0)
                 {
-                    _meterInfo = meterObj as IAudioMeterInformation;
+                    _speakerMeter = meterObj as IAudioMeterInformation;
+                }
+            }
+
+            // 2. Microphone Capture Endpoint (eCapture = 1, eCommunications = 2 / eMultimedia = 1)
+            if (enumerator.GetDefaultAudioEndpoint(1, 2, out var captureDevice) == 0 && captureDevice != null)
+            {
+                if (captureDevice.Activate(ref iidVolume, 23, IntPtr.Zero, out var micVolObj) == 0)
+                {
+                    _micVolume = micVolObj as IAudioEndpointVolume;
                 }
             }
         }
         catch
         {
-            // Fallback gracefully if no audio output device is connected
+            // Fallback gracefully if audio devices are unavailable
+        }
+    }
+
+    /// <summary>
+    /// Detects external volume / mute changes (e.g. physical keyboard Fn volume keys, rotary knob, or Windows taskbar).
+    /// </summary>
+    public void PollExternalChanges()
+    {
+        int currentVol = GetMasterVolumePercent();
+        bool currentMute = IsMuted();
+        bool currentMicMute = IsMicrophoneMuted();
+
+        if (!_baselineCaptured)
+        {
+            _lastPolledVolume = currentVol;
+            _lastPolledSpeakerMute = currentMute;
+            _lastPolledMicMute = currentMicMute;
+            _baselineCaptured = true;
+            return;
+        }
+
+        bool suppressed = DateTime.UtcNow < _suppressExternalNotifyUntilUtc;
+
+        if (currentMute != _lastPolledSpeakerMute)
+        {
+            _lastPolledSpeakerMute = currentMute;
+            _lastPolledVolume = currentVol;
+            if (!suppressed)
+            {
+                SpeakerVolumeOrMuteChanged?.Invoke(currentVol, currentMute, true);
+            }
+        }
+        else if (Math.Abs(currentVol - _lastPolledVolume) >= 1)
+        {
+            _lastPolledVolume = currentVol;
+            if (!suppressed)
+            {
+                SpeakerVolumeOrMuteChanged?.Invoke(currentVol, currentMute, false);
+            }
+        }
+
+        if (currentMicMute != _lastPolledMicMute)
+        {
+            _lastPolledMicMute = currentMicMute;
+            if (!suppressed)
+            {
+                MicrophoneMuteChanged?.Invoke(currentMicMute);
+            }
         }
     }
 
@@ -53,7 +127,7 @@ public sealed class AudioService
     {
         try
         {
-            if (_meterInfo != null && _meterInfo.GetPeakValue(out float peak) == 0)
+            if (_speakerMeter != null && _speakerMeter.GetPeakValue(out float peak) == 0)
             {
                 if (peak > 0.005f)
                 {
@@ -61,13 +135,9 @@ public sealed class AudioService
                 }
             }
         }
-        catch
-        {
-            // Ignore transient device switch
-        }
+        catch { }
 
-        // If GSMTC reports playing but peak is low/unavailable, synthesize a gentle organic pulse
-        if (isMediaPlaying)
+        if (isMediaPlaying && !IsMuted())
         {
             _phase += 0.14;
             return (float)(0.32 + 0.22 * Math.Sin(_phase));
@@ -76,9 +146,6 @@ public sealed class AudioService
         return 0f;
     }
 
-    /// <summary>
-    /// Fills a 5-bar spectrum array with organic heights (4.0 to maxBarHeight) driven by live WASAPI audio peak.
-    /// </summary>
     public void UpdateSpectrumBars(Span<double> barHeights, bool isMediaPlaying, double maxBarHeight = 18.0)
     {
         float peak = GetCurrentPeakLevel(isMediaPlaying);
@@ -101,7 +168,6 @@ public sealed class AudioService
         {
             double wave = 0.52 + 0.48 * Math.Sin(_phase * (1.0 + i * 0.17) + phaseOffsets[i % 5]);
             double target = 4.0 + (maxBarHeight - 4.0) * energy * bandMultipliers[i % 5] * wave;
-            // Smooth interpolation
             barHeights[i] = barHeights[i] + (target - barHeights[i]) * 0.38;
         }
     }
@@ -110,7 +176,7 @@ public sealed class AudioService
     {
         try
         {
-            if (_endpointVolume != null && _endpointVolume.GetMasterVolumeLevelScalar(out float level) == 0)
+            if (_speakerVolume != null && _speakerVolume.GetMasterVolumeLevelScalar(out float level) == 0)
             {
                 return (int)Math.Round(Math.Clamp(level, 0f, 1f) * 100);
             }
@@ -119,31 +185,40 @@ public sealed class AudioService
         return 65;
     }
 
-    public int AdjustMasterVolume(int deltaPercent)
+    public int SetMasterVolumePercent(int targetPercent)
     {
         try
         {
-            if (_endpointVolume != null && _endpointVolume.GetMasterVolumeLevelScalar(out float current) == 0)
+            _suppressExternalNotifyUntilUtc = DateTime.UtcNow.AddMilliseconds(250);
+            float scalar = Math.Clamp(targetPercent / 100f, 0f, 1f);
+            if (_speakerVolume != null)
             {
-                float next = Math.Clamp(current + (deltaPercent / 100f), 0f, 1f);
                 Guid ctx = Guid.Empty;
-                _endpointVolume.SetMasterVolumeLevelScalar(next, ref ctx);
-                if (next > 0f)
+                _speakerVolume.SetMasterVolumeLevelScalar(scalar, ref ctx);
+                if (scalar > 0f)
                 {
-                    _endpointVolume.SetMute(false, ref ctx);
+                    _speakerVolume.SetMute(false, ref ctx);
+                    _lastPolledSpeakerMute = false;
                 }
-                return (int)Math.Round(next * 100);
+                _lastPolledVolume = (int)Math.Round(scalar * 100);
+                return _lastPolledVolume;
             }
         }
         catch { }
         return GetMasterVolumePercent();
     }
 
+    public int AdjustMasterVolume(int deltaPercent)
+    {
+        int current = GetMasterVolumePercent();
+        return SetMasterVolumePercent(current + deltaPercent);
+    }
+
     public bool IsMuted()
     {
         try
         {
-            if (_endpointVolume != null && _endpointVolume.GetMute(out bool muted) == 0)
+            if (_speakerVolume != null && _speakerVolume.GetMute(out bool muted) == 0)
             {
                 return muted;
             }
@@ -156,11 +231,44 @@ public sealed class AudioService
     {
         try
         {
-            if (_endpointVolume != null && _endpointVolume.GetMute(out bool muted) == 0)
+            _suppressExternalNotifyUntilUtc = DateTime.UtcNow.AddMilliseconds(250);
+            if (_speakerVolume != null && _speakerVolume.GetMute(out bool muted) == 0)
             {
                 bool next = !muted;
                 Guid ctx = Guid.Empty;
-                _endpointVolume.SetMute(next, ref ctx);
+                _speakerVolume.SetMute(next, ref ctx);
+                _lastPolledSpeakerMute = next;
+                return next;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    public bool IsMicrophoneMuted()
+    {
+        try
+        {
+            if (_micVolume != null && _micVolume.GetMute(out bool muted) == 0)
+            {
+                return muted;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    public bool ToggleMicrophoneMute()
+    {
+        try
+        {
+            _suppressExternalNotifyUntilUtc = DateTime.UtcNow.AddMilliseconds(250);
+            if (_micVolume != null && _micVolume.GetMute(out bool muted) == 0)
+            {
+                bool next = !muted;
+                Guid ctx = Guid.Empty;
+                _micVolume.SetMute(next, ref ctx);
+                _lastPolledMicMute = next;
                 return next;
             }
         }
@@ -214,4 +322,3 @@ public sealed class AudioService
         [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool pbMute);
     }
 }
-

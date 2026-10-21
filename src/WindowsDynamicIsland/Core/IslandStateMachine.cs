@@ -18,13 +18,21 @@ public enum IslandDashboardTab
     SystemStatus = 3
 }
 
+public enum ToastSliderKind
+{
+    None = 0,
+    Volume = 1,
+    Brightness = 2
+}
+
 public sealed record ToastPayload(
     string Icon,
     string Title,
     string Subtitle,
     string AccentHex = "#38BDF8",
     double? ProgressRatio = null,
-    TimeSpan? Duration = null);
+    TimeSpan? Duration = null,
+    ToastSliderKind SliderKind = ToastSliderKind.None);
 
 public sealed class IslandStateMachine
 {
@@ -62,7 +70,7 @@ public sealed class IslandStateMachine
         {
             IslandVisualState.IdlePill => (DynamicIdleWidth, 36, 16, 13, 0.12),
             IslandVisualState.CompactMedia => (DynamicCompactWidth, 40, 18, 14, 0.35),
-            IslandVisualState.ToastNotification => (348, 48, 20, 15, 0.45),
+            IslandVisualState.ToastNotification => (388, 52, 22, 15, 0.48),
             IslandVisualState.ExpandedDashboard => ActiveTab switch
             {
                 IslandDashboardTab.MediaLyrics => (504, 242, 26, 18, 0.55),
@@ -70,7 +78,7 @@ public sealed class IslandStateMachine
                     ? (508, 242, 26, 18, 0.45)
                     : (492, 216, 26, 18, 0.42),
                 IslandDashboardTab.Pomodoro => (468, 198, 26, 18, 0.40),
-                IslandDashboardTab.SystemStatus => (488, 212, 26, 18, 0.38),
+                IslandDashboardTab.SystemStatus => (504, 242, 26, 18, 0.42),
                 _ => (492, 224, 26, 18, 0.45)
             },
             _ => (196, 36, 16, 13, 0.10)

@@ -218,9 +218,9 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- STATE 3: TOAST INTERRUPT PILL (Bluetooth, Volume, CapsLock, Charger, Clipboard) -->
+                    <!-- STATE 3: TOAST INTERRUPT PILL (Interactive Volume / Brightness Slider, Mic/Sound Mute, Bluetooth) -->
                     <Grid x:Name="ToastPanel"
-                          Margin="16,0,16,2"
+                          Margin="18,0,18,2"
                           Visibility="Collapsed">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -230,14 +230,14 @@
 
                         <Border x:Name="ToastIconBadge"
                                 Grid.Column="0"
-                                Width="30" Height="30"
-                                CornerRadius="9"
+                                Width="32" Height="32"
+                                CornerRadius="10"
                                 Background="#2438BDF8"
                                 VerticalAlignment="Center"
                                 Margin="0,0,12,0">
                             <TextBlock x:Name="ToastIconText"
                                        Text="🔊"
-                                       FontSize="14"
+                                       FontSize="15"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"/>
                         </Border>
@@ -246,31 +246,55 @@
                             <TextBlock x:Name="ToastTitleText"
                                        Text="Volume 75%"
                                        Foreground="#F8FAFC"
-                                       FontSize="12.5"
+                                       FontSize="13"
                                        FontWeight="Bold"
                                        TextTrimming="CharacterEllipsis"/>
                             <TextBlock x:Name="ToastSubtitleText"
-                                       Text="Scroll mouse untuk mengatur"
+                                       Text="Scroll mouse atau geser slider"
                                        Foreground="#94A3B8"
                                        FontSize="10.5"
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
 
-                        <Border x:Name="ToastProgressContainer"
-                                Grid.Column="2"
-                                Width="64" Height="6"
-                                CornerRadius="3"
-                                Background="#26FFFFFF"
-                                VerticalAlignment="Center"
-                                Margin="12,0,0,0"
-                                Visibility="Collapsed">
-                            <Border x:Name="ToastProgressFill"
-                                    HorizontalAlignment="Left"
-                                    Width="35"
-                                    Height="6"
-                                    CornerRadius="3"
-                                    Background="#38BDF8"/>
-                        </Border>
+                        <!-- Interactive Toast Slider (Volume / Brightness) -->
+                        <Grid x:Name="ToastProgressContainer"
+                              Grid.Column="2"
+                              Width="112"
+                              Height="20"
+                              Margin="14,0,2,0"
+                              Background="Transparent"
+                              Cursor="Hand"
+                              VerticalAlignment="Center"
+                              Visibility="Collapsed"
+                              MouseLeftButtonDown="OnToastSliderMouseLeftButtonDown"
+                              MouseMove="OnToastSliderMouseMove"
+                              MouseLeftButtonUp="OnToastSliderMouseLeftButtonUp">
+                            <Border x:Name="ToastProgressTrack"
+                                    Width="112" Height="7"
+                                    CornerRadius="3.5"
+                                    Background="#28FFFFFF"
+                                    VerticalAlignment="Center">
+                                <Border x:Name="ToastProgressFill"
+                                        HorizontalAlignment="Left"
+                                        Width="65"
+                                        Height="7"
+                                        CornerRadius="3.5"
+                                        Background="#38BDF8"/>
+                            </Border>
+
+                            <Ellipse x:Name="ToastSliderThumb"
+                                     Width="13"
+                                     Height="13"
+                                     Fill="#FFFFFF"
+                                     HorizontalAlignment="Left"
+                                     VerticalAlignment="Center"
+                                     Margin="58,0,0,0"
+                                     IsHitTestVisible="False">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect BlurRadius="6" ShadowDepth="0" Color="#000000" Opacity="0.7"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                        </Grid>
                     </Grid>
 
                     <!-- STATE 4: EXPANDED DASHBOARD (NotchNook Unified Aesthetic) -->
@@ -720,14 +744,135 @@
                             </StackPanel>
                         </Grid>
 
-                        <!-- TAB 3: SYSTEM TELEMETRY, BLUETOOTH, PRIVACY & ISLAND CONTROLS -->
+                        <!-- TAB 3: SYSTEM CONTROL CENTER (VOLUME SLIDER, BRIGHTNESS SLIDER, SOUND/MIC MUTE, TELEMETRY) -->
                         <Grid x:Name="SystemTabGrid" Grid.Row="1" Visibility="Collapsed">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <!-- Row 0: Interactive Volume & Brightness Sliders -->
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Volume Slider Card -->
+                                <Border Grid.Column="0"
+                                        Background="#14FFFFFF"
+                                        BorderBrush="#22FFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="12"
+                                        Padding="12,8"
+                                        Margin="0,0,5,0">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,6">
+                                            <TextBlock x:Name="SysVolumeLabelText"
+                                                       Text="🔊 VOLUME AUDIO"
+                                                       Foreground="#CBD5E1"
+                                                       FontSize="10"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="SysVolumePercentText"
+                                                       Text="65%"
+                                                       Foreground="#38BDF8"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+
+                                        <Grid x:Name="SysVolumeSliderHitArea"
+                                              Height="16"
+                                              Background="Transparent"
+                                              Cursor="Hand"
+                                              ToolTip="Klik atau Geser untuk mengatur Volume sistem"
+                                              MouseLeftButtonDown="OnSysVolumeMouseDown"
+                                              MouseMove="OnSysVolumeMouseMove"
+                                              MouseLeftButtonUp="OnSysVolumeMouseUp">
+                                            <Border x:Name="SysVolumeTrackBorder"
+                                                    Height="6"
+                                                    CornerRadius="3"
+                                                    Background="#28FFFFFF"
+                                                    VerticalAlignment="Center">
+                                                <Border x:Name="SysVolumeFillBorder"
+                                                        HorizontalAlignment="Left"
+                                                        Width="110"
+                                                        Height="6"
+                                                        CornerRadius="3"
+                                                        Background="#38BDF8"/>
+                                            </Border>
+                                            <Ellipse x:Name="SysVolumeThumb"
+                                                     Width="12" Height="12"
+                                                     Fill="#FFFFFF"
+                                                     HorizontalAlignment="Left"
+                                                     VerticalAlignment="Center"
+                                                     Margin="104,0,0,0"
+                                                     IsHitTestVisible="False"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Brightness Slider Card -->
+                                <Border Grid.Column="1"
+                                        Background="#14FFFFFF"
+                                        BorderBrush="#22FFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="12"
+                                        Padding="12,8"
+                                        Margin="5,0,0,0">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,6">
+                                            <TextBlock Text="☀️ KECERAHAN LAYAR"
+                                                       Foreground="#CBD5E1"
+                                                       FontSize="10"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="SysBrightnessPercentText"
+                                                       Text="20%"
+                                                       Foreground="#FBBF24"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+
+                                        <Grid x:Name="SysBrightnessSliderHitArea"
+                                              Height="16"
+                                              Background="Transparent"
+                                              Cursor="Hand"
+                                              ToolTip="Klik atau Geser untuk mengatur Kecerahan Layar (atau Shift + Scroll di pulau)"
+                                              MouseLeftButtonDown="OnSysBrightnessMouseDown"
+                                              MouseMove="OnSysBrightnessMouseMove"
+                                              MouseLeftButtonUp="OnSysBrightnessMouseUp">
+                                            <Border x:Name="SysBrightnessTrackBorder"
+                                                    Height="6"
+                                                    CornerRadius="3"
+                                                    Background="#28FFFFFF"
+                                                    VerticalAlignment="Center">
+                                                <Border x:Name="SysBrightnessFillBorder"
+                                                        HorizontalAlignment="Left"
+                                                        Width="40"
+                                                        Height="6"
+                                                        CornerRadius="3"
+                                                        Background="#FBBF24"/>
+                                            </Border>
+                                            <Ellipse x:Name="SysBrightnessThumb"
+                                                     Width="12" Height="12"
+                                                     Fill="#FFFFFF"
+                                                     HorizontalAlignment="Left"
+                                                     VerticalAlignment="Center"
+                                                     Margin="34,0,0,0"
+                                                     IsHitTestVisible="False"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Row 1: Telemetry Info Cards -->
+                            <Grid Grid.Row="1" Margin="0,0,0,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
@@ -735,61 +880,67 @@
 
                                 <Border Grid.Column="0"
                                         Background="#12FFFFFF"
-                                        CornerRadius="12"
-                                        Padding="12,8"
+                                        CornerRadius="11"
+                                        Padding="11,6"
                                         Margin="0,0,5,0">
                                     <StackPanel>
-                                        <TextBlock Text="BATERAI, WI-FI &amp; BLUETOOTH" Foreground="#64748B" FontSize="9.5" FontWeight="Bold"/>
                                         <TextBlock x:Name="SysBatteryDetailText"
                                                    Text="⚡ 100% (AC Connected)"
                                                    Foreground="#F8FAFC"
-                                                   FontSize="12"
-                                                   FontWeight="SemiBold"
-                                                   Margin="0,3,0,0"/>
+                                                   FontSize="11.5"
+                                                   FontWeight="SemiBold"/>
                                         <TextBlock x:Name="SysNetworkDetailText"
                                                    Text="Wi-Fi Terhubung"
                                                    Foreground="#94A3B8"
-                                                   FontSize="10.5"
+                                                   FontSize="10"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </Border>
 
                                 <Border Grid.Column="1"
                                         Background="#12FFFFFF"
-                                        CornerRadius="12"
-                                        Padding="12,8"
+                                        CornerRadius="11"
+                                        Padding="11,6"
                                         Margin="5,0,0,0">
                                     <StackPanel>
-                                        <TextBlock Text="PRIVASI &amp; PERFORMA" Foreground="#64748B" FontSize="9.5" FontWeight="Bold"/>
                                         <TextBlock x:Name="SysPrivacyDetailText"
                                                    Text="🛡️ Kamera &amp; Mic Aman"
                                                    Foreground="#22C55E"
-                                                   FontSize="12"
-                                                   FontWeight="SemiBold"
-                                                   Margin="0,3,0,0"/>
+                                                   FontSize="11.5"
+                                                   FontWeight="SemiBold"/>
                                         <TextBlock x:Name="SysMemoryDetailText"
                                                    Text="RAM Island: ~26 MB (0% Idle)"
                                                    Foreground="#94A3B8"
-                                                   FontSize="10.5"/>
+                                                   FontSize="10"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
 
-                            <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,2,0,0">
-                                <Button Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="11,6"
-                                        Margin="0,0,6,0"
-                                        FontSize="11"
-                                        Content="▲ Simpan di Atas Layar"
-                                        ToolTip="Lipat pulau ke bibir atas layar agar tidak menutupi tombol/tab aplikasi"
-                                        Click="OnManualTuckClick"/>
+                            <!-- Row 2: Sound Mute, Mic Mute, Tuck & Exit Buttons -->
+                            <WrapPanel Grid.Row="2" Orientation="Horizontal">
                                 <Button x:Name="ToggleMuteBtn"
                                         Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="11,6"
                                         Margin="0,0,6,0"
                                         FontSize="11"
-                                        Content="🔊 Mute Audio"
+                                        Content="🔊 Sound: ON"
+                                        ToolTip="Mute / Unmute Suara Output Sistem"
                                         Click="OnToggleMuteClick"/>
+                                <Button x:Name="ToggleMicMuteBtn"
+                                        Style="{StaticResource IslandIconButtonStyle}"
+                                        Padding="11,6"
+                                        Margin="0,0,6,0"
+                                        FontSize="11"
+                                        Content="🎙️ Mic: ON"
+                                        ToolTip="Mute / Unmute Mikrofon Secara Global"
+                                        Click="OnToggleMicMuteClick"/>
+                                <Button Style="{StaticResource IslandIconButtonStyle}"
+                                        Padding="11,6"
+                                        Margin="0,0,6,0"
+                                        FontSize="11"
+                                        Content="▲ Simpan"
+                                        ToolTip="Lipat pulau ke bibir atas layar"
+                                        Click="OnManualTuckClick"/>
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="11,6"
                                         FontSize="11"
