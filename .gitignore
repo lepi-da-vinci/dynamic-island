@@ -33,3 +33,5 @@ publish/
 .DS_Store
 Thumbs.db
 
+# Others
+ide.md

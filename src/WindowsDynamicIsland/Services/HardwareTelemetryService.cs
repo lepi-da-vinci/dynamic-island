@@ -1,6 +1,7 @@
-using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
 using Microsoft.Win32;
+using Windows.Devices.Enumeration;
 using WindowsDynamicIsland.Core;
 
 namespace WindowsDynamicIsland.Services;
@@ -16,12 +17,22 @@ public sealed class HardwareStatusSnapshot
     public bool IsMicrophoneInUse { get; init; }
     public string ActiveMicApp { get; init; } = string.Empty;
     public string NetworkName { get; init; } = "Connected";
+    public string ConnectedBluetoothName { get; init; } = string.Empty;
     public double AppMemoryMb { get; init; } = 24.0;
 }
 
-public sealed class HardwareTelemetryService
+public sealed class HardwareTelemetryService : IDisposable
 {
-    private static readonly Process CurrentProc = Process.GetCurrentProcess();
+    private const string BluetoothConnectedProperty = "System.Devices.Aep.IsConnected";
+    private const string BluetoothAqsFilter =
+        "(System.Devices.Aep.ProtocolId:=\"{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}\" OR " +
+        "System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\")";
+
+    private readonly ConcurrentDictionary<string, bool> _btConnectedStates = new();
+    private readonly ConcurrentDictionary<string, string> _btDeviceNames = new();
+    private DeviceWatcher? _bluetoothWatcher;
+    private volatile bool _btInitialEnumerationDone;
+
     private bool _initialized;
     private bool _lastCapsLock;
     private bool _lastNumLock;
@@ -35,6 +46,108 @@ public sealed class HardwareTelemetryService
     public HardwareStatusSnapshot Current { get; private set; } = new();
 
     public event Action<ToastPayload>? HardwareToastTriggered;
+
+    public HardwareTelemetryService()
+    {
+        StartBluetoothWatcher();
+    }
+
+    private void StartBluetoothWatcher()
+    {
+        try
+        {
+            string[] requestedProps = [BluetoothConnectedProperty];
+            _bluetoothWatcher = DeviceInformation.CreateWatcher(
+                BluetoothAqsFilter,
+                requestedProps,
+                DeviceInformationKind.AssociationEndpoint);
+
+            _bluetoothWatcher.Added += OnBluetoothDeviceAdded;
+            _bluetoothWatcher.Updated += OnBluetoothDeviceUpdated;
+            _bluetoothWatcher.Removed += OnBluetoothDeviceRemoved;
+            _bluetoothWatcher.EnumerationCompleted += (_, _) => _btInitialEnumerationDone = true;
+            _bluetoothWatcher.Start();
+        }
+        catch
+        {
+            // Ignore if Bluetooth adapter is disabled or unavailable
+        }
+    }
+
+    private void OnBluetoothDeviceAdded(DeviceWatcher sender, DeviceInformation deviceInfo)
+    {
+        try
+        {
+            string name = string.IsNullOrWhiteSpace(deviceInfo.Name) ? "Perangkat Bluetooth" : deviceInfo.Name.Trim();
+            _btDeviceNames[deviceInfo.Id] = name;
+
+            bool isConnected = false;
+            if (deviceInfo.Properties.TryGetValue(BluetoothConnectedProperty, out object? val) && val is bool b)
+            {
+                isConnected = b;
+            }
+
+            bool hadPrevious = _btConnectedStates.TryGetValue(deviceInfo.Id, out bool prevConnected);
+            _btConnectedStates[deviceInfo.Id] = isConnected;
+
+            if (_btInitialEnumerationDone && isConnected && (!hadPrevious || !prevConnected))
+            {
+                EmitBluetoothToast(name, connected: true);
+            }
+        }
+        catch { }
+    }
+
+    private void OnBluetoothDeviceUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
+    {
+        try
+        {
+            if (!update.Properties.TryGetValue(BluetoothConnectedProperty, out object? val) || val is not bool isConnected)
+                return;
+
+            bool hadPrevious = _btConnectedStates.TryGetValue(update.Id, out bool prevConnected);
+            _btConnectedStates[update.Id] = isConnected;
+
+            if (!_btInitialEnumerationDone) return;
+
+            if (!hadPrevious || prevConnected != isConnected)
+            {
+                string name = _btDeviceNames.TryGetValue(update.Id, out string? n) && !string.IsNullOrWhiteSpace(n)
+                    ? n
+                    : "Perangkat Bluetooth";
+
+                EmitBluetoothToast(name, isConnected);
+            }
+        }
+        catch { }
+    }
+
+    private void OnBluetoothDeviceRemoved(DeviceWatcher sender, DeviceInformationUpdate update)
+    {
+        _btConnectedStates.TryRemove(update.Id, out _);
+    }
+
+    private void EmitBluetoothToast(string deviceName, bool connected)
+    {
+        HardwareToastTriggered?.Invoke(new ToastPayload(
+            Icon: connected ? "🎧" : "🔌",
+            Title: connected ? "Bluetooth Terhubung" : "Bluetooth Terputus",
+            Subtitle: deviceName,
+            AccentHex: connected ? "#38BDF8" : "#94A3B8",
+            Duration: TimeSpan.FromSeconds(3.0)));
+    }
+
+    private string GetPrimaryConnectedBluetoothName()
+    {
+        foreach (var kvp in _btConnectedStates)
+        {
+            if (kvp.Value && _btDeviceNames.TryGetValue(kvp.Key, out string? name) && !string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
+        }
+        return string.Empty;
+    }
 
     public void PollFastKeyboardIndicators()
     {
@@ -99,7 +212,6 @@ public sealed class HardwareTelemetryService
         }
         _lastCharging = isCharging;
 
-        // Throttle Registry & Network interface checks to every 6 seconds for zero overhead
         if ((DateTime.UtcNow - _lastSlowPollUtc).TotalSeconds >= 6.0)
         {
             _lastSlowPollUtc = DateTime.UtcNow;
@@ -121,6 +233,7 @@ public sealed class HardwareTelemetryService
             IsMicrophoneInUse = _cachedMicActive,
             ActiveMicApp = _cachedMicApp,
             NetworkName = _cachedNetworkName,
+            ConnectedBluetoothName = GetPrimaryConnectedBluetoothName(),
             AppMemoryMb = memoryMb
         };
     }
@@ -199,5 +312,18 @@ public sealed class HardwareTelemetryService
         object? startObj = key.GetValue("LastUsedTimeStart");
         object? stopObj = key.GetValue("LastUsedTimeStop");
         return startObj is long start && start > 0 && stopObj is long stop && stop == 0;
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (_bluetoothWatcher != null &&
+                _bluetoothWatcher.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted)
+            {
+                _bluetoothWatcher.Stop();
+            }
+        }
+        catch { }
     }
 }

@@ -1,7 +1,7 @@
 namespace WindowsDynamicIsland.Core;
 
 /// <summary>
-/// Second-order damped harmonic oscillator (Spring Physics) for 60-120 FPS fluid pill morphing.
+/// Second-order damped harmonic oscillator (Spring Physics) for 60-120 FPS fluid water-drop morphing.
 /// Automatically reports when at rest so the compositor loop can throttle to 0 FPS during idle.
 /// </summary>
 public sealed class SpringValue
@@ -18,7 +18,7 @@ public sealed class SpringValue
         Math.Abs(Target - Current) < Precision &&
         Math.Abs(Velocity) < Precision * 5.0;
 
-    public SpringValue(double initialValue, double stiffness = 360.0, double damping = 24.0, double precision = 0.25)
+    public SpringValue(double initialValue, double stiffness = 340.0, double damping = 22.0, double precision = 0.20)
     {
         Current = initialValue;
         Target = initialValue;
@@ -80,28 +80,32 @@ public sealed class SpringValue
 
 public sealed class IslandMorphController
 {
-    public SpringValue Width { get; } = new(168, stiffness: 390, damping: 25);
-    public SpringValue Height { get; } = new(34, stiffness: 410, damping: 27);
-    public SpringValue CornerRadius { get; } = new(17, stiffness: 420, damping: 30);
-    public SpringValue GlowOpacity { get; } = new(0.0, stiffness: 250, damping: 24, precision: 0.01);
-    public SpringValue TopOffset { get; } = new(8.0, stiffness: 420, damping: 28, precision: 0.15);
+    public SpringValue Width { get; } = new(196, stiffness: 320, damping: 21);
+    public SpringValue Height { get; } = new(38, stiffness: 310, damping: 19.5);
+    public SpringValue CornerRadius { get; } = new(20, stiffness: 360, damping: 26);
+    public SpringValue GlowOpacity { get; } = new(0.14, stiffness: 240, damping: 22, precision: 0.01);
+    public SpringValue TopOffset { get; } = new(5.0, stiffness: 280, damping: 17.5, precision: 0.10);
 
     public bool IsAnimating =>
         !Width.IsAtRest || !Height.IsAtRest || !CornerRadius.IsAtRest || !GlowOpacity.IsAtRest || !TopOffset.IsAtRest;
 
     public void MorphTo(double width, double height, double cornerRadius, double glowOpacity, double topOffset, bool bouncy = true)
     {
-        Width.Stiffness = bouncy ? 380 : 440;
-        Width.Damping = bouncy ? 23.5 : 31.0;
+        // Underdamped liquid surface-tension physics when expanding (droplet pulling down)
+        Width.Stiffness = bouncy ? 310 : 390;
+        Width.Damping = bouncy ? 20.0 : 28.0;
 
-        Height.Stiffness = bouncy ? 400 : 450;
-        Height.Damping = bouncy ? 25.0 : 32.0;
+        Height.Stiffness = bouncy ? 295 : 380;
+        Height.Damping = bouncy ? 18.0 : 27.0;
 
+        bool growingDown = height > Height.Current + 12;
         Width.SetTarget(width);
-        Height.SetTarget(height);
+        Height.SetTarget(height, growingDown ? 90.0 : null);
         CornerRadius.SetTarget(cornerRadius);
         GlowOpacity.SetTarget(glowOpacity);
-        TopOffset.SetTarget(topOffset);
+
+        // Give a downward gravity pull impulse when the droplet expands so it feels like a heavy droplet about to fall
+        TopOffset.SetTarget(topOffset, growingDown ? 75.0 : null);
     }
 
     public bool Update(double dtSeconds)

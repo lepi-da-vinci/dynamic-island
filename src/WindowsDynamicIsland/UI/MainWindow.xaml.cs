@@ -15,6 +15,9 @@ using WindowsDynamicIsland.Services;
 
 namespace WindowsDynamicIsland.UI;
 
+/// <summary>
+/// Main overlay window hosting the liquid water-droplet Dynamic Island and 60-120 FPS spring physics loop.
+/// </summary>
 public partial class MainWindow : Window
 {
     private readonly IslandStateMachine _stateMachine = new();
@@ -41,12 +44,16 @@ public partial class MainWindow : Window
     private string _lastClipboardPreview = string.Empty;
     private readonly bool _autoHideFullScreen = true;
 
-    // Lyric animation tracking
+    // Lyric animation & slow one-way pan tracking
     private int _lastAnimatedLyricIndex = -999;
     private string _lastDisplayedCompactText = string.Empty;
-    private double _marqueeOffset;
-    private double _marqueeDirection = 1.0;
-    private double _marqueePauseTimer;
+    private double _currentLyricLineProgress;
+    private double _currentPanX;
+    private int _topBezelHoldTicks;
+
+    // Interactive timeline scrubbing state
+    private bool _isDraggingTimeline;
+    private double _draggedTimelineRatio;
 
     public MainWindow()
     {
@@ -59,22 +66,23 @@ public partial class MainWindow : Window
         _oneSecondTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.0) };
         _oneSecondTimer.Tick += OnOneSecondTick;
 
-        // 110ms fast timer for responsive lyric sync, keyboard indicators, and smart top-bar auto-tuck
-        _fastUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(110) };
+        // 100ms fast timer for responsive lyric sync, keyboard indicators, and top-bezel hold check
+        _fastUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _fastUpdateTimer.Tick += OnFastUpdateTick;
 
-        _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.2) };
+        _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         _toastDismissTimer.Tick += (_, _) =>
         {
             _toastDismissTimer.Stop();
             _stateMachine.ClearToast();
         };
 
-        _collapseDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
+        // 240ms debounce prevents any accidental hover flicker when moving cursor near edges
+        _collapseDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(240) };
         _collapseDebounceTimer.Tick += (_, _) =>
         {
             _collapseDebounceTimer.Stop();
-            if (!IslandBorder.IsMouseOver)
+            if (!IslandBorder.IsMouseOver && !_isDraggingTimeline)
             {
                 _stateMachine.SetHovered(false);
             }
@@ -121,9 +129,9 @@ public partial class MainWindow : Window
         _fastUpdateTimer.Start();
 
         TriggerToast(new ToastPayload(
-            Icon: "🏝️",
+            Icon: "💧",
             Title: "Dynamic Island Aktif",
-            Subtitle: "Sentuh bibir atas layar untuk buka • Otomatis menghindar di tab",
+            Subtitle: "Hover untuk buka • Klik Kanan pil untuk simpan ke atas",
             AccentHex: "#38BDF8",
             Duration: TimeSpan.FromSeconds(2.8)));
 
@@ -137,6 +145,7 @@ public partial class MainWindow : Window
         _oneSecondTimer.Stop();
         _fastUpdateTimer.Stop();
         _mediaService.Dispose();
+        _hardwareService.Dispose();
 
         if (_hwnd != IntPtr.Zero)
         {
@@ -189,12 +198,12 @@ public partial class MainWindow : Window
             int mouseMsg = (int)(lParam.ToInt64() & 0xFFFF);
             if (mouseMsg == Win32Interop.WM_LBUTTONUP || mouseMsg == Win32Interop.WM_LBUTTONDBLCLK)
             {
-                _stateMachine.SetManuallyTucked(false);
+                _stateMachine.SetTuckedMode(false);
                 _stateMachine.TogglePinnedExpanded();
             }
             else if (mouseMsg == Win32Interop.WM_RBUTTONUP)
             {
-                _stateMachine.SetManuallyTucked(false);
+                _stateMachine.SetTuckedMode(false);
                 _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
                 _stateMachine.TogglePinnedExpanded();
             }
@@ -214,9 +223,9 @@ public partial class MainWindow : Window
                 {
                     _lastClipboardPreview = text;
                     string singleLine = text.Replace("\r", " ").Replace("\n", " ");
-                    if (singleLine.Length > 34)
+                    if (singleLine.Length > 36)
                     {
-                        singleLine = singleLine[..34] + "…";
+                        singleLine = singleLine[..36] + "…";
                     }
 
                     TriggerToast(new ToastPayload(
@@ -249,9 +258,9 @@ public partial class MainWindow : Window
 
     private void OnIslandStateChanged(IslandVisualState state, IslandDashboardTab tab)
     {
-        var (w, h, corner, glow, topOffset) = _stateMachine.GetTargetDimensions();
+        var (w, h, corner, glow, neckDrop) = _stateMachine.GetTargetDimensions();
         bool expanding = w > _morph.Width.Current || h > _morph.Height.Current;
-        _morph.MorphTo(w, h, corner, glow, topOffset, bouncy: expanding);
+        _morph.MorphTo(w, h, corner, glow, neckDrop, bouncy: expanding);
 
         TuckedHandlePanel.Visibility = state == IslandVisualState.TuckedTopEdge ? Visibility.Visible : Visibility.Collapsed;
         IdlePillPanel.Visibility = state == IslandVisualState.IdlePill ? Visibility.Visible : Visibility.Collapsed;
@@ -260,6 +269,7 @@ public partial class MainWindow : Window
         ExpandedDashboardPanel.Visibility = state == IslandVisualState.ExpandedDashboard ? Visibility.Visible : Visibility.Collapsed;
 
         IslandBorder.Opacity = state == IslandVisualState.Hidden ? 0.0 : 1.0;
+        LiquidNeckPath.Opacity = state == IslandVisualState.Hidden ? 0.0 : 1.0;
 
         MediaTabGrid.Visibility = tab == IslandDashboardTab.MediaLyrics ? Visibility.Visible : Visibility.Collapsed;
         ShelfTabGrid.Visibility = tab == IslandDashboardTab.FileShelf ? Visibility.Visible : Visibility.Collapsed;
@@ -312,17 +322,27 @@ public partial class MainWindow : Window
 
         bool morphActive = _morph.Update(dt);
 
-        double topMargin = Math.Max(0, _morph.TopOffset.Current);
-        IslandBorder.Margin = new Thickness(0, topMargin, 0, 0);
-        IslandBorder.Width = Math.Max(36, _morph.Width.Current);
-        IslandBorder.Height = Math.Max(4, _morph.Height.Current);
-        IslandBorder.CornerRadius = new CornerRadius(Math.Max(2, _morph.CornerRadius.Current));
+        double topOffset = Math.Max(0, _morph.TopOffset.Current);
+        double pillWidth = Math.Max(40, _morph.Width.Current);
+        double pillHeight = Math.Max(4, _morph.Height.Current);
+        double corner = Math.Max(2, _morph.CornerRadius.Current);
+
+        IslandBorder.Margin = new Thickness(0, topOffset, 0, 0);
+        IslandBorder.Width = pillWidth;
+        IslandBorder.Height = pillHeight;
+        // Water droplet shape: slightly tighter top corners where it connects to the liquid neck, fuller rounded bottom belly!
+        double topCorner = Math.Max(4, corner * 0.72);
+        double bottomCorner = Math.Min(pillHeight * 0.54, corner * 1.12);
+        IslandBorder.CornerRadius = new CornerRadius(topCorner, topCorner, bottomCorner, bottomCorner);
 
         AmbientGlowBorder.Margin = IslandBorder.Margin;
-        AmbientGlowBorder.Width = IslandBorder.Width + 6;
-        AmbientGlowBorder.Height = IslandBorder.Height + 6;
+        AmbientGlowBorder.Width = pillWidth + 8;
+        AmbientGlowBorder.Height = pillHeight + 8;
         AmbientGlowBorder.CornerRadius = IslandBorder.CornerRadius;
         AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
+
+        // Render the Liquid Water-Droplet Meniscus Bridge clinging to the top screen wall (Y = 0)
+        UpdateLiquidMeniscusGeometry(pillWidth, topOffset, topCorner);
 
         bool isCompactMedia =
             _stateMachine.CurrentState == IslandVisualState.CompactMedia &&
@@ -335,19 +355,19 @@ public partial class MainWindow : Window
 
         if (isCompactMedia)
         {
-            _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 17.5);
+            _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 18.0);
             for (int i = 0; i < _waveRectangles.Length; i++)
             {
                 _waveRectangles[i].Height = _spectrumHeights[i];
             }
 
-            UpdateCompactMarqueeScroll(dt);
+            UpdateCompactLyricSlowPan(dt);
         }
         else if (isExpandedMedia)
         {
             float peak = _audioService.GetCurrentPeakLevel(_mediaService.CurrentTrack.IsPlaying);
             LyricsStageGlowOrb.Opacity = 0.14 + Math.Clamp(peak * 0.45, 0.0, 0.35);
-            LyricsStageGlowOrb.Width = 170 + peak * 90;
+            LyricsStageGlowOrb.Width = 180 + peak * 95;
         }
 
         if (!morphActive && !isCompactMedia && !isExpandedMedia)
@@ -356,106 +376,117 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateCompactMarqueeScroll(double dt)
+    /// <summary>
+    /// Builds a smooth concave Bezier meniscus bridge connecting the top ceiling of the screen (Y = 0)
+    /// to the top of the hanging water-droplet island so it looks like a liquid drop about to drip down.
+    /// </summary>
+    private void UpdateLiquidMeniscusGeometry(double pillWidth, double topOffset, double topCorner)
+    {
+        double neckDrop = topOffset + Math.Min(12.0, topCorner * 0.65);
+        if (neckDrop <= 1.0)
+        {
+            LiquidNeckPath.Data = null;
+            return;
+        }
+
+        // Ceiling attachment is wider at Y=0, pinching slightly inward before flaring into the droplet shoulders
+        double bodyAttachHalfW = Math.Max(24, (pillWidth * 0.5) - (topCorner * 0.42));
+        double ceilingHalfW = bodyAttachHalfW + Math.Clamp(topOffset * 1.9 + 14.0, 12.0, 32.0);
+        double waistHalfW = bodyAttachHalfW - Math.Clamp(topOffset * 0.45, 0.0, 7.0);
+
+        double totalW = ceilingHalfW * 2.0;
+        double centerX = ceilingHalfW;
+
+        var geom = new StreamGeometry();
+        using (StreamGeometryContext ctx = geom.Open())
+        {
+            // Start at top-left on the screen ceiling (Y = 0)
+            ctx.BeginFigure(new Point(0, 0), isFilled: true, isClosed: true);
+            // Line across the ceiling to top-right
+            ctx.LineTo(new Point(totalW, 0), isStroked: false, isSmoothJoin: false);
+            // Right concave meniscus curve pulling inward (waist) then meeting the droplet shoulder
+            ctx.BezierTo(
+                new Point(centerX + waistHalfW, neckDrop * 0.35),
+                new Point(centerX + waistHalfW, neckDrop * 0.75),
+                new Point(centerX + bodyAttachHalfW, neckDrop),
+                isStroked: false,
+                isSmoothJoin: true);
+            // Bottom line across the droplet top overlap
+            ctx.LineTo(new Point(centerX - bodyAttachHalfW, neckDrop), isStroked: false, isSmoothJoin: false);
+            // Left concave meniscus curve back up to the ceiling at (0, 0)
+            ctx.BezierTo(
+                new Point(centerX - waistHalfW, neckDrop * 0.75),
+                new Point(centerX - waistHalfW, neckDrop * 0.35),
+                new Point(0, 0),
+                isStroked: false,
+                isSmoothJoin: true);
+        }
+
+        geom.Freeze();
+        LiquidNeckPath.Width = totalW;
+        LiquidNeckPath.Height = neckDrop;
+        LiquidNeckPath.Data = geom;
+    }
+
+    /// <summary>
+    /// Smoothly pans long lyric lines in ONE direction (left-to-right of the sentence) synchronized
+    /// with the vocal progress of the current lyric line (never bounces back and forth).
+    /// </summary>
+    private void UpdateCompactLyricSlowPan(double dt)
     {
         double textWidth = CompactSongTitleText.ActualWidth;
         double viewportWidth = CompactLyricViewport.ActualWidth;
 
-        if (viewportWidth <= 10 || textWidth <= viewportWidth + 4)
+        if (viewportWidth <= 10 || textWidth <= viewportWidth + 2)
         {
-            CompactLyricTranslate.X = 0;
-            _marqueeOffset = 0;
+            // Short lyric line: keep smoothly aligned at 0
+            _currentPanX += (0 - _currentPanX) * Math.Min(1.0, dt * 8.0);
+            CompactLyricTranslate.X = _currentPanX;
             return;
         }
 
-        if (_marqueePauseTimer > 0)
-        {
-            _marqueePauseTimer -= dt;
-            return;
-        }
+        double maxOverflow = textWidth - viewportWidth + 10;
 
-        double maxOverflow = textWidth - viewportWidth + 12;
-        _marqueeOffset += _marqueeDirection * 28.0 * dt;
+        // Hold at the start for the first 15% of the line, then pan smoothly to the end by 88% of the line
+        double normalizedPan = Math.Clamp((_currentLyricLineProgress - 0.15) / 0.73, 0.0, 1.0);
+        double targetX = -maxOverflow * normalizedPan;
 
-        if (_marqueeOffset >= maxOverflow)
-        {
-            _marqueeOffset = maxOverflow;
-            _marqueeDirection = -1.0;
-            _marqueePauseTimer = 1.1;
-        }
-        else if (_marqueeOffset <= 0)
-        {
-            _marqueeOffset = 0;
-            _marqueeDirection = 1.0;
-            _marqueePauseTimer = 1.4;
-        }
-
-        CompactLyricTranslate.X = -_marqueeOffset;
+        // Gentle exponential smoothing so the text glides slowly like water
+        _currentPanX += (targetX - _currentPanX) * Math.Min(1.0, dt * 4.5);
+        CompactLyricTranslate.X = _currentPanX;
     }
 
     private void OnFastUpdateTick(object? sender, EventArgs e)
     {
         _hardwareService.PollFastKeyboardIndicators();
 
-        // Update live lyrics at ~9Hz so lyric transitions & karaoke progress bar feel instantaneous
         if (_mediaService.CurrentTrack.HasActiveSession)
         {
             UpdateMediaAndLyricsUi();
         }
 
-        UpdateSmartTopBarAutoTuck();
-    }
-
-    /// <summary>
-    /// Automatically tucks the Dynamic Island into a thin 6.5px strip at the top bezel ("Tersimpan di Atas")
-    /// when an application has clickable tabs/buttons at the top of the screen and the user moves their mouse
-    /// into the tab bar zone (Y = 7..52px). Touching the very top bezel (Y <= 5px) opens the Island!
-    /// </summary>
-    private void UpdateSmartTopBarAutoTuck()
-    {
-        if (!Win32Interop.GetCursorPos(out var pt)) return;
-
-        int screenW = (int)SystemParameters.PrimaryScreenWidth;
-        int centerPx = screenW / 2;
-        bool inHorizontalIslandZone = Math.Abs(pt.X - centerPx) <= 230;
-
-        // If user pushes cursor to the very top bezel (Y <= 4px) in the center, reveal & expand the island!
-        if (pt.Y <= 4 && Math.Abs(pt.X - centerPx) <= 95)
+        // If tucked at top edge, allow holding the cursor at the very top bezel (Y <= 2px) for 300ms to pull it down
+        if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge &&
+            Win32Interop.GetCursorPos(out var pt))
         {
-            _collapseDebounceTimer.Stop();
-            _stateMachine.SetManuallyTucked(false);
-            _stateMachine.SetAutoDodgingTopBar(false);
-            _stateMachine.SetHovered(true);
-            return;
+            int centerPx = (int)(SystemParameters.PrimaryScreenWidth / 2);
+            if (pt.Y <= 2 && Math.Abs(pt.X - centerPx) <= 85)
+            {
+                _topBezelHoldTicks++;
+                if (_topBezelHoldTicks >= 3)
+                {
+                    _topBezelHoldTicks = 0;
+                    _stateMachine.SetHovered(true);
+                }
+            }
+            else
+            {
+                _topBezelHoldTicks = 0;
+            }
         }
-
-        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+        else
         {
-            return;
-        }
-
-        if (!_stateMachine.AutoDodgeEnabled)
-        {
-            _stateMachine.SetAutoDodgingTopBar(false);
-            return;
-        }
-
-        bool appCoversTop = Win32Interop.IsForegroundAppOccupyingTopBar(_hwnd, screenW);
-        if (!appCoversTop)
-        {
-            _stateMachine.SetAutoDodgingTopBar(false);
-            return;
-        }
-
-        // When an app (like Chrome/Edge/VS Code) covers the top bar:
-        // If cursor is in the tab bar band (Y = 6..54px), tuck the island into the top bezel so tabs are 100% clickable!
-        if (pt.Y >= 6 && pt.Y <= 54 && inHorizontalIslandZone)
-        {
-            _stateMachine.SetAutoDodgingTopBar(true);
-        }
-        else if (pt.Y > 62 || !inHorizontalIslandZone)
-        {
-            _stateMachine.SetAutoDodgingTopBar(false);
+            _topBezelHoldTicks = 0;
         }
     }
 
@@ -519,10 +550,16 @@ public partial class MainWindow : Window
         CameraPrivacyDot.Visibility = hw.IsCameraInUse ? Visibility.Visible : Visibility.Collapsed;
         MicPrivacyDot.Visibility = hw.IsMicrophoneInUse ? Visibility.Visible : Visibility.Collapsed;
 
+        bool hasExtraIdle = hw.IsCameraInUse || hw.IsMicrophoneInUse || _pomodoroService.IsRunning;
+        _stateMachine.UpdateDynamicIdleWidth(hasExtraIdle);
+
         SysBatteryDetailText.Text = hw.HasBattery
             ? $"{(hw.IsCharging ? "⚡ Charging" : "🔋 Baterai")} {hw.BatteryPercent}%"
             : "⚡ Daya Desktop AC (100%)";
-        SysNetworkDetailText.Text = hw.NetworkName;
+
+        SysNetworkDetailText.Text = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName)
+            ? $"🎧 {hw.ConnectedBluetoothName} • {hw.NetworkName}"
+            : hw.NetworkName;
 
         if (hw.IsCameraInUse || hw.IsMicrophoneInUse)
         {
@@ -601,8 +638,10 @@ public partial class MainWindow : Window
         ExpandedArtistText.Text = track.Artist;
         PlayPauseButton.Content = track.IsPlaying ? "⏸" : "▶";
 
-        TimeSpan pos = _mediaService.GetInterpolatedPosition();
         TimeSpan dur = track.Duration;
+        TimeSpan pos = _isDraggingTimeline && dur.TotalSeconds > 0
+            ? TimeSpan.FromSeconds(dur.TotalSeconds * _draggedTimelineRatio)
+            : _mediaService.GetInterpolatedPosition();
 
         ElapsedTimeText.Text = FormatTimeSpan(pos);
         TotalDurationText.Text = FormatTimeSpan(dur);
@@ -610,21 +649,24 @@ public partial class MainWindow : Window
         double trackWidth = Math.Max(0, TimelineTrackBorder.ActualWidth);
         if (dur.TotalSeconds > 0.5 && trackWidth > 0)
         {
-            double ratio = Math.Clamp(pos.TotalSeconds / dur.TotalSeconds, 0.0, 1.0);
-            TimelineFillBorder.Width = trackWidth * ratio;
+            double ratio = _isDraggingTimeline
+                ? _draggedTimelineRatio
+                : Math.Clamp(pos.TotalSeconds / dur.TotalSeconds, 0.0, 1.0);
+            double fillPx = trackWidth * ratio;
+            TimelineFillBorder.Width = fillPx;
+            TimelineThumb.Margin = new Thickness(fillPx - 6, 0, 0, 0);
         }
         else
         {
             TimelineFillBorder.Width = 0;
+            TimelineThumb.Margin = new Thickness(-6, 0, 0, 0);
         }
 
-        // Retrieve 3-line synchronized lyrics + karaoke progress
         var lyricSnap = _lyricsService.GetActiveLyrics(pos);
+        _currentLyricLineProgress = lyricSnap.LineProgressRatio;
 
-        // Update Karaoke Line Progress Bar smoothly
-        LyricLineProgressFill.Width = 110.0 * Math.Clamp(lyricSnap.LineProgressRatio, 0.0, 1.0);
+        LyricLineProgressFill.Width = 120.0 * Math.Clamp(lyricSnap.LineProgressRatio, 0.0, 1.0);
 
-        // Determine what text to show in Compact Media Pill (Gambar 4: Live Moving Lyrics!)
         string compactTargetText;
         if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "♪  •  •  •")
         {
@@ -645,22 +687,21 @@ public partial class MainWindow : Window
         {
             _lastDisplayedCompactText = compactTargetText;
             CompactSongTitleText.Text = compactTargetText;
-            _marqueeOffset = 0;
-            _marqueeDirection = 1.0;
-            _marqueePauseTimer = 0.9;
+            _currentPanX = 0;
             CompactLyricTranslate.X = 0;
 
-            // Animate vertical slide-up + fade-in inside the Compact Pill
-            var slideUp = new DoubleAnimation(13.0, 0.0, TimeSpan.FromMilliseconds(320))
+            // Dynamically adjust the water-droplet width based on lyric length!
+            _stateMachine.UpdateDynamicCompactWidth(compactTargetText.Length);
+
+            var slideUp = new DoubleAnimation(12.0, 0.0, TimeSpan.FromMilliseconds(340))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             };
-            var fadeIn = new DoubleAnimation(0.15, 1.0, TimeSpan.FromMilliseconds(280));
+            var fadeIn = new DoubleAnimation(0.20, 1.0, TimeSpan.FromMilliseconds(300));
             CompactLyricTranslate.BeginAnimation(TranslateTransform.YProperty, slideUp);
             CompactSongTitleText.BeginAnimation(OpacityProperty, fadeIn);
         }
 
-        // Animate 3-Line Expanded Lyrics Stage (Gambar 3) when moving to a new lyric line
         if (lyricSnap.LineIndex != _lastAnimatedLyricIndex || CurrentLyricLineText.Text != lyricSnap.CurrentLine)
         {
             _lastAnimatedLyricIndex = lyricSnap.LineIndex;
@@ -677,14 +718,12 @@ public partial class MainWindow : Window
         var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
         var springBack = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 };
 
-        // 1. Cascade Slide-Up on the entire 3-line stack
         var stageSlide = new DoubleAnimation(16.0, 0.0, TimeSpan.FromMilliseconds(360))
         {
             EasingFunction = easeOut
         };
         LyricsStageTranslate.BeginAnimation(TranslateTransform.YProperty, stageSlide);
 
-        // 2. Elastic Pop Scale on the Active Lyric Line
         var scalePop = new DoubleAnimation(0.88, 1.0, TimeSpan.FromMilliseconds(400))
         {
             EasingFunction = springBack
@@ -692,7 +731,6 @@ public partial class MainWindow : Window
         ActiveLyricScale.BeginAnimation(ScaleTransform.ScaleXProperty, scalePop);
         ActiveLyricScale.BeginAnimation(ScaleTransform.ScaleYProperty, scalePop);
 
-        // 3. Smooth Opacity Fade-In on the Active Lyric Line
         var fade = new DoubleAnimation(0.20, 1.0, TimeSpan.FromMilliseconds(280))
         {
             EasingFunction = easeOut
@@ -729,7 +767,7 @@ public partial class MainWindow : Window
         {
             ToastProgressContainer.Visibility = Visibility.Visible;
             double ratio = Math.Clamp(toast.ProgressRatio.Value, 0.0, 1.0);
-            ToastProgressFill.Width = 58.0 * ratio;
+            ToastProgressFill.Width = 64.0 * ratio;
             ToastProgressFill.Background = new SolidColorBrush(accent);
         }
         else
@@ -740,30 +778,70 @@ public partial class MainWindow : Window
         _stateMachine.ShowToast(toast);
 
         _toastDismissTimer.Stop();
-        _toastDismissTimer.Interval = toast.Duration ?? TimeSpan.FromSeconds(2.2);
+        _toastDismissTimer.Interval = toast.Duration ?? TimeSpan.FromSeconds(2.4);
         _toastDismissTimer.Start();
     }
 
-    // --- MOUSE & GESTURE HANDLERS ---
+    // --- INTERACTIVE TIMELINE SCRUBBER HANDLERS ---
+
+    private void OnTimelineMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_mediaService.CurrentTrack.HasActiveSession || _mediaService.CurrentTrack.Duration.TotalSeconds <= 0.5)
+            return;
+
+        _isDraggingTimeline = true;
+        TimelineScrubberHitArea.CaptureMouse();
+        UpdateTimelineRatioFromMouse(e.GetPosition(TimelineTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnTimelineMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingTimeline) return;
+        UpdateTimelineRatioFromMouse(e.GetPosition(TimelineTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private async void OnTimelineMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingTimeline) return;
+
+        UpdateTimelineRatioFromMouse(e.GetPosition(TimelineTrackBorder).X);
+        _isDraggingTimeline = false;
+        TimelineScrubberHitArea.ReleaseMouseCapture();
+
+        TimeSpan dur = _mediaService.CurrentTrack.Duration;
+        if (dur.TotalSeconds > 0.5)
+        {
+            TimeSpan target = TimeSpan.FromSeconds(dur.TotalSeconds * _draggedTimelineRatio);
+            await _mediaService.SeekToPositionAsync(target);
+            UpdateMediaAndLyricsUi();
+        }
+
+        e.Handled = true;
+    }
+
+    private void UpdateTimelineRatioFromMouse(double mouseX)
+    {
+        double trackW = Math.Max(1.0, TimelineTrackBorder.ActualWidth);
+        _draggedTimelineRatio = Math.Clamp(mouseX / trackW, 0.0, 1.0);
+        UpdateMediaAndLyricsUi();
+    }
+
+    // --- MOUSE & GESTURE HANDLERS (Zero-Flicker) ---
 
     private void OnIslandMouseEnter(object sender, MouseEventArgs e)
     {
         _collapseDebounceTimer.Stop();
 
-        // Check if an app has tabs behind the island and cursor entered below the top bezel (Y > 6px):
-        // If so, auto-tuck into the top bezel instead of blocking the user's browser tab!
-        if (_stateMachine.AutoDodgeEnabled &&
-            _stateMachine.CurrentState is IslandVisualState.CompactMedia or IslandVisualState.IdlePill &&
-            Win32Interop.GetCursorPos(out var pt) &&
-            pt.Y > 6 &&
-            Win32Interop.IsForegroundAppOccupyingTopBar(_hwnd, (int)SystemParameters.PrimaryScreenWidth))
+        // When tucked at the top edge ("Tersimpan di Atas"), do NOT auto-open on casual brush-by
+        // so browser tabs right below it can be clicked freely without any flickering!
+        // User simply clicks the tucked handle (or holds cursor at Y <= 2px) to pull it down.
+        if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge)
         {
-            _stateMachine.SetAutoDodgingTopBar(true);
             return;
         }
 
-        _stateMachine.SetManuallyTucked(false);
-        _stateMachine.SetAutoDodgingTopBar(false);
         _stateMachine.SetHovered(true);
         UpdateMediaAndLyricsUi();
     }
@@ -778,17 +856,24 @@ public partial class MainWindow : Window
     {
         if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
         {
-            _stateMachine.SetManuallyTucked(false);
-            _stateMachine.SetAutoDodgingTopBar(false);
+            _stateMachine.SetTuckedMode(false);
             _stateMachine.SetHovered(true);
+            UpdateMediaAndLyricsUi();
         }
     }
 
     private void OnIslandMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        _stateMachine.SetManuallyTucked(false);
-        _stateMachine.CycleNextTab();
-        _stateMachine.SetHovered(true);
+        // Right-clicking on the Compact/Idle pill immediately tucks it up into the ceiling so tabs behind it are exposed!
+        if (_stateMachine.CurrentState is IslandVisualState.CompactMedia or IslandVisualState.IdlePill)
+        {
+            _stateMachine.SetTuckedMode(true);
+        }
+        else
+        {
+            _stateMachine.CycleNextTab();
+            _stateMachine.SetHovered(true);
+        }
         e.Handled = true;
     }
 
@@ -826,8 +911,7 @@ public partial class MainWindow : Window
         {
             e.Effects = DragDropEffects.Copy;
             _collapseDebounceTimer.Stop();
-            _stateMachine.SetManuallyTucked(false);
-            _stateMachine.SetAutoDodgingTopBar(false);
+            _stateMachine.SetTuckedMode(false);
             _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
             _stateMachine.SetHovered(true);
         }
@@ -886,6 +970,7 @@ public partial class MainWindow : Window
     private void UpdateShelfUi()
     {
         int count = _fileShelfService.Items.Count;
+        _stateMachine.UpdateShelfCount(count);
         EmptyShelfHintText.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ShelfHeaderCountText.Text = count == 0
             ? "Taruh file/gambar sementara di sini (Drag Masuk & Keluar)"
@@ -907,7 +992,7 @@ public partial class MainWindow : Window
 
     private void OnManualTuckClick(object sender, RoutedEventArgs e)
     {
-        _stateMachine.SetManuallyTucked(true);
+        _stateMachine.SetTuckedMode(true);
     }
 
     private async void OnMediaPrevClick(object sender, RoutedEventArgs e) => await _mediaService.SkipPreviousAsync();
@@ -918,14 +1003,6 @@ public partial class MainWindow : Window
     private void OnPomodoroResetFocusClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(25, isBreak: false);
     private void OnPomodoroBreakClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(5, isBreak: true);
     private void OnPomodoroAdd5MinClick(object sender, RoutedEventArgs e) => _pomodoroService.AddMinutes(5);
-
-    private void OnToggleAutoDodgeClick(object sender, RoutedEventArgs e)
-    {
-        _stateMachine.AutoDodgeEnabled = !_stateMachine.AutoDodgeEnabled;
-        ToggleAutoDodgeBtn.Content = _stateMachine.AutoDodgeEnabled
-            ? "🔼 Auto-Simpan Tab: ON"
-            : "📌 Auto-Simpan Tab: OFF";
-    }
 
     private void OnToggleMuteClick(object sender, RoutedEventArgs e)
     {

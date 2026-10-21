@@ -264,6 +264,29 @@ public sealed class MediaSessionService : IDisposable
         catch { }
     }
 
+    public async Task SeekToPositionAsync(TimeSpan targetPosition)
+    {
+        if (_currentSession == null) return;
+        try
+        {
+            if (targetPosition < TimeSpan.Zero)
+                targetPosition = TimeSpan.Zero;
+            if (CurrentTrack.Duration > TimeSpan.Zero && targetPosition > CurrentTrack.Duration)
+                targetPosition = CurrentTrack.Duration;
+
+            // Update local interpolated position immediately for responsive UI scrubbing
+            _basePosition = targetPosition;
+            _lastTimelineSyncUtc = DateTime.UtcNow;
+            CurrentTrack.Position = targetPosition;
+
+            await _currentSession.TryChangePlaybackPositionAsync(targetPosition.Ticks);
+        }
+        catch
+        {
+            // Some media players may not support seeking via GSMTC
+        }
+    }
+
     private static async Task<(BitmapSource? Bitmap, Color Dominant)> LoadThumbnailAndColorAsync(IRandomAccessStreamReference streamRef)
     {
         try
