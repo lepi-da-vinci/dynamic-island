@@ -11,6 +11,13 @@
     <AssemblyName>WindowsDynamicIsland</AssemblyName>
     <RootNamespace>WindowsDynamicIsland</RootNamespace>
     <OptimizationPreference>Speed</OptimizationPreference>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <Product>Windows Dynamic Island</Product>
+    <Company>WindowsDynamicIsland</Company>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Description>Native Dynamic Island for Windows 10 and 11</Description>
   </PropertyGroup>
 
   <!-- Automatically stop any previous running instance before build/run so MSB3027 file-lock never happens -->

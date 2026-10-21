@@ -29,7 +29,10 @@ jobs:
             -r win-x64 `
             --self-contained true `
             -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=none `
+            -p:DebugSymbols=false `
             -o ./publish
 
       - name: Create Zip Archive
@@ -60,4 +63,10 @@ jobs:
             * **Wi-Fi & Bluetooth Alerts**: OSD Toast otomatis saat tersambung atau terputus.
 
             ### Panduan Menjalankan
-            Cukup unduh `WindowsDynamicIsland.exe` atau ekstrak `WindowsDynamicIsland-win-x64.zip` dan jalankan langsung (portabel tanpa perlu install .NET SDK).
+            **Cara 1 - Instal Otomatis Tanpa Peringatan SmartScreen (PowerShell):**
+            ```powershell
+            irm https://raw.githubusercontent.com/lepi-da-vinci/dynamic-island/main/install.ps1 | iex
+            ```
+
+            **Cara 2 - Unduh Langsung:**
+            Unduh `WindowsDynamicIsland.exe` (portabel dengan seluruh pustaka native WPF di dalamnya) atau ekstrak `WindowsDynamicIsland-win-x64.zip`. Jika muncul jendela biru Windows SmartScreen saat dibuka pertama kali, klik **More info** lalu klik **Run anyway**.

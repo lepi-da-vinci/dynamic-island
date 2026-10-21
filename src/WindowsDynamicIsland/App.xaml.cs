@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -25,11 +26,30 @@ public partial class App : Application
             }
         };
 
+        // Ensure any previous running instance is terminated so launching a new .exe always succeeds
+        try
+        {
+            int currentPid = Environment.ProcessId;
+            foreach (var proc in Process.GetProcessesByName("WindowsDynamicIsland"))
+            {
+                if (proc.Id != currentPid)
+                {
+                    try
+                    {
+                        proc.Kill();
+                        proc.WaitForExit(1000);
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
+
         bool hasHandle = false;
         try
         {
             _singleInstanceMutex = new Mutex(true, @"Local\WindowsDynamicIsland_SingleInstance_Mutex", out bool createdNew);
-            hasHandle = createdNew || _singleInstanceMutex.WaitOne(0, false);
+            hasHandle = createdNew || _singleInstanceMutex.WaitOne(500, false);
         }
         catch (AbandonedMutexException)
         {

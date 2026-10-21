@@ -64,7 +64,7 @@ Menggabungkan keindahan estetika *NotchNook* satu kesatuan dengan integrasi mend
 
 ---
 
-### Metode 1: One-Click Installer via PowerShell (Paling Cepat & Mudah)
+### Metode 1: One-Click Installer via PowerShell (Bebas Peringatan SmartScreen)
 
 Buka **PowerShell** (tekan `Win + X` lalu pilih Terminal / PowerShell) dan jalankan perintah satu baris berikut:
 
@@ -72,7 +72,7 @@ Buka **PowerShell** (tekan `Win + X` lalu pilih Terminal / PowerShell) dan jalan
 irm https://raw.githubusercontent.com/lepi-da-vinci/dynamic-island/main/install.ps1 | iex
 ```
 
-> **Catatan:** Script `install.ps1` akan otomatis memverifikasi .NET SDK, mengompilasi binary Release, membuat shortcut di Desktop, dan langsung menyalakan Dynamic Island di layar atas Anda.
+> **Catatan:** Script `install.ps1` akan otomatis mengunduh rilis terbaru (atau mengompilasi jika berada di dalam folder source code), membuka blokir keamanan Windows (`Unblock-File` sehingga bebas layar biru SmartScreen), membuat shortcut di Desktop, dan langsung menyalakan Dynamic Island di layar atas Anda.
 
 ---
 
@@ -109,6 +109,7 @@ dotnet publish src/WindowsDynamicIsland/WindowsDynamicIsland.csproj `
   -r win-x64 `
   --self-contained true `
   -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:EnableCompressionInSingleFile=true `
   -o ./publish
 ```
