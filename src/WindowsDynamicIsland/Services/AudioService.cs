@@ -605,7 +605,7 @@ public sealed class AudioService
 
             Guid iidVolume = typeof(IAudioEndpointVolume).GUID;
 
-            // 1. Check all default capture endpoint roles: Console (0), Multimedia (1), Communications (2)
+            // Check all 3 default capture endpoint roles: Console (0), Multimedia (1), Communications (2)
             for (int role = 0; role < 3; role++)
             {
                 if (_enumerator.GetDefaultAudioEndpoint(1, role, out var dev) == 0 && dev != null)
@@ -616,30 +616,6 @@ public sealed class AudioService
                         if (vol.GetMute(out bool isMuted) == 0 && isMuted)
                         {
                             return true;
-                        }
-                    }
-                }
-            }
-
-            // 2. Check all currently active capture devices (DEVICE_STATE_ACTIVE = 1)
-            // If the user hardware-muted their headset (e.g. EDIFIER) or laptop internal mic (Realtek), detect it immediately!
-            if (_enumerator.EnumAudioEndpoints(1, 1, out IntPtr pCol) == 0 && pCol != IntPtr.Zero)
-            {
-                var col = (IMMDeviceCollection)Marshal.GetObjectForIUnknown(pCol);
-                if (col.GetCount(out uint count) == 0 && count > 0)
-                {
-                    for (uint i = 0; i < count; i++)
-                    {
-                        if (col.Item(i, out var dev) == 0 && dev != null)
-                        {
-                            if (dev.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0 &&
-                                volObj is IAudioEndpointVolume vol)
-                            {
-                                if (vol.GetMute(out bool isMuted) == 0 && isMuted)
-                                {
-                                    return true;
-                                }
-                            }
                         }
                     }
                 }
@@ -666,7 +642,6 @@ public sealed class AudioService
 
             if (_enumerator != null)
             {
-                // Toggle all default roles (Console, Multimedia, Communications)
                 for (int role = 0; role < 3; role++)
                 {
                     if (_enumerator.GetDefaultAudioEndpoint(1, role, out var dev) == 0 && dev != null)
@@ -675,26 +650,6 @@ public sealed class AudioService
                             volObj is IAudioEndpointVolume vol)
                         {
                             vol.SetMute(targetMute, ref ctx);
-                        }
-                    }
-                }
-
-                // Also toggle on all active capture devices so no microphone is left open
-                if (_enumerator.EnumAudioEndpoints(1, 1, out IntPtr pCol) == 0 && pCol != IntPtr.Zero)
-                {
-                    var col = (IMMDeviceCollection)Marshal.GetObjectForIUnknown(pCol);
-                    if (col.GetCount(out uint count) == 0)
-                    {
-                        for (uint i = 0; i < count; i++)
-                        {
-                            if (col.Item(i, out var dev) == 0 && dev != null)
-                            {
-                                if (dev.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0 &&
-                                    volObj is IAudioEndpointVolume vol)
-                                {
-                                    vol.SetMute(targetMute, ref ctx);
-                                }
-                            }
                         }
                     }
                 }
@@ -719,15 +674,6 @@ public sealed class AudioService
     {
         [PreserveSig] int EnumAudioEndpoints(int dataFlow, int dwStateMask, out IntPtr ppDevices);
         [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice? ppEndpoint);
-    }
-
-    [ComImport]
-    [Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E")]
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IMMDeviceCollection
-    {
-        [PreserveSig] int GetCount(out uint pcDevices);
-        [PreserveSig] int Item(uint nDevice, out IMMDevice? ppDevice);
     }
 
     [ComImport]
