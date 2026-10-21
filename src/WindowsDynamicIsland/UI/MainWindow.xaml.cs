@@ -16,7 +16,7 @@ using WindowsDynamicIsland.Services;
 namespace WindowsDynamicIsland.UI;
 
 /// <summary>
-/// Main overlay window hosting the liquid water-droplet Dynamic Island and 60-120 FPS spring physics loop.
+/// Main overlay window hosting the unified one-piece NotchNook-style Dynamic Island and 60-120 FPS spring physics loop.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -66,7 +66,6 @@ public partial class MainWindow : Window
         _oneSecondTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.0) };
         _oneSecondTimer.Tick += OnOneSecondTick;
 
-        // 100ms fast timer for responsive lyric sync, keyboard indicators, and top-bezel hold check
         _fastUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _fastUpdateTimer.Tick += OnFastUpdateTick;
 
@@ -77,7 +76,6 @@ public partial class MainWindow : Window
             _stateMachine.ClearToast();
         };
 
-        // 240ms debounce prevents any accidental hover flicker when moving cursor near edges
         _collapseDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(240) };
         _collapseDebounceTimer.Tick += (_, _) =>
         {
@@ -129,11 +127,11 @@ public partial class MainWindow : Window
         _fastUpdateTimer.Start();
 
         TriggerToast(new ToastPayload(
-            Icon: "💧",
+            Icon: "🏝️",
             Title: "Dynamic Island Aktif",
             Subtitle: "Hover untuk buka • Klik Kanan pil untuk simpan ke atas",
             AccentHex: "#38BDF8",
-            Duration: TimeSpan.FromSeconds(2.8)));
+            Duration: TimeSpan.FromSeconds(2.6)));
 
         await _mediaService.InitializeAsync();
         EnsureRenderLoopRunning();
@@ -181,7 +179,6 @@ public partial class MainWindow : Window
     {
         if (msg == Win32Interop.WM_NCHITTEST)
         {
-            // Hold Left Alt to click straight through the Dynamic Island to browser tabs behind it
             if ((Win32Interop.GetAsyncKeyState(Win32Interop.VK_LMENU) & 0x8000) != 0 ||
                 _stateMachine.CurrentState == IslandVisualState.Hidden)
             {
@@ -244,23 +241,20 @@ public partial class MainWindow : Window
                     TriggerToast(new ToastPayload(
                         Icon: "🗂️",
                         Title: $"{files.Count} File Disalin",
-                        Subtitle: "Tip: Drag ke Island untuk simpan di File Shelf",
+                        Subtitle: "Tip: Drag ke Island untuk simpan di Tray File",
                         AccentHex: "#38BDF8",
                         Duration: TimeSpan.FromSeconds(2.2)));
                 }
             }
         }
-        catch
-        {
-            // Ignore clipboard lock
-        }
+        catch { }
     }
 
     private void OnIslandStateChanged(IslandVisualState state, IslandDashboardTab tab)
     {
-        var (w, h, corner, glow, neckDrop) = _stateMachine.GetTargetDimensions();
+        var (w, h, bottomRadius, topEarRadius, glow) = _stateMachine.GetTargetDimensions();
         bool expanding = w > _morph.Width.Current || h > _morph.Height.Current;
-        _morph.MorphTo(w, h, corner, glow, neckDrop, bouncy: expanding);
+        _morph.MorphTo(w, h, bottomRadius, topEarRadius, glow, bouncy: expanding);
 
         TuckedHandlePanel.Visibility = state == IslandVisualState.TuckedTopEdge ? Visibility.Visible : Visibility.Collapsed;
         IdlePillPanel.Visibility = state == IslandVisualState.IdlePill ? Visibility.Visible : Visibility.Collapsed;
@@ -268,8 +262,10 @@ public partial class MainWindow : Window
         ToastPanel.Visibility = state == IslandVisualState.ToastNotification ? Visibility.Visible : Visibility.Collapsed;
         ExpandedDashboardPanel.Visibility = state == IslandVisualState.ExpandedDashboard ? Visibility.Visible : Visibility.Collapsed;
 
-        IslandBorder.Opacity = state == IslandVisualState.Hidden ? 0.0 : 1.0;
-        LiquidNeckPath.Opacity = state == IslandVisualState.Hidden ? 0.0 : 1.0;
+        double visibleOpacity = state == IslandVisualState.Hidden ? 0.0 : 1.0;
+        IslandBorder.Opacity = visibleOpacity;
+        UnifiedNotchPath.Opacity = visibleOpacity;
+        UnifiedNotchRimPath.Opacity = visibleOpacity;
 
         MediaTabGrid.Visibility = tab == IslandDashboardTab.MediaLyrics ? Visibility.Visible : Visibility.Collapsed;
         ShelfTabGrid.Visibility = tab == IslandDashboardTab.FileShelf ? Visibility.Visible : Visibility.Collapsed;
@@ -282,7 +278,7 @@ public partial class MainWindow : Window
 
     private void UpdateTabHighlight()
     {
-        var activeBrush = new SolidColorBrush(Color.FromArgb(48, 56, 189, 248));
+        var activeBrush = new SolidColorBrush(Color.FromArgb(42, 255, 255, 255));
         var inactiveBrush = Brushes.Transparent;
         var activeFg = Brushes.White;
         var inactiveFg = new SolidColorBrush(Color.FromRgb(148, 163, 184));
@@ -322,27 +318,21 @@ public partial class MainWindow : Window
 
         bool morphActive = _morph.Update(dt);
 
-        double topOffset = Math.Max(0, _morph.TopOffset.Current);
-        double pillWidth = Math.Max(40, _morph.Width.Current);
-        double pillHeight = Math.Max(4, _morph.Height.Current);
-        double corner = Math.Max(2, _morph.CornerRadius.Current);
+        double bodyWidth = Math.Max(48, _morph.Width.Current);
+        double height = Math.Max(4, _morph.Height.Current);
+        double bottomRadius = Math.Clamp(_morph.BottomCornerRadius.Current, 2, height * 0.65);
+        double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 2, height * 0.55);
 
-        IslandBorder.Margin = new Thickness(0, topOffset, 0, 0);
-        IslandBorder.Width = pillWidth;
-        IslandBorder.Height = pillHeight;
-        // Water droplet shape: slightly tighter top corners where it connects to the liquid neck, fuller rounded bottom belly!
-        double topCorner = Math.Max(4, corner * 0.72);
-        double bottomCorner = Math.Min(pillHeight * 0.54, corner * 1.12);
-        IslandBorder.CornerRadius = new CornerRadius(topCorner, topCorner, bottomCorner, bottomCorner);
+        IslandBorder.Width = bodyWidth;
+        IslandBorder.Height = height;
 
-        AmbientGlowBorder.Margin = IslandBorder.Margin;
-        AmbientGlowBorder.Width = pillWidth + 8;
-        AmbientGlowBorder.Height = pillHeight + 8;
-        AmbientGlowBorder.CornerRadius = IslandBorder.CornerRadius;
+        AmbientGlowBorder.Width = bodyWidth;
+        AmbientGlowBorder.Height = height;
+        AmbientGlowBorder.CornerRadius = new CornerRadius(0, 0, bottomRadius, bottomRadius);
         AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
 
-        // Render the Liquid Water-Droplet Meniscus Bridge clinging to the top screen wall (Y = 0)
-        UpdateLiquidMeniscusGeometry(pillWidth, topOffset, topCorner);
+        // Draw the ONE-PIECE UNIFIED NOTCHNOOK SHAPE (Gambar 2 Reference)
+        UpdateUnifiedNotchGeometry(bodyWidth, height, bottomRadius, topEarRadius);
 
         bool isCompactMedia =
             _stateMachine.CurrentState == IslandVisualState.CompactMedia &&
@@ -377,61 +367,110 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Builds a smooth concave Bezier meniscus bridge connecting the top ceiling of the screen (Y = 0)
-    /// to the top of the hanging water-droplet island so it looks like a liquid drop about to drip down.
+    /// Constructs a single seamless NotchNook geometry (Gambar 2 reference):
+    /// Flush top ceiling at Y = 0, outward-flaring concave top ears, vertical walls, and rounded bottom corners.
+    /// Zero separate ovals or overlapping layers.
     /// </summary>
-    private void UpdateLiquidMeniscusGeometry(double pillWidth, double topOffset, double topCorner)
+    private void UpdateUnifiedNotchGeometry(double bodyWidth, double height, double bottomRadius, double topEarRadius)
     {
-        double neckDrop = topOffset + Math.Min(12.0, topCorner * 0.65);
-        if (neckDrop <= 1.0)
+        // Ensure topEarRadius + bottomRadius never exceed total height
+        if (topEarRadius + bottomRadius > height)
         {
-            LiquidNeckPath.Data = null;
-            return;
+            double scale = height / Math.Max(1.0, topEarRadius + bottomRadius);
+            topEarRadius *= scale;
+            bottomRadius *= scale;
         }
 
-        // Ceiling attachment is wider at Y=0, pinching slightly inward before flaring into the droplet shoulders
-        double bodyAttachHalfW = Math.Max(24, (pillWidth * 0.5) - (topCorner * 0.42));
-        double ceilingHalfW = bodyAttachHalfW + Math.Clamp(topOffset * 1.9 + 14.0, 12.0, 32.0);
-        double waistHalfW = bodyAttachHalfW - Math.Clamp(topOffset * 0.45, 0.0, 7.0);
+        double totalWidth = bodyWidth + (topEarRadius * 2.0);
+        double xLeft = topEarRadius;
+        double xRight = topEarRadius + bodyWidth;
 
-        double totalW = ceilingHalfW * 2.0;
-        double centerX = ceilingHalfW;
-
-        var geom = new StreamGeometry();
-        using (StreamGeometryContext ctx = geom.Open())
+        // Build closed fill geometry
+        var fillGeom = new StreamGeometry();
+        using (StreamGeometryContext ctx = fillGeom.Open())
         {
-            // Start at top-left on the screen ceiling (Y = 0)
-            ctx.BeginFigure(new Point(0, 0), isFilled: true, isClosed: true);
-            // Line across the ceiling to top-right
-            ctx.LineTo(new Point(totalW, 0), isStroked: false, isSmoothJoin: false);
-            // Right concave meniscus curve pulling inward (waist) then meeting the droplet shoulder
-            ctx.BezierTo(
-                new Point(centerX + waistHalfW, neckDrop * 0.35),
-                new Point(centerX + waistHalfW, neckDrop * 0.75),
-                new Point(centerX + bodyAttachHalfW, neckDrop),
-                isStroked: false,
-                isSmoothJoin: true);
-            // Bottom line across the droplet top overlap
-            ctx.LineTo(new Point(centerX - bodyAttachHalfW, neckDrop), isStroked: false, isSmoothJoin: false);
-            // Left concave meniscus curve back up to the ceiling at (0, 0)
-            ctx.BezierTo(
-                new Point(centerX - waistHalfW, neckDrop * 0.75),
-                new Point(centerX - waistHalfW, neckDrop * 0.35),
-                new Point(0, 0),
-                isStroked: false,
-                isSmoothJoin: true);
+            BuildNotchContour(ctx, totalWidth, xLeft, xRight, height, topEarRadius, bottomRadius, isFilled: true, isClosed: true);
         }
+        fillGeom.Freeze();
 
-        geom.Freeze();
-        LiquidNeckPath.Width = totalW;
-        LiquidNeckPath.Height = neckDrop;
-        LiquidNeckPath.Data = geom;
+        UnifiedNotchPath.Width = totalWidth;
+        UnifiedNotchPath.Height = height;
+        UnifiedNotchPath.Data = fillGeom;
+
+        // Build open rim stroke geometry (traces left ear -> left wall -> bottom -> right wall -> right ear, no top line)
+        var rimGeom = new StreamGeometry();
+        using (StreamGeometryContext ctx = rimGeom.Open())
+        {
+            BuildNotchContour(ctx, totalWidth, xLeft, xRight, height, topEarRadius, bottomRadius, isFilled: false, isClosed: false);
+        }
+        rimGeom.Freeze();
+
+        UnifiedNotchRimPath.Width = totalWidth;
+        UnifiedNotchRimPath.Height = height;
+        UnifiedNotchRimPath.Data = rimGeom;
     }
 
-    /// <summary>
-    /// Smoothly pans long lyric lines in ONE direction (left-to-right of the sentence) synchronized
-    /// with the vocal progress of the current lyric line (never bounces back and forth).
-    /// </summary>
+    private static void BuildNotchContour(
+        StreamGeometryContext ctx,
+        double totalWidth,
+        double xLeft,
+        double xRight,
+        double height,
+        double topEarRadius,
+        double bottomRadius,
+        bool isFilled,
+        bool isClosed)
+    {
+        // Start at top-left ceiling flare tip (0, 0)
+        ctx.BeginFigure(new Point(0, 0), isFilled: isFilled, isClosed: isClosed);
+
+        // 1. Top-Left Concave Ear: curves smoothly from (0, 0) inward & downward to (xLeft, topEarRadius)
+        ctx.QuadraticBezierTo(
+            new Point(xLeft, 0),
+            new Point(xLeft, topEarRadius),
+            isStroked: true,
+            isSmoothJoin: true);
+
+        // 2. Left Vertical Wall: straight down to (xLeft, height - bottomRadius)
+        ctx.LineTo(
+            new Point(xLeft, height - bottomRadius),
+            isStroked: true,
+            isSmoothJoin: true);
+
+        // 3. Bottom-Left Convex Rounded Corner: curves to (xLeft + bottomRadius, height)
+        ctx.QuadraticBezierTo(
+            new Point(xLeft, height),
+            new Point(xLeft + bottomRadius, height),
+            isStroked: true,
+            isSmoothJoin: true);
+
+        // 4. Bottom Horizontal Edge: across to (xRight - bottomRadius, height)
+        ctx.LineTo(
+            new Point(xRight - bottomRadius, height),
+            isStroked: true,
+            isSmoothJoin: true);
+
+        // 5. Bottom-Right Convex Rounded Corner: curves to (xRight, height - bottomRadius)
+        ctx.QuadraticBezierTo(
+            new Point(xRight, height),
+            new Point(xRight, height - bottomRadius),
+            isStroked: true,
+            isSmoothJoin: true);
+
+        // 6. Right Vertical Wall: straight up to (xRight, topEarRadius)
+        ctx.LineTo(
+            new Point(xRight, topEarRadius),
+            isStroked: true,
+            isSmoothJoin: true);
+
+        // 7. Top-Right Concave Ear: curves smoothly upward & outward from (xRight, topEarRadius) to (totalWidth, 0)
+        ctx.QuadraticBezierTo(
+            new Point(xRight, 0),
+            new Point(totalWidth, 0),
+            isStroked: true,
+            isSmoothJoin: true);
+    }
+
     private void UpdateCompactLyricSlowPan(double dt)
     {
         double textWidth = CompactSongTitleText.ActualWidth;
@@ -439,19 +478,15 @@ public partial class MainWindow : Window
 
         if (viewportWidth <= 10 || textWidth <= viewportWidth + 2)
         {
-            // Short lyric line: keep smoothly aligned at 0
             _currentPanX += (0 - _currentPanX) * Math.Min(1.0, dt * 8.0);
             CompactLyricTranslate.X = _currentPanX;
             return;
         }
 
         double maxOverflow = textWidth - viewportWidth + 10;
-
-        // Hold at the start for the first 15% of the line, then pan smoothly to the end by 88% of the line
         double normalizedPan = Math.Clamp((_currentLyricLineProgress - 0.15) / 0.73, 0.0, 1.0);
         double targetX = -maxOverflow * normalizedPan;
 
-        // Gentle exponential smoothing so the text glides slowly like water
         _currentPanX += (targetX - _currentPanX) * Math.Min(1.0, dt * 4.5);
         CompactLyricTranslate.X = _currentPanX;
     }
@@ -465,7 +500,6 @@ public partial class MainWindow : Window
             UpdateMediaAndLyricsUi();
         }
 
-        // If tucked at top edge, allow holding the cursor at the very top bezel (Y <= 2px) for 300ms to pull it down
         if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge &&
             Win32Interop.GetCursorPos(out var pt))
         {
@@ -690,7 +724,6 @@ public partial class MainWindow : Window
             _currentPanX = 0;
             CompactLyricTranslate.X = 0;
 
-            // Dynamically adjust the water-droplet width based on lyric length!
             _stateMachine.UpdateDynamicCompactWidth(compactTargetText.Length);
 
             var slideUp = new DoubleAnimation(12.0, 0.0, TimeSpan.FromMilliseconds(340))
@@ -828,15 +861,12 @@ public partial class MainWindow : Window
         UpdateMediaAndLyricsUi();
     }
 
-    // --- MOUSE & GESTURE HANDLERS (Zero-Flicker) ---
+    // --- MOUSE & GESTURE HANDLERS ---
 
     private void OnIslandMouseEnter(object sender, MouseEventArgs e)
     {
         _collapseDebounceTimer.Stop();
 
-        // When tucked at the top edge ("Tersimpan di Atas"), do NOT auto-open on casual brush-by
-        // so browser tabs right below it can be clicked freely without any flickering!
-        // User simply clicks the tucked handle (or holds cursor at Y <= 2px) to pull it down.
         if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge)
         {
             return;
@@ -864,7 +894,6 @@ public partial class MainWindow : Window
 
     private void OnIslandMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        // Right-clicking on the Compact/Idle pill immediately tucks it up into the ceiling so tabs behind it are exposed!
         if (_stateMachine.CurrentState is IslandVisualState.CompactMedia or IslandVisualState.IdlePill)
         {
             _stateMachine.SetTuckedMode(true);

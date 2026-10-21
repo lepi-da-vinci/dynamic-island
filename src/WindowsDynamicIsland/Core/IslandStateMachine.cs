@@ -38,49 +38,48 @@ public sealed class IslandStateMachine
     public bool IsFullScreenHidden { get; private set; }
     public bool IsTuckedMode { get; private set; }
 
-    // Dynamic content sizing inputs so the island breathes organically instead of staying static
+    // Dynamic content sizing inputs so the notch breathes organically
     public double DynamicCompactWidth { get; private set; } = 320;
     public double DynamicIdleWidth { get; private set; } = 196;
     public int ShelfItemCount { get; private set; }
 
     public event Action<IslandVisualState, IslandDashboardTab>? StateChanged;
 
-    public (double Width, double Height, double CornerRadius, double GlowOpacity, double NeckDropOffset) GetTargetDimensions()
+    public (double BodyWidth, double Height, double BottomCornerRadius, double TopEarRadius, double GlowOpacity) GetTargetDimensions()
     {
         if (CurrentState == IslandVisualState.Hidden)
         {
-            return (90, 4, 2, 0.0, 0.0);
+            return (90, 2, 2, 4, 0.0);
         }
 
         if (CurrentState == IslandVisualState.TuckedTopEdge)
         {
-            // Small surface-tension water bead clinging to the very top bezel (Y = 0..10px)
-            return (152, 10, 8, 0.35, 0.0);
+            // Flush thin NotchNook lip at Y = 0
+            return (148, 9, 7, 8, 0.25);
         }
 
         return CurrentState switch
         {
-            IslandVisualState.IdlePill => (DynamicIdleWidth, 38, 20, 0.14, 5.0),
-            IslandVisualState.CompactMedia => (DynamicCompactWidth, 42, 22, 0.46, 6.0),
-            IslandVisualState.ToastNotification => (346, 50, 25, 0.54, 7.0),
+            IslandVisualState.IdlePill => (DynamicIdleWidth, 36, 16, 13, 0.12),
+            IslandVisualState.CompactMedia => (DynamicCompactWidth, 40, 18, 14, 0.35),
+            IslandVisualState.ToastNotification => (348, 48, 20, 15, 0.45),
             IslandVisualState.ExpandedDashboard => ActiveTab switch
             {
-                IslandDashboardTab.MediaLyrics => (496, 252, 32, 0.72, 10.0),
+                IslandDashboardTab.MediaLyrics => (504, 242, 26, 18, 0.55),
                 IslandDashboardTab.FileShelf => ShelfItemCount > 3
-                    ? (504, 248, 32, 0.52, 9.0)
-                    : (486, 222, 30, 0.50, 9.0),
-                IslandDashboardTab.Pomodoro => (462, 204, 30, 0.48, 8.0),
-                IslandDashboardTab.SystemStatus => (484, 218, 30, 0.45, 8.0),
-                _ => (486, 230, 30, 0.50, 9.0)
+                    ? (508, 242, 26, 18, 0.45)
+                    : (492, 216, 26, 18, 0.42),
+                IslandDashboardTab.Pomodoro => (468, 198, 26, 18, 0.40),
+                IslandDashboardTab.SystemStatus => (488, 212, 26, 18, 0.38),
+                _ => (492, 224, 26, 18, 0.45)
             },
-            _ => (196, 38, 20, 0.10, 5.0)
+            _ => (196, 36, 16, 13, 0.10)
         };
     }
 
     public void UpdateDynamicCompactWidth(int lyricCharLength)
     {
-        // Dynamically scale compact pill width between 284px and 404px based on active lyric line length
-        double target = Math.Clamp(250 + lyricCharLength * 4.2, 284, 404);
+        double target = Math.Clamp(254 + lyricCharLength * 4.2, 286, 408);
         if (Math.Abs(target - DynamicCompactWidth) >= 6.0)
         {
             DynamicCompactWidth = target;
