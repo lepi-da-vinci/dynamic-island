@@ -2,8 +2,9 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Windows Dynamic Island Setup"
+        Icon="pack://application:,,,/Assets/app_icon.ico"
         Width="480"
-        Height="400"
+        Height="415"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -37,13 +38,11 @@
                         MouseLeftButtonDown="OnTitleBarDragMove">
                     <Grid>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Border Width="28" Height="12"
-                                    CornerRadius="6"
-                                    Background="#000000"
-                                    BorderBrush="#38BDF8"
-                                    BorderThickness="1.5"
-                                    Margin="0,0,10,0"
-                                    VerticalAlignment="Center"/>
+                            <Image Source="pack://application:,,,/Assets/app_logo.png"
+                                   Width="22" Height="22"
+                                   Margin="0,0,10,0"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   VerticalAlignment="Center"/>
                             <TextBlock x:Name="HeaderTitleText"
                                        Text="Windows Dynamic Island Installer"
                                        Foreground="#F8FAFC"
@@ -68,19 +67,34 @@
 
                 <!-- Main Content Area -->
                 <StackPanel Grid.Row="1" Margin="24,20,24,12" VerticalAlignment="Center">
-                    <TextBlock x:Name="MainHeadingText"
-                               Text="Instalasi Standar Windows"
-                               Foreground="#F8FAFC"
-                               FontSize="20"
-                               FontWeight="Bold"
-                               Margin="0,0,0,6"/>
+                    <Grid Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-                    <TextBlock x:Name="SubHeadingText"
-                               Text="Aplikasi akan dipasang ke sistem Windows Anda dan terdaftar resmi di Installed Apps (Add or Remove Programs)."
-                               Foreground="#94A3B8"
-                               FontSize="12"
-                               TextWrapping="Wrap"
-                               Margin="0,0,0,18"/>
+                        <Image Grid.Column="0"
+                               Source="pack://application:,,,/Assets/app_logo.png"
+                               Width="54" Height="54"
+                               Margin="0,0,14,0"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               VerticalAlignment="Center"/>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="MainHeadingText"
+                                       Text="Instalasi Standar Windows"
+                                       Foreground="#F8FAFC"
+                                       FontSize="19"
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,4"/>
+
+                            <TextBlock x:Name="SubHeadingText"
+                                       Text="Aplikasi akan dipasang ke sistem Windows Anda dan terdaftar resmi di Installed Apps (Add or Remove Programs)."
+                                       Foreground="#94A3B8"
+                                       FontSize="11.5"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
 
                     <!-- Install Options Panel -->
                     <StackPanel x:Name="OptionsPanel">

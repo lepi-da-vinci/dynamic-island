@@ -133,27 +133,53 @@ public static class AppInstallerService
         }
         catch { }
 
+        // Extract embedded app_icon.ico into installDir so shortcuts & Installed Apps always display the crisp icon
+        string iconFilePath = Path.Combine(installDir, "app_icon.ico");
+        try
+        {
+            var streamInfo = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/app_icon.ico"));
+            if (streamInfo != null)
+            {
+                using var fs = File.Create(iconFilePath);
+                streamInfo.Stream.CopyTo(fs);
+            }
+        }
+        catch { }
+
         // Register in Windows "Installed Apps" / "Programs and Features"
         progressCallback?.Invoke("Mendaftarkan aplikasi ke Windows Installed Apps...");
-        RegisterUninstallInRegistry(installDir, targetExe, uninstallerExe);
+        RegisterUninstallInRegistry(installDir, targetExe, uninstallerExe, iconFilePath);
 
         // Configure shortcuts
         if (createStartMenuShortcut)
         {
             progressCallback?.Invoke("Membuat shortcut di Start Menu Windows...");
-            CreateStartMenuShortcuts(targetExe, uninstallerExe, installDir);
+            CreateStartMenuShortcuts(targetExe, uninstallerExe, installDir, iconFilePath);
         }
 
         if (createDesktopShortcut)
         {
             progressCallback?.Invoke("Membuat shortcut di Desktop...");
             string desktopShortcut = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), $"{DisplayName}.lnk");
-            CreateShortcut(desktopShortcut, targetExe, installDir, DisplayName, string.Empty);
+            CreateShortcut(desktopShortcut, targetExe, installDir, DisplayName, string.Empty, iconFilePath);
         }
 
         // Configure Autostart
         progressCallback?.Invoke("Mengonfigurasi pengaturan Startup...");
         SetAutostart(enableAutostart, targetExe);
+
+        // Refresh Windows Shell Icon Cache
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "ie4uinit.exe",
+                Arguments = "-show",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
+        }
+        catch { }
 
         progressCallback?.Invoke("Instalasi selesai!");
 
@@ -201,7 +227,7 @@ public static class AppInstallerService
         catch { }
     }
 
-    private static void RegisterUninstallInRegistry(string installDir, string targetExe, string uninstallerExe)
+    private static void RegisterUninstallInRegistry(string installDir, string targetExe, string uninstallerExe, string iconFilePath)
     {
         using var key = Registry.CurrentUser.CreateSubKey(UninstallRegistryPath, true);
         if (key == null) return;
@@ -215,8 +241,10 @@ public static class AppInstallerService
         }
         catch { }
 
+        string displayIcon = File.Exists(iconFilePath) ? iconFilePath : $"\"{targetExe}\",0";
+
         key.SetValue("DisplayName", DisplayName, RegistryValueKind.String);
-        key.SetValue("DisplayIcon", $"\"{targetExe}\",0", RegistryValueKind.String);
+        key.SetValue("DisplayIcon", displayIcon, RegistryValueKind.String);
         key.SetValue("DisplayVersion", AppVersion, RegistryValueKind.String);
         key.SetValue("Publisher", Publisher, RegistryValueKind.String);
         key.SetValue("InstallLocation", installDir, RegistryValueKind.String);
@@ -230,7 +258,7 @@ public static class AppInstallerService
         key.SetValue("EstimatedSize", (int)sizeKb, RegistryValueKind.DWord);
     }
 
-    private static void CreateStartMenuShortcuts(string targetExe, string uninstallerExe, string workingDir)
+    private static void CreateStartMenuShortcuts(string targetExe, string uninstallerExe, string workingDir, string iconFilePath)
     {
         try
         {
@@ -244,7 +272,8 @@ public static class AppInstallerService
                 targetExe,
                 workingDir,
                 DisplayName,
-                string.Empty);
+                string.Empty,
+                iconFilePath);
 
             // Folder shortcuts (Launch & Uninstall)
             CreateShortcut(
@@ -252,14 +281,16 @@ public static class AppInstallerService
                 targetExe,
                 workingDir,
                 DisplayName,
-                string.Empty);
+                string.Empty,
+                iconFilePath);
 
             CreateShortcut(
                 Path.Combine(appFolder, $"Uninstall {DisplayName}.lnk"),
                 uninstallerExe,
                 workingDir,
                 $"Uninstall {DisplayName}",
-                "--uninstall");
+                "--uninstall",
+                iconFilePath);
         }
         catch { }
     }
@@ -285,7 +316,7 @@ public static class AppInstallerService
         catch { }
     }
 
-    private static void CreateShortcut(string shortcutPath, string targetPath, string workingDir, string description, string arguments)
+    private static void CreateShortcut(string shortcutPath, string targetPath, string workingDir, string description, string arguments, string iconFilePath)
     {
         try
         {
@@ -299,7 +330,7 @@ public static class AppInstallerService
             shortcut.TargetPath = targetPath;
             shortcut.WorkingDirectory = workingDir;
             shortcut.Description = description;
-            shortcut.IconLocation = $"{targetPath},0";
+            shortcut.IconLocation = File.Exists(iconFilePath) ? iconFilePath : $"{targetPath},0";
             if (!string.IsNullOrWhiteSpace(arguments))
             {
                 shortcut.Arguments = arguments;

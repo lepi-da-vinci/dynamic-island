@@ -1,6 +1,8 @@
-# Windows Dynamic Island
-
 <div align="center">
+
+<img src="src/WindowsDynamicIsland/Assets/app_logo.png" width="128" height="128" alt="Windows Dynamic Island Logo" />
+
+# Windows Dynamic Island
 
 [![Windows Support](https://img.shields.io/badge/Windows-10%20%7C%2011%20(x64)-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lepi-da-vinci/dynamic-island)
 [![Framework](https://img.shields.io/badge/.NET-10.0%20%7C%20C%23%2013-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)

@@ -34,6 +34,8 @@ if (-not (Test-Path $installDir)) {
 
 $installedExe = Join-Path $installDir "WindowsDynamicIsland.exe"
 $uninstallerExe = Join-Path $installDir "Uninstall.exe"
+$installedIco = Join-Path $installDir "app_icon.ico"
+$localIcoSource = Join-Path $scriptDir "src\WindowsDynamicIsland\Assets\app_icon.ico"
 $builtLocally = $false
 
 # 2. Build from source if inside repo and .NET SDK is available, otherwise download prebuilt standalone Release EXE
@@ -53,6 +55,9 @@ if ((Test-Path $projPath) -and (Get-Command "dotnet" -ErrorAction SilentlyContin
             Copy-Item -Path $_.FullName -Destination (Join-Path $installDir $_.Name) -Force
         }
         Copy-Item -Path $installedExe -Destination $uninstallerExe -Force
+        if (Test-Path $localIcoSource) {
+            Copy-Item -Path $localIcoSource -Destination $installedIco -Force
+        }
         $builtLocally = $true
         Write-Host "  -> Installed build files to: $installDir" -ForegroundColor Green
     }
@@ -61,9 +66,11 @@ if ((Test-Path $projPath) -and (Get-Command "dotnet" -ErrorAction SilentlyContin
 if (-not $builtLocally) {
     Write-Host "[2/5] Downloading standalone WindowsDynamicIsland.exe from GitHub Releases..." -ForegroundColor Yellow
     $downloadUrl = "https://github.com/lepi-da-vinci/dynamic-island/releases/latest/download/WindowsDynamicIsland.exe"
+    $icoUrl = "https://raw.githubusercontent.com/lepi-da-vinci/dynamic-island/main/src/WindowsDynamicIsland/Assets/app_icon.ico"
 
     $ProgressPreference = 'SilentlyContinue'
     Invoke-WebRequest -Uri $downloadUrl -OutFile $installedExe -UseBasicParsing
+    try { Invoke-WebRequest -Uri $icoUrl -OutFile $installedIco -UseBasicParsing } catch { }
     $ProgressPreference = 'Continue'
 
     Copy-Item -Path $installedExe -Destination $uninstallerExe -Force
@@ -88,9 +95,10 @@ if (-not (Test-Path $uninstallRegPath)) {
 
 $totalBytes = (Get-ChildItem -Path $installDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
 $sizeKb = [int][Math]::Max(1024, ($totalBytes / 1024))
+$iconRef = if (Test-Path $installedIco) { $installedIco } else { "$installedExe,0" }
 
 Set-ItemProperty -Path $uninstallRegPath -Name "DisplayName" -Value "Windows Dynamic Island" -Type String
-Set-ItemProperty -Path $uninstallRegPath -Name "DisplayIcon" -Value "`"$installedExe`",0" -Type String
+Set-ItemProperty -Path $uninstallRegPath -Name "DisplayIcon" -Value $iconRef -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "DisplayVersion" -Value "1.1.0" -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "Publisher" -Value "Lepi Da Vinci" -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "InstallLocation" -Value $installDir -Type String
@@ -115,7 +123,7 @@ try {
     $desktopShortcut.TargetPath = $installedExe
     $desktopShortcut.WorkingDirectory = $installDir
     $desktopShortcut.Description = "Windows Dynamic Island"
-    $desktopShortcut.IconLocation = "$installedExe,0"
+    $desktopShortcut.IconLocation = $iconRef
     $desktopShortcut.Save()
 
     $programsDir = [Environment]::GetFolderPath("Programs")
@@ -128,14 +136,14 @@ try {
     $smRootShortcut.TargetPath = $installedExe
     $smRootShortcut.WorkingDirectory = $installDir
     $smRootShortcut.Description = "Windows Dynamic Island"
-    $smRootShortcut.IconLocation = "$installedExe,0"
+    $smRootShortcut.IconLocation = $iconRef
     $smRootShortcut.Save()
 
     $smAppShortcut = $wshShell.CreateShortcut((Join-Path $startMenuFolder "Windows Dynamic Island.lnk"))
     $smAppShortcut.TargetPath = $installedExe
     $smAppShortcut.WorkingDirectory = $installDir
     $smAppShortcut.Description = "Windows Dynamic Island"
-    $smAppShortcut.IconLocation = "$installedExe,0"
+    $smAppShortcut.IconLocation = $iconRef
     $smAppShortcut.Save()
 
     $smUninstallShortcut = $wshShell.CreateShortcut((Join-Path $startMenuFolder "Uninstall Windows Dynamic Island.lnk"))
@@ -143,9 +151,10 @@ try {
     $smUninstallShortcut.Arguments = "--uninstall"
     $smUninstallShortcut.WorkingDirectory = $installDir
     $smUninstallShortcut.Description = "Uninstall Windows Dynamic Island"
-    $smUninstallShortcut.IconLocation = "$uninstallerExe,0"
+    $smUninstallShortcut.IconLocation = $iconRef
     $smUninstallShortcut.Save()
 
+    Start-Process -FilePath "ie4uinit.exe" -ArgumentList "-show" -WindowStyle Hidden -ErrorAction SilentlyContinue
     Write-Host "  -> Registered in Windows Installed Apps, Start Menu, Desktop, and Startup." -ForegroundColor Green
 } catch {
     # Ignore shortcut creation failure
