@@ -178,6 +178,12 @@ public static class Win32Interop
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     public static extern bool Shell_NotifyIcon(int dwMessage, ref NOTIFYICONDATA lpData);
 
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern int ExtractIconEx(string lpszFile, int nIconIndex, out IntPtr phiconLarge, out IntPtr phiconSmall, int nIcons);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool DestroyIcon(IntPtr hIcon);
+
     [DllImport("user32.dll")]
     public static extern IntPtr LoadIcon(IntPtr hInstance, IntPtr lpIconName);
 

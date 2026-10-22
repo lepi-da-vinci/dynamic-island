@@ -193,6 +193,10 @@ public partial class MainWindow : Window
         {
             Win32Interop.RemoveClipboardFormatListener(_hwnd);
             Win32Interop.Shell_NotifyIcon(Win32Interop.NIM_DELETE, ref _trayIconData);
+            if (_trayIconData.hIcon != IntPtr.Zero && _trayIconData.hIcon != Win32Interop.IDI_APPLICATION)
+            {
+                Win32Interop.DestroyIcon(_trayIconData.hIcon);
+            }
         }
     }
 
@@ -205,6 +209,48 @@ public partial class MainWindow : Window
 
     private void InitializeSystemTrayIcon()
     {
+        IntPtr hIcon = IntPtr.Zero;
+        try
+        {
+            string? exePath = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exePath) && System.IO.File.Exists(exePath))
+            {
+                Win32Interop.ExtractIconEx(exePath, 0, out _, out hIcon, 1);
+            }
+        }
+        catch { }
+
+        if (hIcon == IntPtr.Zero)
+        {
+            try
+            {
+                string localIco = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "app_icon.ico");
+                if (System.IO.File.Exists(localIco))
+                {
+                    Win32Interop.ExtractIconEx(localIco, 0, out _, out hIcon, 1);
+                }
+            }
+            catch { }
+        }
+
+        if (hIcon == IntPtr.Zero)
+        {
+            try
+            {
+                string installedIco = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "WindowsDynamicIsland", "app_icon.ico");
+                if (System.IO.File.Exists(installedIco))
+                {
+                    Win32Interop.ExtractIconEx(installedIco, 0, out _, out hIcon, 1);
+                }
+            }
+            catch { }
+        }
+
+        if (hIcon == IntPtr.Zero)
+        {
+            hIcon = Win32Interop.LoadIcon(IntPtr.Zero, Win32Interop.IDI_APPLICATION);
+        }
+
         _trayIconData = new Win32Interop.NOTIFYICONDATA
         {
             cbSize = Marshal.SizeOf<Win32Interop.NOTIFYICONDATA>(),
@@ -212,7 +258,7 @@ public partial class MainWindow : Window
             uID = 1001,
             uFlags = Win32Interop.NIF_MESSAGE | Win32Interop.NIF_ICON | Win32Interop.NIF_TIP,
             uCallbackMessage = Win32Interop.WM_USER_TRAY,
-            hIcon = Win32Interop.LoadIcon(IntPtr.Zero, Win32Interop.IDI_APPLICATION),
+            hIcon = hIcon,
             szTip = "Windows Dynamic Island (Klik untuk Buka / Klik Kanan untuk Sistem)"
         };
 
