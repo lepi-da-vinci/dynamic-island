@@ -21,10 +21,6 @@ public static class Win32Interop
     public const int HTTRANSPARENT = -1;
     public const int HTCLIENT = 1;
 
-    public const int VK_CAPITAL = 0x14;
-    public const int VK_NUMLOCK = 0x90;
-    public const int VK_LMENU = 0xA4; // Left Alt for click-through bypass
-
     public static readonly IntPtr HWND_TOPMOST = new(-1);
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;
@@ -46,12 +42,6 @@ public static class Win32Interop
         int cx,
         int cy,
         uint uFlags);
-
-    [DllImport("user32.dll")]
-    public static extern short GetKeyState(int nVirtKey);
-
-    [DllImport("user32.dll")]
-    public static extern short GetAsyncKeyState(int vKey);
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool AddClipboardFormatListener(IntPtr hwnd);

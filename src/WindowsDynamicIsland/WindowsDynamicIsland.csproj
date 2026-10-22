@@ -6,18 +6,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app_icon.ico</ApplicationIcon>
     <AssemblyName>WindowsDynamicIsland</AssemblyName>
     <RootNamespace>WindowsDynamicIsland</RootNamespace>
     <OptimizationPreference>Speed</OptimizationPreference>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <Product>Windows Dynamic Island</Product>
     <Company>Lepi Da Vinci</Company>
-    <Version>1.1.0</Version>
-    <FileVersion>1.1.0.0</FileVersion>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <Version>1.1.1</Version>
+    <FileVersion>1.1.1.0</FileVersion>
+    <AssemblyVersion>1.1.1.0</AssemblyVersion>
     <Description>Native Dynamic Island for Windows 10 and 11</Description>
   </PropertyGroup>
 

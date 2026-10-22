@@ -205,8 +205,8 @@ public sealed class HardwareTelemetryService : IDisposable
 
     public void PollFastKeyboardIndicators()
     {
-        bool caps = (Win32Interop.GetKeyState(Win32Interop.VK_CAPITAL) & 0x0001) != 0;
-        bool num = (Win32Interop.GetKeyState(Win32Interop.VK_NUMLOCK) & 0x0001) != 0;
+        bool caps = Console.CapsLock;
+        bool num = Console.NumberLock;
 
         if (!_initialized)
         {

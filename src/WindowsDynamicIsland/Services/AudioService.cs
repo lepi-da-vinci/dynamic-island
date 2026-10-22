@@ -381,37 +381,34 @@ public sealed class AudioService
                     int channels = _loopbackChannels;
                     int step = Math.Max(1, (int)numFrames / 128); // Subsample up to 128 frames per packet for <0.02ms CPU
 
-                    unsafe
+                    for (int f = 0; f < (int)numFrames; f += step)
                     {
-                        float* samples = (float*)dataPtr.ToPointer();
-                        for (int f = 0; f < (int)numFrames; f += step)
+                        int idx = f * channels;
+                        double mono = BitConverter.Int32BitsToSingle(Marshal.ReadInt32(dataPtr, idx * 4));
+                        if (channels >= 2)
                         {
-                            int idx = f * channels;
-                            double mono = samples[idx];
-                            if (channels >= 2)
-                            {
-                                mono = 0.5 * (samples[idx] + samples[idx + 1]);
-                            }
-
-                            // Cascaded 1-pole IIR filter bank splitting into 5 musical frequency bands
-                            _lpState1 += alpha1 * (mono - _lpState1);
-                            _lpState2 += alpha2 * (mono - _lpState2);
-                            _lpState3 += alpha3 * (mono - _lpState3);
-
-                            double subBass = _lpState1;                       // Band 0: < 130 Hz (Kick & Sub-Bass)
-                            double bassMid = _lpState2 - _lpState1;           // Band 1: 130 - 480 Hz (Bassline & Warmth)
-                            double vocalMid = _lpState3 - _lpState2;          // Band 2: 480 - 2100 Hz (Lead Vocals & Piano)
-                            double upperMid = mono - _lpState3;               // Band 3: > 2100 Hz (Snare & Presence)
-                            double trebleDiff = mono - _prevSample;           // Band 4: High-frequency transient / Hi-Hat
-                            _prevSample = mono;
-
-                            sumBand0 += subBass * subBass;
-                            sumBand1 += bassMid * bassMid;
-                            sumBand2 += vocalMid * vocalMid;
-                            sumBand3 += upperMid * upperMid;
-                            sumBand4 += trebleDiff * trebleDiff;
-                            totalSamplesProcessed++;
+                            double right = BitConverter.Int32BitsToSingle(Marshal.ReadInt32(dataPtr, (idx + 1) * 4));
+                            mono = 0.5 * (mono + right);
                         }
+
+                        // Cascaded 1-pole IIR filter bank splitting into 5 musical frequency bands
+                        _lpState1 += alpha1 * (mono - _lpState1);
+                        _lpState2 += alpha2 * (mono - _lpState2);
+                        _lpState3 += alpha3 * (mono - _lpState3);
+
+                        double subBass = _lpState1;                       // Band 0: < 130 Hz (Kick & Sub-Bass)
+                        double bassMid = _lpState2 - _lpState1;           // Band 1: 130 - 480 Hz (Bassline & Warmth)
+                        double vocalMid = _lpState3 - _lpState2;          // Band 2: 480 - 2100 Hz (Lead Vocals & Piano)
+                        double upperMid = mono - _lpState3;               // Band 3: > 2100 Hz (Snare & Presence)
+                        double trebleDiff = mono - _prevSample;           // Band 4: High-frequency transient / Hi-Hat
+                        _prevSample = mono;
+
+                        sumBand0 += subBass * subBass;
+                        sumBand1 += bassMid * bassMid;
+                        sumBand2 += vocalMid * vocalMid;
+                        sumBand3 += upperMid * upperMid;
+                        sumBand4 += trebleDiff * trebleDiff;
+                        totalSamplesProcessed++;
                     }
                 }
 

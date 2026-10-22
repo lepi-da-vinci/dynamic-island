@@ -8,12 +8,11 @@ public static class AppInstallerService
 {
     public const string AppId = "WindowsDynamicIsland";
     public const string DisplayName = "Windows Dynamic Island";
-    public const string AppVersion = "1.1.0";
+    public const string AppVersion = "1.1.1";
     public const string Publisher = "Lepi Da Vinci";
     public const string RepoUrl = "https://github.com/lepi-da-vinci/dynamic-island";
 
     private const string UninstallRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\" + AppId;
-    private const string RunRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     public static string DefaultInstallDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", AppId);
@@ -23,6 +22,9 @@ public static class AppInstallerService
 
     public static string UninstallerExePath =>
         Path.Combine(DefaultInstallDir, "Uninstall.exe");
+
+    private static string StartupShortcutPath =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), $"{DisplayName}.lnk");
 
     public static bool IsInstalled()
     {
@@ -41,9 +43,7 @@ public static class AppInstallerService
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RunRegistryPath, false);
-            var val = key?.GetValue(AppId) as string;
-            return !string.IsNullOrWhiteSpace(val);
+            return File.Exists(StartupShortcutPath);
         }
         catch
         {
@@ -55,17 +55,19 @@ public static class AppInstallerService
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RunRegistryPath, true);
-            if (key == null) return;
-
             if (enable)
             {
                 string target = exePathOverride ?? (File.Exists(InstalledExePath) ? InstalledExePath : Environment.ProcessPath ?? InstalledExePath);
-                key.SetValue(AppId, $"\"{target}\"");
+                string workingDir = Path.GetDirectoryName(target) ?? DefaultInstallDir;
+                string iconPath = Path.Combine(workingDir, "app_icon.ico");
+                CreateShortcut(StartupShortcutPath, target, workingDir, DisplayName, string.Empty, iconPath);
             }
             else
             {
-                key.DeleteValue(AppId, false);
+                if (File.Exists(StartupShortcutPath))
+                {
+                    File.Delete(StartupShortcutPath);
+                }
             }
         }
         catch { }
@@ -370,16 +372,11 @@ public static class AppInstallerService
 
         try
         {
-            // Background cmd waits 2 seconds for Uninstall.exe to exit, then deletes the folder cleanly
-            string cmdArgs = $"/c timeout /t 2 /nobreak > nul & rmdir /s /q \"{installDir}\"";
-            Process.Start(new ProcessStartInfo
+            foreach (string file in Directory.GetFiles(installDir, "*", SearchOption.AllDirectories))
             {
-                FileName = "cmd.exe",
-                Arguments = cmdArgs,
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                WindowStyle = ProcessWindowStyle.Hidden
-            });
+                try { File.Delete(file); } catch { }
+            }
+            try { Directory.Delete(installDir, recursive: true); } catch { }
         }
         catch { }
     }

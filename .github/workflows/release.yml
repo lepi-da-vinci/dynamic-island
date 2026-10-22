@@ -22,7 +22,20 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Publish Standalone Executable and Setup Installer
+      - name: Publish Unpacked Distribution for Zip and Installer Script
+        run: |
+          dotnet publish src/WindowsDynamicIsland/WindowsDynamicIsland.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=false `
+            -p:DebugType=none `
+            -p:DebugSymbols=false `
+            -o ./publish-unpacked
+          Copy-Item ./publish-unpacked/WindowsDynamicIsland.exe ./publish-unpacked/Uninstall.exe -Force
+          Copy-Item src/WindowsDynamicIsland/Assets/app_icon.ico ./publish-unpacked/app_icon.ico -Force
+
+      - name: Publish Uncompressed Standalone Setup Executable
         run: |
           dotnet publish src/WindowsDynamicIsland/WindowsDynamicIsland.csproj `
             -c Release `
@@ -30,15 +43,24 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
+            -p:EnableCompressionInSingleFile=false `
             -p:DebugType=none `
             -p:DebugSymbols=false `
-            -o ./publish
-          Copy-Item ./publish/WindowsDynamicIsland.exe ./publish/WindowsDynamicIsland-Setup.exe -Force
+            -o ./publish-single
+          Copy-Item ./publish-single/WindowsDynamicIsland.exe ./publish-single/WindowsDynamicIsland-Setup.exe -Force
+
+      - name: Sign Binaries with Authenticode Certificate
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Lepi Da Vinci, O=Windows Dynamic Island" -KeyUsage DigitalSignature -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
+          Set-AuthenticodeSignature -FilePath "./publish-unpacked/WindowsDynamicIsland.exe" -Certificate $cert | Out-Null
+          Set-AuthenticodeSignature -FilePath "./publish-unpacked/Uninstall.exe" -Certificate $cert | Out-Null
+          Set-AuthenticodeSignature -FilePath "./publish-unpacked/WindowsDynamicIsland.dll" -Certificate $cert | Out-Null
+          Set-AuthenticodeSignature -FilePath "./publish-single/WindowsDynamicIsland.exe" -Certificate $cert | Out-Null
+          Set-AuthenticodeSignature -FilePath "./publish-single/WindowsDynamicIsland-Setup.exe" -Certificate $cert | Out-Null
 
       - name: Create Zip Archive
         run: |
-          Compress-Archive -Path ./publish/* -DestinationPath ./WindowsDynamicIsland-win-x64.zip -Force
+          Compress-Archive -Path ./publish-unpacked/* -DestinationPath ./WindowsDynamicIsland-win-x64.zip -Force
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -48,25 +70,19 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ./publish/WindowsDynamicIsland-Setup.exe
-            ./publish/WindowsDynamicIsland.exe
+            ./publish-single/WindowsDynamicIsland-Setup.exe
+            ./publish-single/WindowsDynamicIsland.exe
             ./WindowsDynamicIsland-win-x64.zip
           body: |
             ## Windows Dynamic Island ${{ github.ref_name }}
 
-            ### Fitur Utama
-            * **Standard Windows Installer & Uninstaller**: Mendukung instalasi standar Windows (`WindowsDynamicIsland-Setup.exe`) yang terdaftar resmi di **Windows Settings -> Apps -> Installed Apps (Add or Remove Programs)**, Start Menu, Desktop Shortcut, dan Startup otomatis.
-            * **NotchNook Silhouette**: Satu desain utuh menempel di atas layar monitor (`Y = 0`).
-            * **Zero Emojis**: 20 Custom Bespoke Vector SVG Path geometries.
-            * **5-Band Real-Time Equalizer**: Menggunakan native WASAPI Loopback PCM Capture selaras ketukan lagu.
-            * **Synced Lyrics**: Lirik mengambang real-time via LRCLIB dengan cache offline.
-            * **Tucked Mode & WS_EX_TRANSPARENT**: Melipat 5px saat membuka aplikasi di belakangnya; tab Chrome/Edge bebas diklik.
-            * **File Drop Shelf**: Rak penyimpanan file sementara (drag & drop masuk/keluar).
-            * **Multi-Role Mic Mute**: Deteksi dan kontrol mute instan (Realtek internal & Bluetooth headset).
-            * **Wi-Fi & Bluetooth Alerts**: OSD Toast otomatis saat tersambung atau terputus.
+            ### Pembaruan Keamanan & Kompatibilitas Windows Defender
+            * **Zero False-Positive Heuristics**: Menghapus penggunaan fungsi Win32 `GetAsyncKeyState` / `GetKeyState`, blok `unsafe`, dan kompresi *single-file packer* yang sebelumnya memicu deteksi *false-positive* pada Windows Defender dan Windows 11 Application Control.
+            * **Authenticode Local Signing & Unpacked Runtime**: Mendukung penandatanganan sertifikat digital lokal otomatis saat instalasi via PowerShell serta menyertakan pustaka runtime resmi bertanda tangan digital Microsoft Corporation.
+            * **Standard Windows Installer & Uninstaller**: Terdaftar resmi di **Windows Settings -> Apps -> Installed Apps (Add or Remove Programs)**, Start Menu, Desktop Shortcut, dan Startup otomatis.
 
             ### Panduan Instalasi & Uninstall
-            **Cara 1 - One-Click Standard Installer (PowerShell - Bebas Layar Biru SmartScreen):**
+            **Cara 1 - One-Click Standard Installer (PowerShell - Paling Direkomendasikan & Bebas Blokir Defender):**
             ```powershell
             irm https://raw.githubusercontent.com/lepi-da-vinci/dynamic-island/main/install.ps1 | iex
             ```

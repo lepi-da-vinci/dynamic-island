@@ -24,10 +24,13 @@ Write-Host "[2/4] Removing Startup and Windows Installed Apps registry entries..
 Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WindowsDynamicIsland" -ErrorAction SilentlyContinue
 Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WindowsDynamicIsland" -Recurse -Force -ErrorAction SilentlyContinue
 
-# 3. Remove Desktop & Start Menu shortcuts
-Write-Host "[3/4] Removing Desktop and Start Menu shortcuts..." -ForegroundColor Yellow
+# 3. Remove Desktop, Startup & Start Menu shortcuts
+Write-Host "[3/4] Removing Desktop, Startup, and Start Menu shortcuts..." -ForegroundColor Yellow
 $desktopShortcut = Join-Path ([Environment]::GetFolderPath("Desktop")) "Windows Dynamic Island.lnk"
 if (Test-Path $desktopShortcut) { Remove-Item $desktopShortcut -Force }
+
+$startupShortcut = Join-Path ([Environment]::GetFolderPath("Startup")) "Windows Dynamic Island.lnk"
+if (Test-Path $startupShortcut) { Remove-Item $startupShortcut -Force }
 
 $programsDir = [Environment]::GetFolderPath("Programs")
 $smRootShortcut = Join-Path $programsDir "Windows Dynamic Island.lnk"
@@ -51,4 +54,3 @@ if (Test-Path $legacyInstallDir) {
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host "  [SUCCESS] Windows Dynamic Island has been completely uninstalled." -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
-

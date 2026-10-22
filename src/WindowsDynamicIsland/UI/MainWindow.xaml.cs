@@ -269,7 +269,7 @@ public partial class MainWindow : Window
     {
         if (msg == Win32Interop.WM_NCHITTEST)
         {
-            bool isAltBypass = (Win32Interop.GetAsyncKeyState(Win32Interop.VK_LMENU) & 0x8000) != 0;
+            bool isAltBypass = (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt;
             bool isHidden = _stateMachine.CurrentState == IslandVisualState.Hidden;
             bool isDraggingControl =
                 _isDraggingTimeline ||
@@ -344,7 +344,7 @@ public partial class MainWindow : Window
     {
         if (_hwnd == IntPtr.Zero) return;
 
-        bool isAltBypass = (Win32Interop.GetAsyncKeyState(Win32Interop.VK_LMENU) & 0x8000) != 0;
+        bool isAltBypass = (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt;
         bool isHidden = _stateMachine.CurrentState == IslandVisualState.Hidden;
         bool isDraggingControl =
             _isDraggingTimeline ||

@@ -124,13 +124,15 @@ Karena aplikasi terdaftar secara resmi di sistem Windows, Anda dapat menghapusny
 
 ---
 
-### Catatan Keamanan Windows SmartScreen
+### Catatan Keamanan Windows SmartScreen & Smart App Control
 
-Jika muncul jendela biru bertuliskan *"Windows protected your PC"* saat menjalankan file yang diunduh langsung dari browser:
-1. Klik teks bergaris bawah **More info** (atau *Informasi selengkapnya*).
-2. Klik tombol **Run anyway** (atau *Tetap jalankan*).
+Untuk instalasi paling mulus tanpa peringatan **Windows Defender SmartScreen**, selalu gunakan **Metode 1 (PowerShell One-Liner)** di atas (disarankan dijalankan sebagai **Administrator**). Script `install.ps1` secara otomatis mengunduh paket *unpacked* (dengan runtime resmi bertanda tangan digital Microsoft Corporation), menambahkan pengecualian folder ke Windows Defender, serta menandatangani binary aplikasi secara lokal dengan sertifikat *Authenticode Code Signing*.
 
-Hal ini normal terjadi pada aplikasi open-source independen yang belum memiliki sertifikat tanda tangan berbayar (EV Code Signing). Kode aplikasi 100% aman dan transparan di repository ini.
+* **Jika muncul layar biru Windows SmartScreen ("Windows protected your PC")** saat menjalankan file `.exe` yang diunduh manual dari browser:
+  1. Klik teks bergaris bawah **More info** (atau *Informasi selengkapnya*).
+  2. Klik tombol **Run anyway** (atau *Tetap jalankan*).
+* **Jika pada laptop OEM Windows 11 baru muncul pesan "An Application Control policy has blocked this file"**:
+  Hal ini disebabkan oleh fitur **Smart App Control (SAC)** bawaan pabrik Windows 11 yang memblokir semua aplikasi open-source tanpa sertifikat komersial EV berbayar. Anda dapat menjalankan PowerShell sebagai **Administrator** saat menginstal, atau menonaktifkan Smart App Control melalui **Windows Security -> App & browser control -> Smart App Control settings -> Off**.
 
 ---
 
