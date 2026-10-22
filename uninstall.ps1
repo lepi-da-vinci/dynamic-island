@@ -51,3 +51,4 @@ if (Test-Path $legacyInstallDir) {
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host "  [SUCCESS] Windows Dynamic Island has been completely uninstalled." -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
+

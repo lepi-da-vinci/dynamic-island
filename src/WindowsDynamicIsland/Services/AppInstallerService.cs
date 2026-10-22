@@ -353,3 +353,4 @@ public static class AppInstallerService
         catch { }
     }
 }
+
