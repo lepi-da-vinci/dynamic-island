@@ -1,0 +1,182 @@
+<Window x:Class="WindowsDynamicIsland.UI.SetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Windows Dynamic Island Setup"
+        Width="480"
+        Height="400"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        FontFamily="Segoe UI Variable Display, Segoe UI">
+
+    <Grid Margin="16">
+        <Border Background="#0A0D14"
+                BorderBrush="#2AFFFFFF"
+                BorderThickness="1"
+                CornerRadius="18"
+                ClipToBounds="True">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.65" Color="#000000"/>
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Top Custom Title Bar -->
+                <Border Grid.Row="0"
+                        Background="#12FFFFFF"
+                        BorderBrush="#18FFFFFF"
+                        BorderThickness="0,0,0,1"
+                        Padding="20,14"
+                        MouseLeftButtonDown="OnTitleBarDragMove">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="28" Height="12"
+                                    CornerRadius="6"
+                                    Background="#000000"
+                                    BorderBrush="#38BDF8"
+                                    BorderThickness="1.5"
+                                    Margin="0,0,10,0"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock x:Name="HeaderTitleText"
+                                       Text="Windows Dynamic Island Installer"
+                                       Foreground="#F8FAFC"
+                                       FontSize="13.5"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <Button HorizontalAlignment="Right"
+                                Style="{StaticResource IslandIconButtonStyle}"
+                                Width="26" Height="26"
+                                Padding="0"
+                                ToolTip="Tutup"
+                                Click="OnCloseClick">
+                            <Path Data="{StaticResource GeomClosePower}"
+                                  Width="10" Height="10"
+                                  Stretch="Uniform"
+                                  Fill="#94A3B8"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Main Content Area -->
+                <StackPanel Grid.Row="1" Margin="24,20,24,12" VerticalAlignment="Center">
+                    <TextBlock x:Name="MainHeadingText"
+                               Text="Instalasi Standar Windows"
+                               Foreground="#F8FAFC"
+                               FontSize="20"
+                               FontWeight="Bold"
+                               Margin="0,0,0,6"/>
+
+                    <TextBlock x:Name="SubHeadingText"
+                               Text="Aplikasi akan dipasang ke sistem Windows Anda dan terdaftar resmi di Installed Apps (Add or Remove Programs)."
+                               Foreground="#94A3B8"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,18"/>
+
+                    <!-- Install Options Panel -->
+                    <StackPanel x:Name="OptionsPanel">
+                        <Border Background="#12FFFFFF"
+                                BorderBrush="#20FFFFFF"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="14,12"
+                                Margin="0,0,0,10">
+                            <StackPanel>
+                                <CheckBox x:Name="DesktopShortcutCheck"
+                                          IsChecked="True"
+                                          Foreground="#F8FAFC"
+                                          FontSize="12.5"
+                                          FontWeight="SemiBold"
+                                          Margin="0,0,0,10"
+                                          Content="Buat Shortcut di Desktop"/>
+
+                                <CheckBox x:Name="StartMenuShortcutCheck"
+                                          IsChecked="True"
+                                          Foreground="#F8FAFC"
+                                          FontSize="12.5"
+                                          FontWeight="SemiBold"
+                                          Margin="0,0,0,10"
+                                          Content="Tambahkan ke Start Menu Windows"/>
+
+                                <CheckBox x:Name="AutostartCheck"
+                                          IsChecked="True"
+                                          Foreground="#F8FAFC"
+                                          FontSize="12.5"
+                                          FontWeight="SemiBold"
+                                          Content="Jalankan otomatis saat Windows dinyalakan (Startup)"/>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock x:Name="InstallPathText"
+                                   Text="Lokasi: %LOCALAPPDATA%\Programs\WindowsDynamicIsland"
+                                   Foreground="#64748B"
+                                   FontSize="11"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+
+                    <!-- Status Text During Action -->
+                    <TextBlock x:Name="StatusProgressText"
+                               Text=""
+                               Foreground="#38BDF8"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Margin="0,12,0,0"
+                               Visibility="Collapsed"/>
+                </StackPanel>
+
+                <!-- Bottom Action Bar -->
+                <Border Grid.Row="2"
+                        Background="#0EFFFFFF"
+                        BorderBrush="#18FFFFFF"
+                        BorderThickness="0,1,0,0"
+                        Padding="24,14">
+                    <Grid>
+                        <Button x:Name="SecondaryUninstallBtn"
+                                HorizontalAlignment="Left"
+                                Style="{StaticResource IslandIconButtonStyle}"
+                                Padding="14,8"
+                                Visibility="Collapsed"
+                                Click="OnUninstallClick">
+                            <TextBlock Text="Uninstall Aplikasi"
+                                       Foreground="#F87171"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Button>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="CancelBtn"
+                                    Style="{StaticResource IslandIconButtonStyle}"
+                                    Padding="16,8"
+                                    Margin="0,0,10,0"
+                                    Content="Batal"
+                                    FontSize="12"
+                                    Click="OnCloseClick"/>
+
+                            <Button x:Name="PrimaryActionBtn"
+                                    Style="{StaticResource IslandIconButtonStyle}"
+                                    Background="#38BDF8"
+                                    BorderBrush="#7DD3FC"
+                                    Padding="20,8"
+                                    Click="OnPrimaryActionClick">
+                                <TextBlock x:Name="PrimaryActionText"
+                                           Text="Install Sekarang"
+                                           Foreground="#090D16"
+                                           FontSize="12.5"
+                                           FontWeight="Bold"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -2,7 +2,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
-using System.Windows.Threading;
+using WindowsDynamicIsland.Services;
+using WindowsDynamicIsland.UI;
 
 namespace WindowsDynamicIsland;
 
@@ -15,7 +16,7 @@ public partial class App : Application
         DispatcherUnhandledException += (s, args) =>
         {
             LogCrash("DispatcherUnhandledException", args.Exception);
-            args.Handled = true; // Prevent app exit!
+            args.Handled = true;
         };
 
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
@@ -26,7 +27,62 @@ public partial class App : Application
             }
         };
 
-        // Ensure any previous running instance is terminated so launching a new .exe always succeeds
+        base.OnStartup(e);
+
+        string exeName = Path.GetFileNameWithoutExtension(Environment.ProcessPath ?? string.Empty);
+        bool isArgUninstall = e.Args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase) || a.Equals("/uninstall", StringComparison.OrdinalIgnoreCase));
+        bool isArgQuiet = e.Args.Any(a => a.Equals("--quiet", StringComparison.OrdinalIgnoreCase) || a.Equals("--silent", StringComparison.OrdinalIgnoreCase) || a.Equals("/quiet", StringComparison.OrdinalIgnoreCase) || a.Equals("/S", StringComparison.OrdinalIgnoreCase));
+        bool isArgSilentInstall = e.Args.Any(a => a.Equals("--install", StringComparison.OrdinalIgnoreCase) || a.Equals("--silent-install", StringComparison.OrdinalIgnoreCase) || a.Equals("/install", StringComparison.OrdinalIgnoreCase));
+        bool isArgSetupGui = e.Args.Any(a => a.Equals("--setup", StringComparison.OrdinalIgnoreCase));
+
+        bool isExeUninstaller = exeName.Equals("Uninstall", StringComparison.OrdinalIgnoreCase);
+        bool isExeSetup = exeName.Contains("Setup", StringComparison.OrdinalIgnoreCase) || exeName.Contains("Installer", StringComparison.OrdinalIgnoreCase);
+
+        // 1. Handle Uninstall Mode (CLI or Uninstall.exe)
+        if (isArgUninstall || isExeUninstaller)
+        {
+            if (isArgQuiet)
+            {
+                try { AppInstallerService.UninstallApplication(); } catch { }
+                Shutdown();
+                return;
+            }
+
+            var uninstallWin = new SetupWindow(isUninstallMode: true);
+            MainWindow = uninstallWin;
+            uninstallWin.Show();
+            return;
+        }
+
+        // 2. Handle Silent Install Mode (--install)
+        if (isArgSilentInstall)
+        {
+            try
+            {
+                AppInstallerService.InstallApplication(
+                    createDesktopShortcut: true,
+                    createStartMenuShortcut: true,
+                    enableAutostart: true,
+                    launchAfterInstall: true);
+            }
+            catch (Exception ex)
+            {
+                LogCrash("SilentInstall", ex);
+            }
+            Shutdown();
+            return;
+        }
+
+        // 3. Handle Interactive Setup Wizard Mode (WindowsDynamicIsland-Setup.exe or --setup)
+        if (isArgSetupGui || isExeSetup)
+        {
+            var setupWin = new SetupWindow(isUninstallMode: false);
+            MainWindow = setupWin;
+            setupWin.Show();
+            return;
+        }
+
+        // 4. Normal Dynamic Island Overlay Launch
         try
         {
             int currentPid = Environment.ProcessId;
@@ -68,7 +124,9 @@ public partial class App : Application
         }
 
         LogCrash("Lifecycle", new Exception($"[PID {Environment.ProcessId}] Startup Succeeded"));
-        base.OnStartup(e);
+        var islandWindow = new MainWindow();
+        MainWindow = islandWindow;
+        islandWindow.Show();
     }
 
     private static void LogCrash(string source, Exception ex)
@@ -89,10 +147,7 @@ public partial class App : Application
             _singleInstanceMutex?.ReleaseMutex();
             _singleInstanceMutex?.Dispose();
         }
-        catch
-        {
-            // Ignore mutex release on exit
-        }
+        catch { }
 
         base.OnExit(e);
     }

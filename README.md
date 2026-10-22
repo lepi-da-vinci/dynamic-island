@@ -18,7 +18,7 @@ Menggabungkan keindahan estetika *NotchNook* satu kesatuan dengan integrasi mend
 <!-- QUICK INSTALL BUTTONS -->
 [![Quick Install & Run](https://img.shields.io/badge/Quick_Install_&_Run-PowerShell_One--Liner-0284c7?style=for-the-badge&logo=powershell&logoColor=white)](#instalasi--cara-menjalankan)
 &nbsp;&nbsp;
-[![Download Latest Binary](https://img.shields.io/badge/Download_Latest_Release-EXE_Standalone-10b981?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lepi-da-vinci/dynamic-island/releases/latest)
+[![Download Setup Installer](https://img.shields.io/badge/Download_Setup_Installer-WindowsDynamicIsland--Setup.exe-10b981?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lepi-da-vinci/dynamic-island/releases/latest)
 
 </div>
 
@@ -72,11 +72,19 @@ Buka **PowerShell** (tekan `Win + X` lalu pilih Terminal / PowerShell) dan jalan
 irm https://raw.githubusercontent.com/lepi-da-vinci/dynamic-island/main/install.ps1 | iex
 ```
 
-> **Catatan:** Script `install.ps1` akan otomatis mengunduh rilis terbaru (atau mengompilasi jika berada di dalam folder source code), membuka blokir keamanan Windows (`Unblock-File` sehingga bebas layar biru SmartScreen), membuat shortcut di Desktop, dan langsung menyalakan Dynamic Island di layar atas Anda.
+> **Catatan:** Script `install.ps1` akan memasang aplikasi secara standar ke `%LOCALAPPDATA%\Programs\WindowsDynamicIsland`, mendaftarkannya secara resmi di **Windows Settings -> Apps -> Installed Apps**, menambahkan ke Start Menu & Desktop, mengaktifkan Startup otomatis, serta membuka blokir keamanan Windows (`Unblock-File`).
 
 ---
 
-### Metode 2: Clone & Jalankan Manual via Terminal
+### Metode 2: GUI Setup Installer (`WindowsDynamicIsland-Setup.exe`)
+
+1. Unduh file **`WindowsDynamicIsland-Setup.exe`** dari halaman [GitHub Releases](https://github.com/lepi-da-vinci/dynamic-island/releases/latest).
+2. Jalankan `WindowsDynamicIsland-Setup.exe` untuk membuka jendela **Setup Wizard** modern.
+3. Pilih opsi Shortcut Desktop, Start Menu, dan Autostart, lalu klik **Install Sekarang**.
+
+---
+
+### Metode 3: Clone & Build dari Source Code
 
 Jika Anda ingin mengompilasi dari source code sendiri:
 
@@ -91,49 +99,36 @@ Jika Anda ingin mengompilasi dari source code sendiri:
    .\install.ps1
    ```
 
-   *atau build dan jalankan langsung dengan .NET CLI:*
+   *atau buka jendela Setup Wizard GUI langsung:*
    ```powershell
-   dotnet build WindowsDynamicIsland.slnx -c Release
-   dotnet run --project src/WindowsDynamicIsland/WindowsDynamicIsland.csproj -c Release
+   dotnet run --project src/WindowsDynamicIsland/WindowsDynamicIsland.csproj -c Release -- --setup
    ```
 
 ---
 
-### Metode 3: Build Standalone Single-File .exe (Portabel tanpa install SDK)
+### Cara Uninstall Aplikasi (Standar Windows)
 
-Jika Anda ingin menghasilkan file `.exe` tunggal yang portabel dan bisa dibagikan ke laptop/PC lain tanpa perlu menginstal .NET SDK:
+Karena aplikasi terdaftar secara resmi di sistem Windows, Anda dapat menghapusnya seperti aplikasi Windows normal lainnya melalui salah satu cara berikut:
 
-```powershell
-dotnet publish src/WindowsDynamicIsland/WindowsDynamicIsland.csproj `
-  -c Release `
-  -r win-x64 `
-  --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
-  -o ./publish
-```
-
-File executable mandiri siap pakai akan berada di folder `./publish/WindowsDynamicIsland.exe`.
+1. **Melalui Pengaturan Windows (Settings)**:
+   * Buka **Windows Settings** (`Win + I`) -> **Apps** -> **Installed apps** (atau *Apps & features*).
+   * Cari **Windows Dynamic Island**, klik ikon titik tiga di sebelahnya, lalu pilih **Uninstall**.
+2. **Melalui Start Menu Windows**:
+   * Buka **Start Menu** -> semua aplikasi -> folder **Windows Dynamic Island** -> klik **Uninstall Windows Dynamic Island**.
+3. **Melalui PowerShell One-Liner**:
+   ```powershell
+   irm https://raw.githubusercontent.com/lepi-da-vinci/dynamic-island/main/uninstall.ps1 | iex
+   ```
 
 ---
 
 ### Catatan Keamanan Windows SmartScreen
 
-Jika muncul jendela biru bertuliskan *"Windows protected your PC"* saat pertama kali dijalankan:
+Jika muncul jendela biru bertuliskan *"Windows protected your PC"* saat menjalankan file yang diunduh langsung dari browser:
 1. Klik teks bergaris bawah **More info** (atau *Informasi selengkapnya*).
 2. Klik tombol **Run anyway** (atau *Tetap jalankan*).
 
 Hal ini normal terjadi pada aplikasi open-source independen yang belum memiliki sertifikat tanda tangan berbayar (EV Code Signing). Kode aplikasi 100% aman dan transparan di repository ini.
-
----
-
-### Menjalankan Otomatis saat Windows Dinyalakan (Autostart)
-
-Agar Dynamic Island otomatis menyala setiap kali komputer dihidupkan:
-1. Tekan tombol `Win + R` di keyboard, ketik `shell:startup`, lalu tekan **Enter**.
-2. Buat *Shortcut* dari `WindowsDynamicIsland.exe` ke dalam folder Startup tersebut.
-3. Selesai! Dynamic Island akan otomatis aktif di layar setiap kali Anda login ke Windows.
 
 ---
 
