@@ -19,6 +19,12 @@ public partial class App : Application
             args.Handled = true;
         };
 
+        TaskScheduler.UnobservedTaskException += (s, args) =>
+        {
+            LogCrash("UnobservedTaskException", args.Exception);
+            args.SetObserved();
+        };
+
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
             if (args.ExceptionObject is Exception ex)

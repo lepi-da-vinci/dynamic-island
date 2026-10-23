@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly NotificationListenerService _notificationService = new();
     private readonly FileShelfService _fileShelfService = new();
     private readonly PomodoroTimerService _pomodoroService = new();
+    private readonly UpdateCheckerService _updateService = new();
 
     private readonly DispatcherTimer _oneSecondTimer;
     private readonly DispatcherTimer _fastUpdateTimer;
@@ -114,6 +115,16 @@ public partial class MainWindow : Window
         _notificationService.NotificationReceived += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
         _pomodoroService.TimerTicked += () => Dispatcher.InvokeAsync(UpdatePomodoroAndClockUi);
         _pomodoroService.TimerCompleted += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
+        _updateService.UpdateStatusChanged += res => Dispatcher.InvokeAsync(() => UpdateSystemUpdateUi(res));
+        _updateService.UpdateNotificationTriggered += res => Dispatcher.InvokeAsync(() =>
+        {
+            TriggerToast(new ToastPayload(
+                Icon: "SHIELD",
+                Title: $"Update Baru: {res.LatestVersion}",
+                Subtitle: "Buka Tab Sistem di Dynamic Island untuk pasang",
+                AccentHex: "#22C55E",
+                Duration: TimeSpan.FromSeconds(4.5)));
+        });
 
         // Subscribe to external keyboard Volume / Mute / Mic Mute / Brightness key events
         _audioService.SpeakerVolumeOrMuteChanged += (vol, muted, muteToggled) =>
@@ -131,6 +142,9 @@ public partial class MainWindow : Window
 
         _brightnessService.BrightnessChanged += brt =>
             Dispatcher.InvokeAsync(() => ShowBrightnessToast(brt));
+
+        Microsoft.Win32.SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
         Loaded += OnWindowLoaded;
         Closed += OnWindowClosed;
@@ -163,6 +177,7 @@ public partial class MainWindow : Window
         UpdateHardwareUi();
         UpdateSlidersAndMuteUi();
         UpdatePomodoroAndClockUi();
+        UpdateSystemUpdateUi(_updateService.LastResult);
 
         _oneSecondTimer.Start();
         _fastUpdateTimer.Start();
@@ -188,6 +203,9 @@ public partial class MainWindow : Window
         _hitTestTimer.Stop();
         _mediaService.Dispose();
         _hardwareService.Dispose();
+        _updateService.Dispose();
+        Microsoft.Win32.SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
 
         if (_hwnd != IntPtr.Zero)
         {
@@ -1582,5 +1600,106 @@ public partial class MainWindow : Window
     private void OnExitAppClick(object sender, RoutedEventArgs e)
     {
         Application.Current.Shutdown();
+    }
+
+    private void UpdateSystemUpdateUi(UpdateCheckResult res)
+    {
+        if (res.IsUpdateAvailable)
+        {
+            TabSystemUpdateBadge.Visibility = Visibility.Visible;
+            SysUpdateCardBorder.Background = new SolidColorBrush(Color.FromArgb(32, 34, 197, 94));
+            SysUpdateCardBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(80, 34, 197, 94));
+            SysUpdateIconPath.Data = (Geometry)FindResource("GeomUpdate");
+            SysUpdateIconPath.Fill = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            SysUpdateStatusText.Text = $"Update Baru: {res.LatestVersion} Tersedia!";
+            SysUpdateStatusText.Foreground = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            SysUpdateSubText.Text = !string.IsNullOrWhiteSpace(res.ReleaseTitle) && res.ReleaseTitle != res.LatestVersion
+                ? $"{res.ReleaseTitle} (Saat ini: {res.CurrentVersion})"
+                : $"Versi saat ini: {res.CurrentVersion}. Klik untuk memasang sekarang.";
+            SysInstallUpdateBtn.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            TabSystemUpdateBadge.Visibility = Visibility.Collapsed;
+            SysUpdateCardBorder.Background = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255));
+            SysUpdateCardBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(32, 255, 255, 255));
+            SysUpdateIconPath.Data = (Geometry)FindResource("GeomCheckCircle");
+            SysUpdateIconPath.Fill = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            SysUpdateStatusText.Text = $"Windows Dynamic Island {res.CurrentVersion} (Terbaru)";
+            SysUpdateStatusText.Foreground = Brushes.White;
+            SysUpdateSubText.Text = res.HasError
+                ? $"Gagal memuat info rilis ({res.ErrorMessage})"
+                : "Sistem sudah menggunakan rilis versi paling mutakhir";
+            SysInstallUpdateBtn.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async void OnCheckUpdateClick(object sender, RoutedEventArgs e)
+    {
+        SysCheckUpdateBtnText.Text = "Mengecek...";
+        SysCheckUpdateBtn.IsEnabled = false;
+
+        try
+        {
+            var res = await _updateService.CheckForUpdatesAsync(isBackgroundCheck: false);
+            UpdateSystemUpdateUi(res);
+
+            if (!res.IsUpdateAvailable && !res.HasError)
+            {
+                TriggerToast(new ToastPayload(
+                    Icon: "SHIELD",
+                    Title: "Sistem Terkini",
+                    Subtitle: $"Windows Dynamic Island {res.CurrentVersion} sudah yang paling baru",
+                    AccentHex: "#38BDF8",
+                    Duration: TimeSpan.FromSeconds(2.6)));
+            }
+        }
+        finally
+        {
+            SysCheckUpdateBtnText.Text = "Cek Update";
+            SysCheckUpdateBtn.IsEnabled = true;
+        }
+    }
+
+    private void OnInstallUpdateClick(object sender, RoutedEventArgs e)
+    {
+        TriggerToast(new ToastPayload(
+            Icon: "BOLT",
+            Title: "Memperbarui Aplikasi...",
+            Subtitle: "Installer sedang mengunduh dan memperbarui versi terbaru",
+            AccentHex: "#22C55E",
+            Duration: TimeSpan.FromSeconds(4.0)));
+
+        UpdateCheckerService.LaunchOneClickInstaller();
+    }
+
+    private void OnSystemPowerModeChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == Microsoft.Win32.PowerModes.Resume)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                PositionTopCenter();
+                _stateMachine.SetFullScreenHidden(false);
+                EnsureRenderLoopRunning();
+                if (_hwnd != IntPtr.Zero)
+                {
+                    Win32Interop.SetWindowPos(
+                        _hwnd,
+                        Win32Interop.HWND_TOPMOST,
+                        0, 0, 0, 0,
+                        Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_SHOWWINDOW | Win32Interop.SWP_NOACTIVATE);
+                }
+            });
+        }
+    }
+
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            PositionTopCenter();
+            EnsureRenderLoopRunning();
+        });
     }
 }

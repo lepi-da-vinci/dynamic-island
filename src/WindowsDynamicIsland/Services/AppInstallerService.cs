@@ -8,7 +8,7 @@ public static class AppInstallerService
 {
     public const string AppId = "WindowsDynamicIsland";
     public const string DisplayName = "Windows Dynamic Island";
-    public const string AppVersion = "1.1.1";
+    public const string AppVersion = "1.2.0";
     public const string Publisher = "Lepi Da Vinci";
     public const string RepoUrl = "https://github.com/lepi-da-vinci/dynamic-island";
 

@@ -80,7 +80,7 @@ public sealed class IslandStateMachine
                     ? (508, 242, 26, 18, 0.45)
                     : (492, 216, 26, 18, 0.42),
                 IslandDashboardTab.Pomodoro => (468, 198, 26, 18, 0.40),
-                IslandDashboardTab.SystemStatus => (504, 242, 26, 18, 0.42),
+                IslandDashboardTab.SystemStatus => (504, 272, 26, 18, 0.42),
                 _ => (492, 224, 26, 18, 0.45)
             },
             _ => (196, 36, 16, 13, 0.10)

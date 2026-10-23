@@ -13,9 +13,9 @@
     <OptimizationPreference>Speed</OptimizationPreference>
     <Product>Windows Dynamic Island</Product>
     <Company>Lepi Da Vinci</Company>
-    <Version>1.1.1</Version>
-    <FileVersion>1.1.1.0</FileVersion>
-    <AssemblyVersion>1.1.1.0</AssemblyVersion>
+    <Version>1.2.0</Version>
+    <FileVersion>1.2.0.0</FileVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
     <Description>Native Dynamic Island for Windows 10 and 11</Description>
   </PropertyGroup>
 
@@ -29,6 +29,16 @@
     <Exec Command="powershell -NoProfile -Command &quot;Get-Process -Name 'WindowsDynamicIsland' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue&quot;"
           IgnoreExitCode="true"
            EchoOff="true" />
+  </Target>
+
+  <!-- Ensure design-time *.g.i.cs exists for Visual Studio / VS Code Roslyn IntelliSense -->
+  <Target Name="EnsureDesignTimeXamlGeneratedFiles" AfterTargets="MarkupCompilePass2">
+    <ItemGroup>
+      <_GeneratedXamlCs Include="$(IntermediateOutputPath)**\*.g.cs" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_GeneratedXamlCs)"
+          DestinationFiles="@(_GeneratedXamlCs->'%(RootDir)%(Directory)%(Filename).i.cs')"
+          SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
