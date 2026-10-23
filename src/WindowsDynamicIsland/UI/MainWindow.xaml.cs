@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _hitTestTimer;
     private readonly DispatcherTimer _toastDismissTimer;
     private readonly DispatcherTimer _collapseDebounceTimer;
+    private readonly DispatcherTimer _heartbeatTimer;
 
     private readonly double[] _spectrumHeights = [4, 7, 11, 7, 4];
     private Rectangle[] _waveRectangles = [];
@@ -68,7 +69,17 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        InitializeComponent();
+        AppLogger.LogInfo("MainWindow", "Entering MainWindow constructor.");
+        try
+        {
+            InitializeComponent();
+            AppLogger.LogInfo("MainWindow", "InitializeComponent() succeeded.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogCrash("InitializeComponent", ex);
+            throw;
+        }
 
         _waveRectangles = [WaveBar0, WaveBar1, WaveBar2, WaveBar3, WaveBar4];
         _expWaveRectangles = [ExpWaveBar0, ExpWaveBar1, ExpWaveBar2, ExpWaveBar3, ExpWaveBar4];
@@ -106,6 +117,9 @@ public partial class MainWindow : Window
                 _stateMachine.SetHovered(false);
             }
         };
+
+        _heartbeatTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _heartbeatTimer.Tick += OnHeartbeatTick;
 
         _stateMachine.StateChanged += OnIslandStateChanged;
         _mediaService.TrackChanged += OnMediaTrackChanged;
@@ -148,56 +162,95 @@ public partial class MainWindow : Window
 
         Loaded += OnWindowLoaded;
         Closed += OnWindowClosed;
+
+        AppLogger.LogInfo("MainWindow", "MainWindow constructor completed successfully.");
     }
 
     protected override void OnSourceInitialized(EventArgs e)
     {
-        base.OnSourceInitialized(e);
+        AppLogger.LogInfo("OnSourceInitialized", "Entering OnSourceInitialized.");
+        try
+        {
+            base.OnSourceInitialized(e);
 
-        _hwnd = new WindowInteropHelper(this).Handle;
-        HwndSource? source = HwndSource.FromHwnd(_hwnd);
-        source?.AddHook(WndProc);
+            _hwnd = new WindowInteropHelper(this).Handle;
+            AppLogger.LogInfo("OnSourceInitialized", $"Got HWND=0x{_hwnd:X}. Adding WndProc hook...");
+            HwndSource? source = HwndSource.FromHwnd(_hwnd);
+            source?.AddHook(WndProc);
 
-        int exStyle = Win32Interop.GetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE);
-        exStyle |= Win32Interop.WS_EX_TOOLWINDOW | Win32Interop.WS_EX_TOPMOST | Win32Interop.WS_EX_NOACTIVATE;
-        Win32Interop.SetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE, exStyle);
+            AppLogger.LogInfo("OnSourceInitialized", "Setting window styles...");
+            int exStyle = Win32Interop.GetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE);
+            exStyle |= Win32Interop.WS_EX_TOOLWINDOW | Win32Interop.WS_EX_TOPMOST | Win32Interop.WS_EX_NOACTIVATE;
+            Win32Interop.SetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE, exStyle);
 
-        Win32Interop.AddClipboardFormatListener(_hwnd);
-        InitializeSystemTrayIcon();
-        PositionTopCenter();
+            AppLogger.LogInfo("OnSourceInitialized", "Adding clipboard format listener...");
+            Win32Interop.AddClipboardFormatListener(_hwnd);
+
+            AppLogger.LogInfo("OnSourceInitialized", "Initializing system tray icon...");
+            InitializeSystemTrayIcon();
+
+            AppLogger.LogInfo("OnSourceInitialized", "Positioning top center...");
+            PositionTopCenter();
+            AppLogger.LogInfo("OnSourceInitialized", "OnSourceInitialized completed.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogCrash("OnSourceInitialized", ex);
+            throw;
+        }
     }
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
-        PositionTopCenter();
-        UpdateTabHighlight();
-        _hardwareService.RefreshFullTelemetry(emitToasts: false);
-        _audioService.PollExternalChanges();
-        _brightnessService.PollExternalChanges();
-        UpdateHardwareUi();
-        UpdateSlidersAndMuteUi();
-        UpdatePomodoroAndClockUi();
-        UpdateSystemUpdateUi(_updateService.LastResult);
+        AppLogger.LogInfo("WindowLifecycle", "Entering OnWindowLoaded.");
+        try
+        {
+            PositionTopCenter();
+            UpdateTabHighlight();
+            _hardwareService.RefreshFullTelemetry(emitToasts: false);
+            _audioService.PollExternalChanges();
+            _brightnessService.PollExternalChanges();
+            UpdateHardwareUi();
+            UpdateSlidersAndMuteUi();
+            UpdatePomodoroAndClockUi();
+            UpdateSystemUpdateUi(_updateService.LastResult);
 
-        _oneSecondTimer.Start();
-        _fastUpdateTimer.Start();
-        _hitTestTimer.Start();
-        UpdateWindowClickThroughState();
+            _oneSecondTimer.Start();
+            _fastUpdateTimer.Start();
+            _hitTestTimer.Start();
+            _heartbeatTimer.Start();
+            UpdateWindowClickThroughState();
 
-        TriggerToast(new ToastPayload(
-            Icon: "BELL",
-            Title: "Dynamic Island Aktif",
-            Subtitle: "Scroll = Volume • Shift+Scroll = Kecerahan",
-            AccentHex: "#38BDF8",
-            Duration: TimeSpan.FromSeconds(2.6)));
+            AppLogger.LogInfo("WindowLifecycle", $"MainWindow loaded successfully. HWND=0x{_hwnd:X}, Left={Left}, Top={Top}, Width={Width}, Height={Height}");
 
-        await _mediaService.InitializeAsync();
-        EnsureRenderLoopRunning();
+            TriggerToast(new ToastPayload(
+                Icon: "BELL",
+                Title: "Dynamic Island Aktif",
+                Subtitle: "Scroll = Volume • Shift+Scroll = Kecerahan",
+                AccentHex: "#38BDF8",
+                Duration: TimeSpan.FromSeconds(2.6)));
+
+            await _mediaService.InitializeAsync();
+            EnsureRenderLoopRunning();
+            AppLogger.LogInfo("WindowLifecycle", "OnWindowLoaded completed successfully.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogCrash("OnWindowLoaded", ex);
+        }
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        AppLogger.LogInfo("WindowLifecycle", $"MainWindow.OnClosing called. Cancel={e.Cancel}. CallStack:\r\n{new StackTrace(1, true)}");
+        base.OnClosing(e);
     }
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {
+        AppLogger.LogInfo("WindowLifecycle", $"MainWindow.OnWindowClosed called. CallStack:\r\n{new StackTrace(1, true)}");
         StopRenderLoop();
+        _heartbeatTimer.Stop();
         _oneSecondTimer.Stop();
         _fastUpdateTimer.Stop();
         _hitTestTimer.Stop();
@@ -215,6 +268,20 @@ public partial class MainWindow : Window
             {
                 Win32Interop.DestroyIcon(_trayIconData.hIcon);
             }
+        }
+    }
+
+    private void OnHeartbeatTick(object? sender, EventArgs e)
+    {
+        try
+        {
+            bool isCursorInside = IsCursorInsideIslandBounds();
+            string status = $"State={_stateMachine.CurrentState}, Tab={_stateMachine.ActiveTab}, CursorInIsland={isCursorInside}, FullScreenHidden={_stateMachine.IsFullScreenHidden}, RenderLoopAttached={_isRenderLoopAttached}, HWND=0x{_hwnd:X}";
+            AppLogger.LogHeartbeat(status);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("Heartbeat", "Error during heartbeat tick", ex);
         }
     }
 
@@ -320,6 +387,30 @@ public partial class MainWindow : Window
                 _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
                 _stateMachine.TogglePinnedExpanded();
             }
+        }
+        else if (msg == Win32Interop.WM_QUERYENDSESSION)
+        {
+            AppLogger.LogWarning("WndProc", $"WM_QUERYENDSESSION received (Windows logoff/shutdown in progress). wParam={wParam}, lParam={lParam}");
+        }
+        else if (msg == Win32Interop.WM_ENDSESSION)
+        {
+            AppLogger.LogWarning("WndProc", $"WM_ENDSESSION received. wParam={wParam}, lParam={lParam}");
+        }
+        else if (msg == Win32Interop.WM_CLOSE)
+        {
+            AppLogger.LogWarning("WndProc", $"WM_CLOSE received via WndProc. CallStack:\r\n{new StackTrace(true)}");
+        }
+        else if (msg == Win32Interop.WM_DESTROY)
+        {
+            AppLogger.LogInfo("WndProc", "WM_DESTROY received.");
+        }
+        else if (msg == Win32Interop.WM_POWERBROADCAST)
+        {
+            AppLogger.LogInfo("WndProc", $"WM_POWERBROADCAST received: wParam={wParam}");
+        }
+        else if (msg == Win32Interop.WM_DISPLAYCHANGE)
+        {
+            AppLogger.LogInfo("WndProc", $"WM_DISPLAYCHANGE received: {lParam.ToInt32() & 0xFFFF}x{(lParam.ToInt32() >> 16) & 0xFFFF}");
         }
 
         return IntPtr.Zero;
@@ -508,64 +599,71 @@ public partial class MainWindow : Window
 
     private void OnCompositionTargetRendering(object? sender, EventArgs e)
     {
-        long now = Stopwatch.GetTimestamp();
-        double dt = Math.Clamp((double)(now - _lastRenderTick) / Stopwatch.Frequency, 0.001, 0.05);
-        _lastRenderTick = now;
-
-        bool morphActive = _morph.Update(dt);
-
-        double bodyWidth = Math.Max(48, _morph.Width.Current);
-        double height = Math.Max(4, _morph.Height.Current);
-        double bottomRadius = Math.Clamp(_morph.BottomCornerRadius.Current, 2, height * 0.65);
-        double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 2, height * 0.55);
-
-        IslandBorder.Width = bodyWidth;
-        IslandBorder.Height = height;
-
-        AmbientGlowBorder.Width = bodyWidth;
-        AmbientGlowBorder.Height = height;
-        AmbientGlowBorder.CornerRadius = new CornerRadius(0, 0, bottomRadius, bottomRadius);
-        AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
-
-        UpdateUnifiedNotchGeometry(bodyWidth, height, bottomRadius, topEarRadius);
-        UpdateWindowClickThroughState();
-
-        bool isCompactMedia =
-            _stateMachine.CurrentState == IslandVisualState.CompactMedia &&
-            _mediaService.CurrentTrack.HasActiveSession;
-
-        bool isExpandedMedia =
-            _stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
-            _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics &&
-            _mediaService.CurrentTrack.HasActiveSession;
-
-        if (isCompactMedia)
+        try
         {
-            _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 18.0);
-            for (int i = 0; i < _waveRectangles.Length; i++)
+            long now = Stopwatch.GetTimestamp();
+            double dt = Math.Clamp((double)(now - _lastRenderTick) / Stopwatch.Frequency, 0.001, 0.05);
+            _lastRenderTick = now;
+
+            bool morphActive = _morph.Update(dt);
+
+            double bodyWidth = Math.Max(48, _morph.Width.Current);
+            double height = Math.Max(4, _morph.Height.Current);
+            double bottomRadius = Math.Clamp(_morph.BottomCornerRadius.Current, 2, height * 0.65);
+            double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 2, height * 0.55);
+
+            IslandBorder.Width = bodyWidth;
+            IslandBorder.Height = height;
+
+            AmbientGlowBorder.Width = bodyWidth;
+            AmbientGlowBorder.Height = height;
+            AmbientGlowBorder.CornerRadius = new CornerRadius(0, 0, bottomRadius, bottomRadius);
+            AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
+
+            UpdateUnifiedNotchGeometry(bodyWidth, height, bottomRadius, topEarRadius);
+            UpdateWindowClickThroughState();
+
+            bool isCompactMedia =
+                _stateMachine.CurrentState == IslandVisualState.CompactMedia &&
+                _mediaService.CurrentTrack.HasActiveSession;
+
+            bool isExpandedMedia =
+                _stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics &&
+                _mediaService.CurrentTrack.HasActiveSession;
+
+            if (isCompactMedia)
             {
-                _waveRectangles[i].Height = _spectrumHeights[i];
+                _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 18.0);
+                for (int i = 0; i < _waveRectangles.Length; i++)
+                {
+                    _waveRectangles[i].Height = _spectrumHeights[i];
+                }
+
+                UpdateCompactLyricSlowPan(dt);
+            }
+            else if (isExpandedMedia)
+            {
+                // Drive real-time WASAPI Loopback 5-band waveform in Expanded Music Player too!
+                _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 15.0);
+                for (int i = 0; i < _expWaveRectangles.Length; i++)
+                {
+                    _expWaveRectangles[i].Height = _spectrumHeights[i];
+                }
+
+                float peak = _audioService.GetCurrentPeakLevel(_mediaService.CurrentTrack.IsPlaying);
+                LyricsStageGlowOrb.Opacity = 0.14 + Math.Clamp(peak * 0.45, 0.0, 0.35);
+                LyricsStageGlowOrb.Width = 180 + peak * 95;
             }
 
-            UpdateCompactLyricSlowPan(dt);
-        }
-        else if (isExpandedMedia)
-        {
-            // Drive real-time WASAPI Loopback 5-band waveform in Expanded Music Player too!
-            _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 15.0);
-            for (int i = 0; i < _expWaveRectangles.Length; i++)
+            if (!morphActive && !isCompactMedia && !isExpandedMedia)
             {
-                _expWaveRectangles[i].Height = _spectrumHeights[i];
+                StopRenderLoop();
             }
-
-            float peak = _audioService.GetCurrentPeakLevel(_mediaService.CurrentTrack.IsPlaying);
-            LyricsStageGlowOrb.Opacity = 0.14 + Math.Clamp(peak * 0.45, 0.0, 0.35);
-            LyricsStageGlowOrb.Width = 180 + peak * 95;
         }
-
-        if (!morphActive && !isCompactMedia && !isExpandedMedia)
+        catch (Exception ex)
         {
-            StopRenderLoop();
+            AppLogger.LogError("RenderLoop", "Error during OnCompositionTargetRendering", ex);
         }
     }
 
@@ -680,35 +778,42 @@ public partial class MainWindow : Window
 
     private void OnFastUpdateTick(object? sender, EventArgs e)
     {
-        _hardwareService.PollFastKeyboardIndicators();
-        _audioService.PollExternalChanges();
-        _brightnessService.PollExternalChanges();
-        _notificationService.PollNewNotifications();
-
-        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
-            _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
-            !_isDraggingSysVolume &&
-            !_isDraggingSysBrightness)
+        try
         {
-            UpdateSlidersAndMuteUi();
-        }
+            _hardwareService.PollFastKeyboardIndicators();
+            _audioService.PollExternalChanges();
+            _brightnessService.PollExternalChanges();
+            _notificationService.PollNewNotifications();
 
-        if (_mediaService.CurrentTrack.HasActiveSession)
-        {
-            UpdateMediaAndLyricsUi();
-        }
-
-        if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge &&
-            Win32Interop.GetCursorPos(out var pt))
-        {
-            int centerPx = (int)(SystemParameters.PrimaryScreenWidth / 2);
-            if (pt.Y <= 2 && Math.Abs(pt.X - centerPx) <= 85)
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
+                !_isDraggingSysVolume &&
+                !_isDraggingSysBrightness)
             {
-                _topBezelHoldTicks++;
-                if (_topBezelHoldTicks >= 3)
+                UpdateSlidersAndMuteUi();
+            }
+
+            if (_mediaService.CurrentTrack.HasActiveSession)
+            {
+                UpdateMediaAndLyricsUi();
+            }
+
+            if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge &&
+                Win32Interop.GetCursorPos(out var pt))
+            {
+                int centerPx = (int)(SystemParameters.PrimaryScreenWidth / 2);
+                if (pt.Y <= 2 && Math.Abs(pt.X - centerPx) <= 85)
+                {
+                    _topBezelHoldTicks++;
+                    if (_topBezelHoldTicks >= 3)
+                    {
+                        _topBezelHoldTicks = 0;
+                        _stateMachine.SetHovered(true);
+                    }
+                }
+                else
                 {
                     _topBezelHoldTicks = 0;
-                    _stateMachine.SetHovered(true);
                 }
             }
             else
@@ -716,41 +821,48 @@ public partial class MainWindow : Window
                 _topBezelHoldTicks = 0;
             }
         }
-        else
+        catch (Exception ex)
         {
-            _topBezelHoldTicks = 0;
+            AppLogger.LogError("FastUpdateTick", "Error during OnFastUpdateTick", ex);
         }
     }
 
     private void OnOneSecondTick(object? sender, EventArgs e)
     {
-        if (_autoHideFullScreen)
+        try
         {
-            bool fullScreen = Win32Interop.IsFullScreenAppActive();
-            _stateMachine.SetFullScreenHidden(fullScreen);
+            if (_autoHideFullScreen)
+            {
+                bool fullScreen = Win32Interop.IsFullScreenAppActive();
+                _stateMachine.SetFullScreenHidden(fullScreen);
+            }
+
+            if (_hwnd != IntPtr.Zero && _stateMachine.CurrentState != IslandVisualState.Hidden)
+            {
+                Win32Interop.SetWindowPos(
+                    _hwnd,
+                    Win32Interop.HWND_TOPMOST,
+                    0, 0, 0, 0,
+                    Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE);
+            }
+
+            _pomodoroService.TickOneSecond();
+            UpdatePomodoroAndClockUi();
+
+            _hardwareService.RefreshFullTelemetry();
+            UpdateHardwareUi();
+
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
+                !_isDraggingSysVolume &&
+                !_isDraggingSysBrightness)
+            {
+                UpdateSlidersAndMuteUi();
+            }
         }
-
-        if (_hwnd != IntPtr.Zero && _stateMachine.CurrentState != IslandVisualState.Hidden)
+        catch (Exception ex)
         {
-            Win32Interop.SetWindowPos(
-                _hwnd,
-                Win32Interop.HWND_TOPMOST,
-                0, 0, 0, 0,
-                Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE);
-        }
-
-        _pomodoroService.TickOneSecond();
-        UpdatePomodoroAndClockUi();
-
-        _hardwareService.RefreshFullTelemetry();
-        UpdateHardwareUi();
-
-        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
-            _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
-            !_isDraggingSysVolume &&
-            !_isDraggingSysBrightness)
-        {
-            UpdateSlidersAndMuteUi();
+            AppLogger.LogError("OneSecondTick", "Error during OnOneSecondTick", ex);
         }
     }
 
@@ -1597,8 +1709,44 @@ public partial class MainWindow : Window
         UpdateSlidersAndMuteUi();
     }
 
+    private void OnOpenLogClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            string path = AppLogger.LogFilePath;
+            if (!System.IO.File.Exists(path))
+            {
+                path = AppLogger.TempLogFilePath;
+            }
+
+            if (System.IO.File.Exists(path))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                string dir = System.IO.Path.GetDirectoryName(path) ?? System.IO.Path.GetTempPath();
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{dir}\"",
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("OpenLog", "Error opening log file", ex);
+        }
+    }
+
     private void OnExitAppClick(object sender, RoutedEventArgs e)
     {
+        AppLogger.LogInfo("Lifecycle", "OnExitAppClick initiated by user.");
         Application.Current.Shutdown();
     }
 
@@ -1675,10 +1823,12 @@ public partial class MainWindow : Window
 
     private void OnSystemPowerModeChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
     {
+        AppLogger.LogInfo("SystemEvents", $"OnSystemPowerModeChanged: Mode={e.Mode}");
         if (e.Mode == Microsoft.Win32.PowerModes.Resume)
         {
             Dispatcher.InvokeAsync(() =>
             {
+                AppLogger.LogInfo("SystemEvents", "PowerModes.Resume -> Repositioning TopCenter and ensuring render loop running.");
                 PositionTopCenter();
                 _stateMachine.SetFullScreenHidden(false);
                 EnsureRenderLoopRunning();
@@ -1692,10 +1842,15 @@ public partial class MainWindow : Window
                 }
             });
         }
+        else if (e.Mode == Microsoft.Win32.PowerModes.Suspend)
+        {
+            AppLogger.LogInfo("SystemEvents", "PowerModes.Suspend detected (System entering Sleep/Modern Standby).");
+        }
     }
 
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {
+        AppLogger.LogInfo("SystemEvents", "OnDisplaySettingsChanged detected -> Repositioning top center.");
         Dispatcher.InvokeAsync(() =>
         {
             PositionTopCenter();

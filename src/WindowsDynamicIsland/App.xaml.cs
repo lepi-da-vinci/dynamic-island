@@ -13,15 +13,17 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        AppLogger.LogInfo("Lifecycle", $"=== Windows Dynamic Island Starting === PID={Environment.ProcessId}, Args='{string.Join(" ", e.Args)}', OS={Environment.OSVersion}, Is64Bit={Environment.Is64BitProcess}, CLR={Environment.Version}");
+
         DispatcherUnhandledException += (s, args) =>
         {
-            LogCrash("DispatcherUnhandledException", args.Exception);
+            AppLogger.LogCrash("DispatcherUnhandledException", args.Exception);
             args.Handled = true;
         };
 
         TaskScheduler.UnobservedTaskException += (s, args) =>
         {
-            LogCrash("UnobservedTaskException", args.Exception);
+            AppLogger.LogCrash("UnobservedTaskException", args.Exception);
             args.SetObserved();
         };
 
@@ -29,9 +31,23 @@ public partial class App : Application
         {
             if (args.ExceptionObject is Exception ex)
             {
-                LogCrash("AppDomainUnhandledException", ex);
+                AppLogger.LogCrash("AppDomainUnhandledException", ex);
             }
         };
+
+        AppDomain.CurrentDomain.ProcessExit += (s, args) =>
+        {
+            AppLogger.LogInfo("Lifecycle", $"AppDomain.ProcessExit triggered. ExitCode={Environment.ExitCode}");
+        };
+
+        try
+        {
+            Microsoft.Win32.SystemEvents.SessionSwitch += (s, args) =>
+            {
+                AppLogger.LogInfo("SystemEvents", $"SessionSwitch Reason={args.Reason}");
+            };
+        }
+        catch { }
 
         base.OnStartup(e);
 
@@ -73,7 +89,7 @@ public partial class App : Application
             }
             catch (Exception ex)
             {
-                LogCrash("SilentInstall", ex);
+                AppLogger.LogCrash("SilentInstall", ex);
             }
             Shutdown();
             return;
@@ -124,30 +140,30 @@ public partial class App : Application
 
         if (!hasHandle)
         {
-            LogCrash("Lifecycle", new Exception($"[PID {Environment.ProcessId}] Mutex not acquired -> Shutdown()"));
+            AppLogger.LogWarning("Lifecycle", $"[PID {Environment.ProcessId}] Mutex not acquired -> Shutdown()");
             Shutdown();
             return;
         }
 
-        LogCrash("Lifecycle", new Exception($"[PID {Environment.ProcessId}] Startup Succeeded"));
-        var islandWindow = new MainWindow();
-        MainWindow = islandWindow;
-        islandWindow.Show();
-    }
-
-    private static void LogCrash(string source, Exception ex)
-    {
+        AppLogger.LogInfo("Lifecycle", $"[PID {Environment.ProcessId}] Mutex acquired successfully. Creating MainWindow.");
         try
         {
-            string path = Path.Combine(Path.GetTempPath(), "WindowsDynamicIsland_error.log");
-            File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {ex.Message}\r\n");
+            var islandWindow = new MainWindow();
+            MainWindow = islandWindow;
+            AppLogger.LogInfo("Lifecycle", $"[PID {Environment.ProcessId}] MainWindow instance created. Calling Show().");
+            islandWindow.Show();
+            AppLogger.LogInfo("Lifecycle", $"[PID {Environment.ProcessId}] islandWindow.Show() succeeded.");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.LogCrash("MainWindowCreation", ex);
+            throw;
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
-        LogCrash("Lifecycle", new Exception($"[PID {Environment.ProcessId}] App.OnExit: {e.ApplicationExitCode}"));
+        AppLogger.LogInfo("Lifecycle", $"App.OnExit called. ApplicationExitCode={e.ApplicationExitCode}. CallStack:\r\n{new StackTrace(1, true)}");
         try
         {
             _singleInstanceMutex?.ReleaseMutex();

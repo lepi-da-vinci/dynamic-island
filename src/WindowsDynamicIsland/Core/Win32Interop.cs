@@ -17,6 +17,12 @@ public static class Win32Interop
     public const int WM_LBUTTONUP = 0x0202;
     public const int WM_RBUTTONUP = 0x0205;
     public const int WM_LBUTTONDBLCLK = 0x0203;
+    public const int WM_DESTROY = 0x0002;
+    public const int WM_CLOSE = 0x0010;
+    public const int WM_QUERYENDSESSION = 0x0011;
+    public const int WM_ENDSESSION = 0x0016;
+    public const int WM_DISPLAYCHANGE = 0x007E;
+    public const int WM_POWERBROADCAST = 0x0218;
 
     public const int HTTRANSPARENT = -1;
     public const int HTCLIENT = 1;

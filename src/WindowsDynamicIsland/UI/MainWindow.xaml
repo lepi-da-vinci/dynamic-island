@@ -1341,6 +1341,25 @@
 
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="11,6"
+                                        Margin="0,0,6,0"
+                                        ToolTip="Buka file log error dan diagnostik lengkap"
+                                        Click="OnOpenLogClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource GeomTerminalLog}"
+                                              Width="10.5" Height="10.5"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              Margin="0,0,4.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock Text="Log"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Style="{StaticResource IslandIconButtonStyle}"
+                                        Padding="11,6"
                                         Click="OnExitAppClick">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="{StaticResource GeomClosePower}"

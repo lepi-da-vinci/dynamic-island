@@ -55,7 +55,20 @@ public sealed class UpdateCheckerService : IDisposable
     {
         // First check after 4 seconds (so app startup is instant), then repeat every 4 hours
         _periodicTimer = new System.Threading.Timer(
-            async _ => await CheckForUpdatesAsync(isBackgroundCheck: true),
+            _ =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await CheckForUpdatesAsync(isBackgroundCheck: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.LogError("UpdateChecker", "Background update check timer error", ex);
+                    }
+                });
+            },
             null,
             TimeSpan.FromSeconds(4),
             TimeSpan.FromHours(4));

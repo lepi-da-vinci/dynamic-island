@@ -59,7 +59,7 @@ if ((Test-Path $projPath) -and (Get-Command "dotnet" -ErrorAction SilentlyContin
     }
 
     $binDir = Join-Path $scriptDir "src\WindowsDynamicIsland\bin\Release"
-    $builtExe = Get-ChildItem -Path $binDir -Filter "WindowsDynamicIsland.exe" -Recurse | Select-Object -First 1
+    $builtExe = Get-ChildItem -Path $binDir -Filter "WindowsDynamicIsland.exe" -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($builtExe -and (Test-Path $builtExe.FullName)) {
         Get-ChildItem -Path $builtExe.DirectoryName -File | Where-Object { $_.Extension -ne ".pdb" } | ForEach-Object {
             Copy-Item -Path $_.FullName -Destination (Join-Path $installDir $_.Name) -Force

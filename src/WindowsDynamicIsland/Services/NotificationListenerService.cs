@@ -38,7 +38,9 @@ public sealed class NotificationListenerService
     private static extern int sqlite3_finalize(IntPtr stmt);
 
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
-    private static extern int sqlite3_close(IntPtr db);
+    private static extern int sqlite3_close_v2(IntPtr db);
+
+    private static DateTime _lastSqliteErrorLogUtc = DateTime.MinValue;
 
     private readonly string _wpnDbPath;
     private readonly byte[] _wpnDbPathBytes;
@@ -88,8 +90,14 @@ public sealed class NotificationListenerService
         }
         finally
         {
-            if (stmt != IntPtr.Zero) sqlite3_finalize(stmt);
-            if (db != IntPtr.Zero) sqlite3_close(db);
+            if (stmt != IntPtr.Zero)
+            {
+                try { sqlite3_finalize(stmt); } catch { }
+            }
+            if (db != IntPtr.Zero)
+            {
+                try { sqlite3_close_v2(db); } catch { }
+            }
         }
     }
 
@@ -194,14 +202,24 @@ public sealed class NotificationListenerService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore transient SQLite lock
+            if ((DateTime.UtcNow - _lastSqliteErrorLogUtc).TotalMinutes >= 1)
+            {
+                _lastSqliteErrorLogUtc = DateTime.UtcNow;
+                AppLogger.LogWarning("NotificationListener", "Transient SQLite lock or read delay on wpndatabase.db", ex);
+            }
         }
         finally
         {
-            if (stmt != IntPtr.Zero) sqlite3_finalize(stmt);
-            if (db != IntPtr.Zero) sqlite3_close(db);
+            if (stmt != IntPtr.Zero)
+            {
+                try { sqlite3_finalize(stmt); } catch { }
+            }
+            if (db != IntPtr.Zero)
+            {
+                try { sqlite3_close_v2(db); } catch { }
+            }
         }
     }
 
