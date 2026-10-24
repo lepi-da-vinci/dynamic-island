@@ -13,9 +13,10 @@ public enum IslandVisualState
 public enum IslandDashboardTab
 {
     MediaLyrics = 0,
-    FileShelf = 1,
+    TodoAndWater = 1,
     Pomodoro = 2,
-    SystemStatus = 3
+    FileShelf = 3,
+    SystemStatus = 4
 }
 
 public enum ToastSliderKind
@@ -75,13 +76,14 @@ public sealed class IslandStateMachine
             IslandVisualState.ToastNotification => (388, 52, 22, 15, 0.48),
             IslandVisualState.ExpandedDashboard => ActiveTab switch
             {
-                IslandDashboardTab.MediaLyrics => (504, 242, 26, 18, 0.55),
+                IslandDashboardTab.MediaLyrics => (530, 246, 26, 18, 0.55),
+                IslandDashboardTab.TodoAndWater => (520, 238, 26, 18, 0.46),
+                IslandDashboardTab.Pomodoro => (480, 224, 26, 18, 0.44),
                 IslandDashboardTab.FileShelf => ShelfItemCount > 3
-                    ? (508, 242, 26, 18, 0.45)
-                    : (492, 216, 26, 18, 0.42),
-                IslandDashboardTab.Pomodoro => (468, 198, 26, 18, 0.40),
-                IslandDashboardTab.SystemStatus => (504, 272, 26, 18, 0.42),
-                _ => (492, 224, 26, 18, 0.45)
+                    ? (520, 246, 26, 18, 0.45)
+                    : (496, 220, 26, 18, 0.42),
+                IslandDashboardTab.SystemStatus => (520, 276, 26, 18, 0.42),
+                _ => (504, 230, 26, 18, 0.45)
             },
             _ => (196, 36, 16, 13, 0.10)
         };
@@ -176,8 +178,16 @@ public sealed class IslandStateMachine
 
     public void CycleNextTab()
     {
-        int next = ((int)ActiveTab + 1) % 4;
+        int count = Enum.GetValues<IslandDashboardTab>().Length;
+        int next = ((int)ActiveTab + 1) % count;
         SetActiveTab((IslandDashboardTab)next);
+    }
+
+    public void CyclePrevTab()
+    {
+        int count = Enum.GetValues<IslandDashboardTab>().Length;
+        int prev = ((int)ActiveTab - 1 + count) % count;
+        SetActiveTab((IslandDashboardTab)prev);
     }
 
     public void ShowToast(ToastPayload toast)

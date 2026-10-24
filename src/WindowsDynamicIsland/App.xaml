@@ -21,6 +21,12 @@
         <Geometry x:Key="GeomBolt">M11,21H9.5L11,13.5H7.2C6.7,13.5 6.4,13.1 6.6,12.6L13.2,3H14.7L13.2,10.5H17C17.5,10.5 17.8,10.9 17.6,11.4L11,21Z</Geometry>
         <Geometry x:Key="GeomShield">M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1ZM10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z</Geometry>
         <Geometry x:Key="GeomChevronUp">M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z</Geometry>
+        <Geometry x:Key="GeomChevronLeft">M15.41,7.41L14,6L8,12L14,18L15.41,16.59L10.83,12L15.41,7.41Z</Geometry>
+        <Geometry x:Key="GeomChevronRight">M10,6L8.59,7.41L13.17,12L8.59,16.59L10,18L16,12L10,6Z</Geometry>
+        <Geometry x:Key="GeomChecklist">M19,3H5C3.89,3 3,3.89 3,5V19C3,20.1 3.89,21 5,21H19C20.1,21 21,20.1 21,19V5C21,3.89 20.1,3 19,3ZM10,17L5,12L6.41,10.59L10,14.17L17.59,6.58L19,8L10,17Z</Geometry>
+        <Geometry x:Key="GeomWaterDrop">M12,2.69L17.5,12.5C18.4,14.07 18.4,16.03 17.5,17.6C16.6,19.17 14.9,20.14 13.08,20.14H10.92C9.1,20.14 7.4,19.17 6.5,17.6C5.6,16.03 5.6,14.07 6.5,12.5L12,2.69Z</Geometry>
+        <Geometry x:Key="GeomCupDrink">M5,5H19V7H17.72L16.36,18.32C16.24,19.34 15.38,20.1 14.35,20.1H9.65C8.62,20.1 7.76,19.34 7.64,18.32L6.28,7H5V5ZM8.26,7L9.45,17H14.55L15.74,7H8.26Z</Geometry>
+        <Geometry x:Key="GeomCircleOutline">M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4Z</Geometry>
         <Geometry x:Key="GeomClosePower">M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z</Geometry>
         <Geometry x:Key="GeomBellNotif">M12,22C13.1,22 14,21.1 14,20H10C10,21.1 10.9,22 12,22ZM18,16V11C18,7.93 16.37,5.36 13.5,4.68V4C13.5,3.17 12.83,2.5 12,2.5C11.17,2.5 10.5,3.17 10.5,4V4.68C7.64,5.36 6,7.92 6,11V16L4,18V19H20V18L18,16Z</Geometry>
         <Geometry x:Key="GeomWifi">M12,4C7.31,4 3.07,5.9 0,8.98L12,21L24,8.98C20.93,5.9 16.69,4 12,4ZM2.92,9.07C5.51,7.08 8.67,6 12,6C15.33,6 18.49,7.08 21.08,9.07L12,18.17L2.92,9.07Z</Geometry>
@@ -29,6 +35,41 @@
         <Geometry x:Key="GeomRefresh">M17.65,6.35C16.2,4.9 14.21,4 12,4C7.58,4 4.01,7.58 4.01,12C4.01,16.42 7.58,20 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18C8.69,18 6,15.31 6,12C6,8.69 8.69,6 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z</Geometry>
         <Geometry x:Key="GeomCheckCircle">M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2ZM10,17L5,12L6.41,10.59L10,14.17L17.59,6.58L19,8L10,17Z</Geometry>
         <Geometry x:Key="GeomTerminalLog">M19,3H5C3.89,3 3,3.89 3,5V19C3,20.1 3.89,21 5,21H19C20.1,21 21,20.1 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M7.5,17L11.5,13L7.5,9L8.91,7.59L14.33,13L8.91,18.41L7.5,17M13,15H16.5V17H13V15Z</Geometry>
+
+        <Style x:Key="SidePeekPillButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#25FFFFFF"/>
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#38FFFFFF"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="PeekBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="0" Color="#000000" Opacity="0.5"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PeekBorder" Property="Background" Value="#45FFFFFF"/>
+                                <Setter TargetName="PeekBorder" Property="BorderBrush" Value="#70FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PeekBorder" Property="Background" Value="#55FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <Style x:Key="IslandIconButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="#18FFFFFF"/>

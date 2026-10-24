@@ -73,6 +73,7 @@
                     MouseLeave="OnIslandMouseLeave"
                     MouseLeftButtonUp="OnIslandMouseLeftButtonUp"
                     MouseRightButtonUp="OnIslandMouseRightButtonUp"
+                    MouseMove="OnIslandMouseMove"
                     MouseDown="OnIslandMouseDown"
                     MouseWheel="OnIslandMouseWheel"
                     DragEnter="OnIslandDragEnter"
@@ -371,11 +372,12 @@
 
                     <!-- STATE 4: EXPANDED DASHBOARD (Signature Cyber-Minimalist Vector UI) -->
                     <Grid x:Name="ExpandedDashboardPanel"
-                          Margin="20,10,20,14"
+                          Margin="20,10,20,12"
                           Visibility="Collapsed">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <!-- Top Switcher Bar (Segmented Pill Control with Vector SVG Icons) -->
@@ -399,26 +401,26 @@
                                             Click="OnTabMediaClick">
                                         <StackPanel Orientation="Horizontal">
                                             <Path Data="{StaticResource GeomMusic}"
-                                                  Width="11.5" Height="11.5"
+                                                  Width="11" Height="11"
                                                   Stretch="Uniform"
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,5.5,0"
+                                                  Margin="0,0,5,0"
                                                   VerticalAlignment="Center"/>
                                             <TextBlock Text="Musik" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
 
-                                    <Button x:Name="TabShelfBtn"
+                                    <Button x:Name="TabTodoBtn"
                                             Style="{StaticResource TabPillButtonStyle}"
-                                            Click="OnTabShelfClick">
+                                            Click="OnTabTodoClick">
                                         <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource GeomFolderTray}"
-                                                  Width="11.5" Height="11.5"
+                                            <Path Data="{StaticResource GeomChecklist}"
+                                                  Width="11" Height="11"
                                                   Stretch="Uniform"
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,5.5,0"
+                                                  Margin="0,0,5,0"
                                                   VerticalAlignment="Center"/>
-                                            <TextBlock Text="Rak File" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Tugas &amp; Air" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
 
@@ -427,12 +429,26 @@
                                             Click="OnTabPomodoroClick">
                                         <StackPanel Orientation="Horizontal">
                                             <Path Data="{StaticResource GeomFocusTimer}"
-                                                  Width="11.5" Height="11.5"
+                                                  Width="11" Height="11"
                                                   Stretch="Uniform"
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,5.5,0"
+                                                  Margin="0,0,5,0"
                                                   VerticalAlignment="Center"/>
                                             <TextBlock Text="Fokus" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="TabShelfBtn"
+                                            Style="{StaticResource TabPillButtonStyle}"
+                                            Click="OnTabShelfClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource GeomFolderTray}"
+                                                  Width="11" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Rak File" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
 
@@ -441,10 +457,10 @@
                                             Click="OnTabSystemClick">
                                         <StackPanel Orientation="Horizontal">
                                             <Path Data="{StaticResource GeomSliders}"
-                                                  Width="11.5" Height="11.5"
+                                                  Width="11" Height="11"
                                                   Stretch="Uniform"
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,5.5,0"
+                                                  Margin="0,0,5,0"
                                                   VerticalAlignment="Center"/>
                                             <TextBlock Text="Sistem" VerticalAlignment="Center"/>
                                             <Ellipse x:Name="TabSystemUpdateBadge"
@@ -763,7 +779,210 @@
                             </Border>
                         </Grid>
 
-                        <!-- TAB 1: TEMPORARY FILE DROP SHELF (TRAY) -->
+                        <!-- TAB 1: TO-DO LIST & WATER REMINDER (Sesuai Referensi Gambar 2 & 3) -->
+                        <Grid x:Name="TodoAndWaterTabGrid" Grid.Row="1" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1.2*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Kolom Kiri: Water Reminder & Hidrasi Harian -->
+                            <Border Grid.Column="0"
+                                    Background="#0EFFFFFF"
+                                    BorderBrush="#18FFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="16"
+                                    Padding="14,12"
+                                    Margin="0,0,7,0">
+                                <StackPanel VerticalAlignment="Center">
+                                    <Grid Margin="0,0,0,4">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomWaterDrop}"
+                                                  Width="13" Height="13"
+                                                  Stretch="Uniform"
+                                                  Fill="#38BDF8"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Pengingat Air"
+                                                       Foreground="#38BDF8"
+                                                       FontSize="11.5"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <Border HorizontalAlignment="Right"
+                                                Background="#2438BDF8"
+                                                CornerRadius="6"
+                                                Padding="5,1.5">
+                                            <TextBlock x:Name="WaterPercentBadgeText"
+                                                       Text="73%"
+                                                       Foreground="#38BDF8"
+                                                       FontSize="10"
+                                                       FontWeight="Bold"/>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Teks Liter Besar -->
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,4">
+                                        <TextBlock x:Name="WaterAmountText"
+                                                   Text="1.1"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="24"
+                                                   FontWeight="Bold"/>
+                                        <TextBlock x:Name="WaterTargetText"
+                                                   Text=" / 1.5 L"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Bottom"
+                                                   Margin="0,0,0,3"/>
+                                    </StackPanel>
+
+                                    <!-- Progress Bar Hidrasi -->
+                                    <Border Height="7"
+                                            CornerRadius="3.5"
+                                            Background="#20FFFFFF"
+                                            ClipToBounds="True"
+                                            Margin="0,2,0,8">
+                                        <Border x:Name="WaterProgressFill"
+                                                HorizontalAlignment="Left"
+                                                Width="110"
+                                                Height="7"
+                                                CornerRadius="3.5"
+                                                Background="#38BDF8"/>
+                                    </Border>
+
+                                    <!-- Tombol Aksi Minum -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="DrinkWaterBtn"
+                                                Style="{StaticResource IslandIconButtonStyle}"
+                                                Background="#2538BDF8"
+                                                BorderBrush="#4538BDF8"
+                                                Padding="11,5"
+                                                Margin="0,0,6,0"
+                                                Click="OnDrinkWaterClick">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="{StaticResource GeomCupDrink}"
+                                                      Width="11" Height="11"
+                                                      Stretch="Uniform"
+                                                      Fill="#38BDF8"
+                                                      Margin="0,0,4.5,0"
+                                                      VerticalAlignment="Center"/>
+                                                <TextBlock Text="+250 ml"
+                                                           Foreground="#38BDF8"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                Padding="8,5"
+                                                ToolTip="Reset counter air hari ini"
+                                                Click="OnResetWaterClick">
+                                            <Path Data="{StaticResource GeomRefresh}"
+                                                  Width="10" Height="10"
+                                                  Stretch="Uniform"
+                                                  Fill="#94A3B8"/>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Kolom Kanan: To-Do Checklist Interaktif -->
+                            <Border Grid.Column="1"
+                                    Background="#0EFFFFFF"
+                                    BorderBrush="#18FFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="16"
+                                    Padding="14,10"
+                                    Margin="7,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Header To-Do List -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomChecklist}"
+                                                  Width="13" Height="13"
+                                                  Stretch="Uniform"
+                                                  Fill="#22C55E"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Daftar Tugas"
+                                                       Foreground="#F8FAFC"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="TodoCounterText"
+                                                   Grid.Column="1"
+                                                   Text="3/4 Selesai"
+                                                   Foreground="#22C55E"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+
+                                    <!-- Items Control Checklist -->
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl x:Name="TodoItemsControl">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#16FFFFFF"
+                                                            BorderBrush="#24FFFFFF"
+                                                            BorderThickness="1"
+                                                            CornerRadius="9"
+                                                            Padding="8,5"
+                                                            Margin="0,0,0,4.5"
+                                                            Cursor="Hand"
+                                                            MouseLeftButtonUp="OnTodoItemClick">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Checkmark Icon -->
+                                                            <Border Grid.Column="0"
+                                                                    Width="18" Height="18"
+                                                                    CornerRadius="9"
+                                                                    Background="{Binding CheckBgBrush}"
+                                                                    BorderBrush="{Binding CheckBorderBrush}"
+                                                                    BorderThickness="1.2"
+                                                                    Margin="0,0,8,0"
+                                                                    VerticalAlignment="Center">
+                                                                <Path Data="{StaticResource GeomCheckCircle}"
+                                                                      Width="11" Height="11"
+                                                                      Stretch="Uniform"
+                                                                      Fill="#22C55E"
+                                                                      Visibility="{Binding DoneCheckmarkVisibility}"
+                                                                      HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center"/>
+                                                            </Border>
+
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding Title}"
+                                                                       Foreground="{Binding TitleColorBrush}"
+                                                                       TextDecorations="{Binding TitleDecorations}"
+                                                                       FontSize="11"
+                                                                       FontWeight="Medium"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- TAB 3: TEMPORARY FILE DROP SHELF (TRAY) -->
                         <Grid x:Name="ShelfTabGrid" Grid.Row="1" Visibility="Collapsed">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -891,78 +1110,152 @@
                             </Border>
                         </Grid>
 
-                        <!-- TAB 2: POMODORO & FOCUS TIMER -->
+                        <!-- TAB 2: POMODORO & FOCUS TIMER (Sesuai Referensi Gambar 4: Animated Circular Progress Ring) -->
                         <Grid x:Name="PomodoroTabGrid" Grid.Row="1" Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="136"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
+                            <!-- Kolom Kiri: Circular Timer Ring Progress -->
                             <Border Grid.Column="0"
-                                    Width="128" Height="106"
-                                    Background="#12FFFFFF"
-                                    BorderBrush="#22FFFFFF"
+                                    Background="#0EFFFFFF"
+                                    BorderBrush="#18FFFFFF"
                                     BorderThickness="1"
                                     CornerRadius="16"
-                                    Margin="0,0,14,0">
-                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock x:Name="PomodoroModeLabel"
-                                               Text="SESI FOKUS"
-                                               Foreground="#38BDF8"
-                                               FontSize="10"
-                                               FontWeight="Bold"
-                                               HorizontalAlignment="Center"/>
-                                    <TextBlock x:Name="PomodoroTimeText"
-                                               Text="25:00"
-                                               Foreground="#F8FAFC"
-                                               FontSize="28"
-                                               FontWeight="Bold"
-                                               HorizontalAlignment="Center"
-                                               Margin="0,2"/>
-                                </StackPanel>
+                                    Padding="8"
+                                    Margin="0,0,10,0">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <!-- Background Circular Track -->
+                                    <Ellipse Width="86" Height="86"
+                                             Stroke="#22FFFFFF"
+                                             StrokeThickness="5.5"/>
+
+                                    <!-- Active Glowing Circular Progress Arc -->
+                                    <Path x:Name="PomodoroProgressRingPath"
+                                          Stroke="#EF4444"
+                                          StrokeThickness="5.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round">
+                                        <Path.Effect>
+                                            <DropShadowEffect BlurRadius="10" ShadowDepth="0" Color="#EF4444" Opacity="0.8"/>
+                                        </Path.Effect>
+                                    </Path>
+
+                                    <!-- Center Stopwatch Icon -->
+                                    <Border Width="40" Height="40"
+                                            CornerRadius="20"
+                                            Background="#24EF4444"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                        <Path Data="{StaticResource GeomFocusTimer}"
+                                              Width="18" Height="18"
+                                              Stretch="Uniform"
+                                              Fill="#EF4444"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                                    </Border>
+                                </Grid>
                             </Border>
 
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Kontrol Timer Produktivitas"
-                                           Foreground="#CBD5E1"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Margin="0,0,0,8"/>
+                            <!-- Kolom Kanan: Digital Clock, State & Controls -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0">
+                                <Grid Margin="0,0,0,4">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock x:Name="PomodoroTimeText"
+                                                   Text="24:58"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="28"
+                                                   FontWeight="Bold"
+                                                   FontFamily="Segoe UI Variable Text, Consolas, Segoe UI"/>
+                                        <TextBlock x:Name="PomodoroModeLabel"
+                                                   Text="Sesi Fokus"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   Margin="10,0,0,0"/>
+                                    </StackPanel>
 
-                                <WrapPanel>
+                                    <Button Style="{StaticResource IslandIconButtonStyle}"
+                                            HorizontalAlignment="Right"
+                                            Padding="7,5"
+                                            ToolTip="Ulangi dari awal"
+                                            Click="OnPomodoroResetFocusClick">
+                                        <Path Data="{StaticResource GeomRefresh}"
+                                              Width="11" Height="11"
+                                              Stretch="Uniform"
+                                              Fill="#94A3B8"/>
+                                    </Button>
+                                </Grid>
+
+                                <!-- Tombol Aksi Kapsul Sesuai Referensi Gambar 4 -->
+                                <WrapPanel Margin="0,4,0,0">
+                                    <Button x:Name="PomodoroBreakBtn"
+                                            Style="{StaticResource IslandIconButtonStyle}"
+                                            Padding="11,6"
+                                            Margin="0,0,6,6"
+                                            Click="OnPomodoroBreakClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource GeomCupDrink}"
+                                                  Width="11" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="#38BDF8"
+                                                  Margin="0,0,4,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Istirahat 5m" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Hero Play/Pause Red Pill Button -->
                                     <Button x:Name="PomodoroStartPauseBtn"
                                             Style="{StaticResource IslandIconButtonStyle}"
-                                            Padding="14,7"
+                                            Background="#EF4444"
+                                            BorderThickness="0"
+                                            Padding="14,6"
                                             Margin="0,0,6,6"
                                             Click="OnPomodoroStartPauseClick">
+                                        <Button.Effect>
+                                            <DropShadowEffect BlurRadius="10" ShadowDepth="1" Color="#EF4444" Opacity="0.5"/>
+                                        </Button.Effect>
                                         <StackPanel Orientation="Horizontal">
                                             <Path x:Name="PomodoroPlayPauseIconPath"
                                                   Data="{StaticResource GeomPlay}"
-                                                  Width="10" Height="10"
+                                                  Width="11" Height="11"
                                                   Stretch="Uniform"
-                                                  Fill="#38BDF8"
+                                                  Fill="#FFFFFF"
                                                   Margin="0,0,5,0"
                                                   VerticalAlignment="Center"/>
                                             <TextBlock x:Name="PomodoroStartPauseText"
                                                        Text="Mulai"
-                                                       FontWeight="SemiBold"
+                                                       Foreground="#FFFFFF"
+                                                       FontWeight="Bold"
+                                                       FontSize="11"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
+
                                     <Button Style="{StaticResource IslandIconButtonStyle}"
-                                            Padding="11,7"
+                                            Padding="11,6"
                                             Margin="0,0,6,6"
-                                            Content="Fokus 25m"
-                                            Click="OnPomodoroResetFocusClick"/>
+                                            Click="OnPomodoroResetFocusClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource GeomFocusTimer}"
+                                                  Width="11" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="#EF4444"
+                                                  Margin="0,0,4,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock Text="Fokus 25m" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
                                     <Button Style="{StaticResource IslandIconButtonStyle}"
-                                            Padding="11,7"
-                                            Margin="0,0,6,6"
-                                            Content="Break 5m"
-                                            Click="OnPomodoroBreakClick"/>
-                                    <Button Style="{StaticResource IslandIconButtonStyle}"
-                                            Padding="11,7"
-                                            Margin="0,0,6,6"
+                                            Padding="9,6"
+                                            Margin="0,0,0,6"
                                             Content="+5m"
+                                            FontSize="11"
+                                            FontWeight="SemiBold"
                                             Click="OnPomodoroAdd5MinClick"/>
                                 </WrapPanel>
                             </StackPanel>
@@ -1377,6 +1670,100 @@
                                 </Button>
                             </WrapPanel>
                         </Grid>
+
+                        <!-- BOTTOM PAGINATION DOTS (Sesuai Referensi Gambar 3 & 4) -->
+                        <StackPanel x:Name="DotsPaginationPanel"
+                                    Grid.Row="2"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Margin="0,8,0,0">
+                            <Border x:Name="PageDot0" Width="16" Height="3.5" CornerRadius="2" Background="#38BDF8" Margin="3,0" Cursor="Hand" ToolTip="Musik" MouseLeftButtonUp="OnDot0Click"/>
+                            <Border x:Name="PageDot1" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Tugas &amp; Air" MouseLeftButtonUp="OnDot1Click"/>
+                            <Border x:Name="PageDot2" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Fokus" MouseLeftButtonUp="OnDot2Click"/>
+                            <Border x:Name="PageDot3" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Rak File" MouseLeftButtonUp="OnDot3Click"/>
+                            <Border x:Name="PageDot4" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Sistem" MouseLeftButtonUp="OnDot4Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- INTERACTIVE SIDE MENU HOVER PEEK - LEFT (Sisi Kiri Melebar & Menampilkan Menu Sebelumnya) -->
+                    <Grid x:Name="LeftSidePeekPanel"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center"
+                          Margin="6,0,0,0"
+                          Opacity="0.0"
+                          IsHitTestVisible="False"
+                          RenderTransformOrigin="0,0.5">
+                        <Grid.RenderTransform>
+                            <TranslateTransform x:Name="LeftPeekTranslate" X="-8"/>
+                        </Grid.RenderTransform>
+                        <Button x:Name="LeftPeekBtn"
+                                Style="{StaticResource SidePeekPillButtonStyle}"
+                                Padding="8,8"
+                                ToolTip="Menu Sebelumnya"
+                                Click="OnLeftPeekClick">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomChevronLeft}"
+                                      Width="11" Height="11"
+                                      Stretch="Uniform"
+                                      Fill="#38BDF8"
+                                      Margin="0,0,4,0"
+                                      VerticalAlignment="Center"/>
+                                <Path x:Name="LeftPeekIcon"
+                                      Data="{StaticResource GeomMusic}"
+                                      Width="12" Height="12"
+                                      Stretch="Uniform"
+                                      Fill="#F8FAFC"
+                                      VerticalAlignment="Center"/>
+                                <TextBlock x:Name="LeftPeekLabel"
+                                           Text="Musik"
+                                           Foreground="#F8FAFC"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Margin="5,0,2,0"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <!-- INTERACTIVE SIDE MENU HOVER PEEK - RIGHT (Sisi Kanan Melebar & Menampilkan Menu Berikutnya) -->
+                    <Grid x:Name="RightSidePeekPanel"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,6,0"
+                          Opacity="0.0"
+                          IsHitTestVisible="False"
+                          RenderTransformOrigin="1,0.5">
+                        <Grid.RenderTransform>
+                            <TranslateTransform x:Name="RightPeekTranslate" X="8"/>
+                        </Grid.RenderTransform>
+                        <Button x:Name="RightPeekBtn"
+                                Style="{StaticResource SidePeekPillButtonStyle}"
+                                Padding="8,8"
+                                ToolTip="Menu Berikutnya"
+                                Click="OnRightPeekClick">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="RightPeekLabel"
+                                           Text="Tugas"
+                                           Foreground="#F8FAFC"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,5,0"
+                                           VerticalAlignment="Center"/>
+                                <Path x:Name="RightPeekIcon"
+                                      Data="{StaticResource GeomChecklist}"
+                                      Width="12" Height="12"
+                                      Stretch="Uniform"
+                                      Fill="#F8FAFC"
+                                      VerticalAlignment="Center"/>
+                                <Path Data="{StaticResource GeomChevronRight}"
+                                      Width="11" Height="11"
+                                      Stretch="Uniform"
+                                      Fill="#38BDF8"
+                                      Margin="4,0,0,0"
+                                      VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </Grid>
                 </Grid>
             </Border>

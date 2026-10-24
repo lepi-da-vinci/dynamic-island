@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly NotificationListenerService _notificationService = new();
     private readonly FileShelfService _fileShelfService = new();
     private readonly PomodoroTimerService _pomodoroService = new();
+    private readonly TodoAndWaterService _todoAndWaterService = new();
     private readonly UpdateCheckerService _updateService = new();
 
     private readonly DispatcherTimer _oneSecondTimer;
@@ -67,6 +68,11 @@ public partial class MainWindow : Window
     private bool _isDraggingSysBrightness;
     private ToastSliderKind _activeToastSliderKind = ToastSliderKind.None;
     private CancellationTokenSource? _repositionCts;
+
+    // Interactive elastic side-peek switcher state
+    private double _sidePeekBonusWidth;
+    private double _targetSidePeekBonusWidth;
+    private int _hoveredSideZone; // -1 = Left, 0 = None, 1 = Right
 
     public MainWindow()
     {
@@ -130,6 +136,7 @@ public partial class MainWindow : Window
         _notificationService.NotificationReceived += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
         _pomodoroService.TimerTicked += () => Dispatcher.InvokeAsync(UpdatePomodoroAndClockUi);
         _pomodoroService.TimerCompleted += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
+        _todoAndWaterService.DataChanged += () => Dispatcher.InvokeAsync(UpdateTodoAndWaterUi);
         _updateService.UpdateStatusChanged += res => Dispatcher.InvokeAsync(() => UpdateSystemUpdateUi(res));
         _updateService.UpdateNotificationTriggered += res => Dispatcher.InvokeAsync(() =>
         {
@@ -215,6 +222,8 @@ public partial class MainWindow : Window
             UpdateHardwareUi();
             UpdateSlidersAndMuteUi();
             UpdatePomodoroAndClockUi();
+            UpdateTodoAndWaterUi();
+            UpdatePaginationDots();
             UpdateSystemUpdateUi(_updateService.LastResult);
 
             _oneSecondTimer.Start();
@@ -681,13 +690,25 @@ public partial class MainWindow : Window
         AmbientGlowBorder.Visibility = suppressShadowAndGlow ? Visibility.Collapsed : Visibility.Visible;
 
         MediaTabGrid.Visibility = tab == IslandDashboardTab.MediaLyrics ? Visibility.Visible : Visibility.Collapsed;
-        ShelfTabGrid.Visibility = tab == IslandDashboardTab.FileShelf ? Visibility.Visible : Visibility.Collapsed;
+        TodoAndWaterTabGrid.Visibility = tab == IslandDashboardTab.TodoAndWater ? Visibility.Visible : Visibility.Collapsed;
         PomodoroTabGrid.Visibility = tab == IslandDashboardTab.Pomodoro ? Visibility.Visible : Visibility.Collapsed;
+        ShelfTabGrid.Visibility = tab == IslandDashboardTab.FileShelf ? Visibility.Visible : Visibility.Collapsed;
         SystemTabGrid.Visibility = tab == IslandDashboardTab.SystemStatus ? Visibility.Visible : Visibility.Collapsed;
 
-        if (state == IslandVisualState.ExpandedDashboard && tab == IslandDashboardTab.SystemStatus)
+        if (state == IslandVisualState.ExpandedDashboard)
         {
-            UpdateSlidersAndMuteUi();
+            if (tab == IslandDashboardTab.SystemStatus)
+            {
+                UpdateSlidersAndMuteUi();
+            }
+            else if (tab == IslandDashboardTab.TodoAndWater)
+            {
+                UpdateTodoAndWaterUi();
+            }
+            else if (tab == IslandDashboardTab.Pomodoro)
+            {
+                UpdatePomodoroAndClockUi();
+            }
         }
 
         UpdateTabHighlight();
@@ -703,9 +724,13 @@ public partial class MainWindow : Window
         var inactiveFg = new SolidColorBrush(Color.FromRgb(148, 163, 184));
 
         SetTabVisual(TabMediaBtn, _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics);
-        SetTabVisual(TabShelfBtn, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
+        SetTabVisual(TabTodoBtn, _stateMachine.ActiveTab == IslandDashboardTab.TodoAndWater);
         SetTabVisual(TabPomodoroBtn, _stateMachine.ActiveTab == IslandDashboardTab.Pomodoro);
+        SetTabVisual(TabShelfBtn, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
         SetTabVisual(TabSystemBtn, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
+
+        UpdatePaginationDots();
+        UpdateSidePeekVisuals();
 
         void SetTabVisual(Button btn, bool isSelected)
         {
@@ -739,7 +764,10 @@ public partial class MainWindow : Window
 
             bool morphActive = _morph.Update(dt);
 
-            double bodyWidth = Math.Max(48, _morph.Width.Current);
+            // Smooth elastic side peek bonus width animation
+            _sidePeekBonusWidth += (_targetSidePeekBonusWidth - _sidePeekBonusWidth) * Math.Clamp(dt * 14.0, 0.05, 0.35);
+
+            double bodyWidth = Math.Max(48, _morph.Width.Current + _sidePeekBonusWidth);
             double height = Math.Max(4, _morph.Height.Current);
             double bottomRadius = Math.Clamp(_morph.BottomCornerRadius.Current, 2, height * 0.65);
             double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 2, height * 0.55);
@@ -1218,6 +1246,40 @@ public partial class MainWindow : Window
             ? GetVectorGeometry("GeomPause")
             : GetVectorGeometry("GeomPlay");
         PomodoroStartPauseText.Text = _pomodoroService.IsRunning ? "Jeda" : "Mulai";
+
+        UpdatePomodoroProgressRing(_pomodoroService.ProgressRatio);
+    }
+
+    private void UpdatePomodoroProgressRing(double progressRatio)
+    {
+        try
+        {
+            double radius = 38.0;
+            double cx = 43.0;
+            double cy = 43.0;
+
+            double ratio = Math.Clamp(progressRatio, 0.002, 0.999);
+            double angleDeg = ratio * 360.0;
+            double angleRad = (angleDeg - 90.0) * Math.PI / 180.0;
+
+            double startX = cx;
+            double startY = cy - radius;
+
+            double endX = cx + radius * Math.Cos(angleRad);
+            double endY = cy + radius * Math.Sin(angleRad);
+
+            bool isLargeArc = angleDeg > 180.0;
+
+            var geom = new StreamGeometry();
+            using (var ctx = geom.Open())
+            {
+                ctx.BeginFigure(new Point(startX, startY), isFilled: false, isClosed: false);
+                ctx.ArcTo(new Point(endX, endY), new Size(radius, radius), 0, isLargeArc, SweepDirection.Clockwise, isStroked: true, isSmoothJoin: true);
+            }
+            geom.Freeze();
+            PomodoroProgressRingPath.Data = geom;
+        }
+        catch { }
     }
 
     private void UpdateHardwareUi()
@@ -1696,11 +1758,122 @@ public partial class MainWindow : Window
         UpdateMediaAndLyricsUi();
     }
 
+    private void OnIslandMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
+        {
+            if (_targetSidePeekBonusWidth > 0)
+            {
+                _targetSidePeekBonusWidth = 0.0;
+                _hoveredSideZone = 0;
+                UpdateSidePeekVisuals();
+            }
+            return;
+        }
+
+        Point pt = e.GetPosition(IslandBorder);
+        double w = IslandBorder.ActualWidth > 0 ? IslandBorder.ActualWidth : _morph.Width.Current;
+
+        // Interactive elastic edge zone (58px from left or right edge)
+        if (pt.X <= 58)
+        {
+            _targetSidePeekBonusWidth = 32.0;
+            _hoveredSideZone = -1;
+            UpdateSidePeekVisuals();
+        }
+        else if (pt.X >= (w - 58))
+        {
+            _targetSidePeekBonusWidth = 32.0;
+            _hoveredSideZone = 1;
+            UpdateSidePeekVisuals();
+        }
+        else
+        {
+            _targetSidePeekBonusWidth = 0.0;
+            _hoveredSideZone = 0;
+            UpdateSidePeekVisuals();
+        }
+    }
+
     private void OnIslandMouseLeave(object sender, MouseEventArgs e)
     {
+        _targetSidePeekBonusWidth = 0.0;
+        _hoveredSideZone = 0;
+        UpdateSidePeekVisuals();
+
         _collapseDebounceTimer.Stop();
         _collapseDebounceTimer.Start();
     }
+
+    private void UpdateSidePeekVisuals()
+    {
+        try
+        {
+            if (_hoveredSideZone == -1 && _stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+            {
+                var prevTab = GetPrevTab(_stateMachine.ActiveTab);
+                var (icon, label) = GetTabIconAndLabel(prevTab);
+                LeftPeekIcon.Data = GetVectorGeometry(icon);
+                LeftPeekLabel.Text = label;
+
+                LeftSidePeekPanel.Opacity = 1.0;
+                LeftSidePeekPanel.IsHitTestVisible = true;
+                LeftPeekTranslate.X = 0;
+
+                RightSidePeekPanel.Opacity = 0.0;
+                RightSidePeekPanel.IsHitTestVisible = false;
+                RightPeekTranslate.X = 8;
+            }
+            else if (_hoveredSideZone == 1 && _stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+            {
+                var nextTab = GetNextTab(_stateMachine.ActiveTab);
+                var (icon, label) = GetTabIconAndLabel(nextTab);
+                RightPeekIcon.Data = GetVectorGeometry(icon);
+                RightPeekLabel.Text = label;
+
+                RightSidePeekPanel.Opacity = 1.0;
+                RightSidePeekPanel.IsHitTestVisible = true;
+                RightPeekTranslate.X = 0;
+
+                LeftSidePeekPanel.Opacity = 0.0;
+                LeftSidePeekPanel.IsHitTestVisible = false;
+                LeftPeekTranslate.X = -8;
+            }
+            else
+            {
+                LeftSidePeekPanel.Opacity = 0.0;
+                LeftSidePeekPanel.IsHitTestVisible = false;
+                LeftPeekTranslate.X = -8;
+
+                RightSidePeekPanel.Opacity = 0.0;
+                RightSidePeekPanel.IsHitTestVisible = false;
+                RightPeekTranslate.X = 8;
+            }
+        }
+        catch { }
+    }
+
+    private static IslandDashboardTab GetPrevTab(IslandDashboardTab tab)
+    {
+        int count = Enum.GetValues<IslandDashboardTab>().Length;
+        return (IslandDashboardTab)(((int)tab - 1 + count) % count);
+    }
+
+    private static IslandDashboardTab GetNextTab(IslandDashboardTab tab)
+    {
+        int count = Enum.GetValues<IslandDashboardTab>().Length;
+        return (IslandDashboardTab)(((int)tab + 1) % count);
+    }
+
+    private static (string GeometryKey, string Label) GetTabIconAndLabel(IslandDashboardTab tab) => tab switch
+    {
+        IslandDashboardTab.MediaLyrics => ("GeomMusic", "Musik"),
+        IslandDashboardTab.TodoAndWater => ("GeomChecklist", "Tugas"),
+        IslandDashboardTab.Pomodoro => ("GeomFocusTimer", "Fokus"),
+        IslandDashboardTab.FileShelf => ("GeomFolderTray", "Rak File"),
+        IslandDashboardTab.SystemStatus => ("GeomSliders", "Sistem"),
+        _ => ("GeomMusic", "Musik")
+    };
 
     private void OnIslandMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
@@ -1840,12 +2013,105 @@ public partial class MainWindow : Window
     // --- TAB & BUTTON HANDLERS ---
 
     private void OnTabMediaClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.MediaLyrics);
-    private void OnTabShelfClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
+    private void OnTabTodoClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.TodoAndWater);
     private void OnTabPomodoroClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.Pomodoro);
+    private void OnTabShelfClick(object sender, RoutedEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
     private void OnTabSystemClick(object sender, RoutedEventArgs e)
     {
         _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
         UpdateSlidersAndMuteUi();
+    }
+
+    private void OnLeftPeekClick(object sender, RoutedEventArgs e)
+    {
+        _stateMachine.CyclePrevTab();
+        UpdateSidePeekVisuals();
+    }
+
+    private void OnRightPeekClick(object sender, RoutedEventArgs e)
+    {
+        _stateMachine.CycleNextTab();
+        UpdateSidePeekVisuals();
+    }
+
+    private void OnDot0Click(object sender, MouseButtonEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.MediaLyrics);
+    private void OnDot1Click(object sender, MouseButtonEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.TodoAndWater);
+    private void OnDot2Click(object sender, MouseButtonEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.Pomodoro);
+    private void OnDot3Click(object sender, MouseButtonEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
+    private void OnDot4Click(object sender, MouseButtonEventArgs e) => _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
+
+    private void UpdatePaginationDots()
+    {
+        try
+        {
+            var activeDotBrush = new SolidColorBrush(Color.FromRgb(56, 189, 248)); // #38BDF8
+            var inactiveDotBrush = new SolidColorBrush(Color.FromArgb(48, 255, 255, 255)); // #30FFFFFF
+
+            SetDot(PageDot0, _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics);
+            SetDot(PageDot1, _stateMachine.ActiveTab == IslandDashboardTab.TodoAndWater);
+            SetDot(PageDot2, _stateMachine.ActiveTab == IslandDashboardTab.Pomodoro);
+            SetDot(PageDot3, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
+            SetDot(PageDot4, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
+
+            void SetDot(Border dot, bool isActive)
+            {
+                dot.Width = isActive ? 16 : 4;
+                dot.Background = isActive ? activeDotBrush : inactiveDotBrush;
+            }
+        }
+        catch { }
+    }
+
+    private void UpdateTodoAndWaterUi()
+    {
+        try
+        {
+            TodoItemsControl.ItemsSource = _todoAndWaterService.Todos
+                .Select(t => new TodoItemViewModel
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    IsDone = t.IsDone
+                })
+                .ToList();
+
+            TodoCounterText.Text = $"{_todoAndWaterService.CompletedTodosCount}/{_todoAndWaterService.TotalTodosCount} Selesai";
+
+            WaterAmountText.Text = _todoAndWaterService.WaterCurrentLiters.ToString("0.0");
+            WaterTargetText.Text = $" / {_todoAndWaterService.WaterTargetLiters:0.0} L";
+            WaterPercentBadgeText.Text = $"{Math.Round(_todoAndWaterService.WaterPercentage)}%";
+
+            double ratio = Math.Clamp(_todoAndWaterService.WaterPercentage / 100.0, 0.05, 1.0);
+            WaterProgressFill.Width = 110.0 * ratio;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("UpdateTodoAndWaterUi", "Error updating Todo and Water UI", ex);
+        }
+    }
+
+    private void OnDrinkWaterClick(object sender, RoutedEventArgs e)
+    {
+        _todoAndWaterService.DrinkWater(0.25);
+        TriggerToast(new ToastPayload(
+            Icon: "BELL",
+            Title: "Air Diminum (+250 ml)",
+            Subtitle: $"Total hari ini: {_todoAndWaterService.WaterCurrentLiters:0.0} / {_todoAndWaterService.WaterTargetLiters:0.0} L",
+            AccentHex: "#38BDF8",
+            Duration: TimeSpan.FromSeconds(2.0)));
+    }
+
+    private void OnResetWaterClick(object sender, RoutedEventArgs e)
+    {
+        _todoAndWaterService.ResetWater();
+    }
+
+    private void OnTodoItemClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: TodoItemViewModel vm })
+        {
+            _todoAndWaterService.ToggleTodo(vm.Id);
+        }
     }
 
     private void OnManualTuckClick(object sender, RoutedEventArgs e)
@@ -2022,4 +2288,27 @@ public partial class MainWindow : Window
             EnsureRenderLoopRunning();
         });
     }
+}
+
+public sealed class TodoItemViewModel
+{
+    public int Id { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public bool IsDone { get; init; }
+
+    public Brush CheckBgBrush => IsDone
+        ? new SolidColorBrush(Color.FromArgb(50, 34, 197, 94))
+        : new SolidColorBrush(Color.FromArgb(20, 255, 255, 255));
+
+    public Brush CheckBorderBrush => IsDone
+        ? new SolidColorBrush(Color.FromArgb(160, 34, 197, 94))
+        : new SolidColorBrush(Color.FromArgb(60, 255, 255, 255));
+
+    public Visibility DoneCheckmarkVisibility => IsDone ? Visibility.Visible : Visibility.Collapsed;
+
+    public Brush TitleColorBrush => IsDone
+        ? new SolidColorBrush(Color.FromRgb(148, 163, 184))
+        : new SolidColorBrush(Color.FromRgb(248, 250, 252));
+
+    public TextDecorationCollection? TitleDecorations => IsDone ? TextDecorations.Strikethrough : null;
 }
