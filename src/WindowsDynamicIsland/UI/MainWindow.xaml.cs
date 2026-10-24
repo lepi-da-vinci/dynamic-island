@@ -311,9 +311,21 @@ public partial class MainWindow : Window
                 mi.cbSize = Marshal.SizeOf<Win32Interop.MONITORINFO>();
                 if (Win32Interop.GetMonitorInfo(hMonitor, ref mi))
                 {
-                    DpiScale dpi = VisualTreeHelper.GetDpi(this);
-                    double scaleX = dpi.DpiScaleX > 0 ? dpi.DpiScaleX : 1.0;
-                    double scaleY = dpi.DpiScaleY > 0 ? dpi.DpiScaleY : 1.0;
+                    double scaleX = 1.0;
+                    double scaleY = 1.0;
+
+                    uint nativeDpi = Win32Interop.GetDpiForWindow(_hwnd);
+                    if (nativeDpi > 0)
+                    {
+                        scaleX = nativeDpi / 96.0;
+                        scaleY = scaleX;
+                    }
+                    else
+                    {
+                        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+                        scaleX = dpi.DpiScaleX > 0 ? dpi.DpiScaleX : 1.0;
+                        scaleY = dpi.DpiScaleY > 0 ? dpi.DpiScaleY : 1.0;
+                    }
 
                     int monitorWidthPx = mi.rcMonitor.Right - mi.rcMonitor.Left;
                     screenWidthDip = monitorWidthPx / scaleX;
@@ -326,8 +338,23 @@ public partial class MainWindow : Window
                     Left = targetLeft;
                     Top = targetTop;
 
+                    // Enforce physical native HWND coordinates directly at the OS level
+                    int windowWidthPx = (int)Math.Round(Width * scaleX);
+                    int windowHeightPx = (int)Math.Round(Height * scaleY);
+                    int pixelX = mi.rcMonitor.Left + (monitorWidthPx - windowWidthPx) / 2;
+                    int pixelY = mi.rcMonitor.Top;
+
+                    Win32Interop.SetWindowPos(
+                        _hwnd,
+                        Win32Interop.HWND_TOPMOST,
+                        pixelX,
+                        pixelY,
+                        windowWidthPx,
+                        windowHeightPx,
+                        Win32Interop.SWP_NOACTIVATE | Win32Interop.SWP_SHOWWINDOW);
+
                     AppLogger.LogInfo("PositionTopCenter",
-                        $"Monitor-aligned: Left={Left:F1}, Top={Top:F1}, MonWidthPx={monitorWidthPx}, ScaleX={scaleX:F2}, ScreenWidthDip={screenWidthDip:F1}");
+                        $"Monitor-aligned: Left={Left:F1}, Top={Top:F1}, PixelX={pixelX}, PixelY={pixelY}, MonWidthPx={monitorWidthPx}, ScaleX={scaleX:F2}, ScreenWidthDip={screenWidthDip:F1}");
                     return;
                 }
             }
@@ -360,7 +387,7 @@ public partial class MainWindow : Window
             // 2. Delayed multi-phase reposition to catch OS video mode settling (e.g. after exiting exclusive fullscreen games)
             _ = Task.Run(async () =>
             {
-                int[] delays = [150, 400, 1000];
+                int[] delays = [150, 400, 1000, 2500];
                 foreach (int delay in delays)
                 {
                     if (cts.Token.IsCancellationRequested) return;
@@ -951,11 +978,37 @@ public partial class MainWindow : Window
 
             if (_hwnd != IntPtr.Zero && _stateMachine.CurrentState != IslandVisualState.Hidden)
             {
-                Win32Interop.SetWindowPos(
-                    _hwnd,
-                    Win32Interop.HWND_TOPMOST,
-                    0, 0, 0, 0,
-                    Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE);
+                // Self-healing: verify physical window position matches monitor center
+                IntPtr hMonitor = Win32Interop.MonitorFromWindow(_hwnd, Win32Interop.MONITOR_DEFAULTTOPRIMARY);
+                var mi = new Win32Interop.MONITORINFO();
+                mi.cbSize = Marshal.SizeOf<Win32Interop.MONITORINFO>();
+                if (Win32Interop.GetMonitorInfo(hMonitor, ref mi) && Win32Interop.GetWindowRect(_hwnd, out var currentRect))
+                {
+                    int monitorCenterPx = mi.rcMonitor.Left + (mi.rcMonitor.Right - mi.rcMonitor.Left) / 2;
+                    int windowCenterPx = (currentRect.Left + currentRect.Right) / 2;
+                    if (Math.Abs(windowCenterPx - monitorCenterPx) > 4)
+                    {
+                        AppLogger.LogWarning("OneSecondTick",
+                            $"Window misaligned detected! WindowCenter={windowCenterPx}, MonitorCenter={monitorCenterPx}, Diff={windowCenterPx - monitorCenterPx}. Auto self-healing PositionTopCenter.");
+                        PositionTopCenter();
+                    }
+                    else
+                    {
+                        Win32Interop.SetWindowPos(
+                            _hwnd,
+                            Win32Interop.HWND_TOPMOST,
+                            0, 0, 0, 0,
+                            Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE);
+                    }
+                }
+                else
+                {
+                    Win32Interop.SetWindowPos(
+                        _hwnd,
+                        Win32Interop.HWND_TOPMOST,
+                        0, 0, 0, 0,
+                        Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE);
+                }
             }
 
             _pomodoroService.TickOneSecond();
