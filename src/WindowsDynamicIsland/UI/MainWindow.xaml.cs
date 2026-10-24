@@ -66,6 +66,7 @@ public partial class MainWindow : Window
     private bool _isDraggingSysVolume;
     private bool _isDraggingSysBrightness;
     private ToastSliderKind _activeToastSliderKind = ToastSliderKind.None;
+    private CancellationTokenSource? _repositionCts;
 
     public MainWindow()
     {
@@ -159,6 +160,7 @@ public partial class MainWindow : Window
 
         Microsoft.Win32.SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+        DpiChanged += OnDpiChanged;
 
         Loaded += OnWindowLoaded;
         Closed += OnWindowClosed;
@@ -259,6 +261,15 @@ public partial class MainWindow : Window
         _updateService.Dispose();
         Microsoft.Win32.SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        DpiChanged -= OnDpiChanged;
+
+        try
+        {
+            _repositionCts?.Cancel();
+            _repositionCts?.Dispose();
+            _repositionCts = null;
+        }
+        catch { }
 
         if (_hwnd != IntPtr.Zero)
         {
@@ -287,9 +298,95 @@ public partial class MainWindow : Window
 
     private void PositionTopCenter()
     {
-        double screenWidth = SystemParameters.PrimaryScreenWidth;
-        Left = (screenWidth - Width) / 2.0;
-        Top = 0;
+        try
+        {
+            double targetLeft;
+            double targetTop = 0;
+            double screenWidthDip;
+
+            if (_hwnd != IntPtr.Zero)
+            {
+                IntPtr hMonitor = Win32Interop.MonitorFromWindow(_hwnd, Win32Interop.MONITOR_DEFAULTTOPRIMARY);
+                var mi = new Win32Interop.MONITORINFO();
+                mi.cbSize = Marshal.SizeOf<Win32Interop.MONITORINFO>();
+                if (Win32Interop.GetMonitorInfo(hMonitor, ref mi))
+                {
+                    DpiScale dpi = VisualTreeHelper.GetDpi(this);
+                    double scaleX = dpi.DpiScaleX > 0 ? dpi.DpiScaleX : 1.0;
+                    double scaleY = dpi.DpiScaleY > 0 ? dpi.DpiScaleY : 1.0;
+
+                    int monitorWidthPx = mi.rcMonitor.Right - mi.rcMonitor.Left;
+                    screenWidthDip = monitorWidthPx / scaleX;
+                    double monitorLeftDip = mi.rcMonitor.Left / scaleX;
+                    double monitorTopDip = mi.rcMonitor.Top / scaleY;
+
+                    targetLeft = monitorLeftDip + (screenWidthDip - Width) / 2.0;
+                    targetTop = monitorTopDip;
+
+                    Left = targetLeft;
+                    Top = targetTop;
+
+                    AppLogger.LogInfo("PositionTopCenter",
+                        $"Monitor-aligned: Left={Left:F1}, Top={Top:F1}, MonWidthPx={monitorWidthPx}, ScaleX={scaleX:F2}, ScreenWidthDip={screenWidthDip:F1}");
+                    return;
+                }
+            }
+
+            // Fallback if HWND not ready or monitor info fails
+            screenWidthDip = SystemParameters.PrimaryScreenWidth;
+            targetLeft = (screenWidthDip - Width) / 2.0;
+            Left = targetLeft;
+            Top = 0;
+            AppLogger.LogInfo("PositionTopCenter", $"SystemParameters fallback: Left={Left:F1}, Top={Top:F1}, ScreenWidthDip={screenWidthDip:F1}");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("PositionTopCenter", "Error positioning top center", ex);
+        }
+    }
+
+    private void ScheduleDebouncedReposition()
+    {
+        try
+        {
+            _repositionCts?.Cancel();
+            _repositionCts?.Dispose();
+            var cts = new CancellationTokenSource();
+            _repositionCts = cts;
+
+            // 1. Reposition immediately
+            PositionTopCenter();
+
+            // 2. Delayed multi-phase reposition to catch OS video mode settling (e.g. after exiting exclusive fullscreen games)
+            _ = Task.Run(async () =>
+            {
+                int[] delays = [150, 400, 1000];
+                foreach (int delay in delays)
+                {
+                    if (cts.Token.IsCancellationRequested) return;
+                    await Task.Delay(delay, cts.Token).ConfigureAwait(false);
+                    if (cts.Token.IsCancellationRequested) return;
+
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (!cts.Token.IsCancellationRequested)
+                        {
+                            PositionTopCenter();
+                        }
+                    });
+                }
+            }, cts.Token);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("ScheduleDebouncedReposition", "Error scheduling reposition", ex);
+        }
+    }
+
+    private void OnDpiChanged(object? sender, DpiChangedEventArgs e)
+    {
+        AppLogger.LogInfo("WindowLifecycle", $"DpiChanged event fired: {e.NewDpi.DpiScaleX}x{e.NewDpi.DpiScaleY} -> Scheduling reposition.");
+        ScheduleDebouncedReposition();
     }
 
     private void InitializeSystemTrayIcon()
@@ -410,7 +507,15 @@ public partial class MainWindow : Window
         }
         else if (msg == Win32Interop.WM_DISPLAYCHANGE)
         {
-            AppLogger.LogInfo("WndProc", $"WM_DISPLAYCHANGE received: {lParam.ToInt32() & 0xFFFF}x{(lParam.ToInt32() >> 16) & 0xFFFF}");
+            int dispW = lParam.ToInt32() & 0xFFFF;
+            int dispH = (lParam.ToInt32() >> 16) & 0xFFFF;
+            AppLogger.LogInfo("WndProc", $"WM_DISPLAYCHANGE received: {dispW}x{dispH} -> Scheduling reposition.");
+            ScheduleDebouncedReposition();
+        }
+        else if (msg == Win32Interop.WM_DPICHANGED)
+        {
+            AppLogger.LogInfo("WndProc", "WM_DPICHANGED received -> Scheduling reposition.");
+            ScheduleDebouncedReposition();
         }
 
         return IntPtr.Zero;
@@ -834,7 +939,14 @@ public partial class MainWindow : Window
             if (_autoHideFullScreen)
             {
                 bool fullScreen = Win32Interop.IsFullScreenAppActive();
+                bool wasFullScreen = _stateMachine.IsFullScreenHidden;
                 _stateMachine.SetFullScreenHidden(fullScreen);
+
+                if (wasFullScreen && !fullScreen)
+                {
+                    AppLogger.LogInfo("FullScreenCheck", "Exited full screen app -> Scheduling reposition.");
+                    ScheduleDebouncedReposition();
+                }
             }
 
             if (_hwnd != IntPtr.Zero && _stateMachine.CurrentState != IslandVisualState.Hidden)
@@ -1829,7 +1941,7 @@ public partial class MainWindow : Window
             Dispatcher.InvokeAsync(() =>
             {
                 AppLogger.LogInfo("SystemEvents", "PowerModes.Resume -> Repositioning TopCenter and ensuring render loop running.");
-                PositionTopCenter();
+                ScheduleDebouncedReposition();
                 _stateMachine.SetFullScreenHidden(false);
                 EnsureRenderLoopRunning();
                 if (_hwnd != IntPtr.Zero)
@@ -1850,10 +1962,10 @@ public partial class MainWindow : Window
 
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {
-        AppLogger.LogInfo("SystemEvents", "OnDisplaySettingsChanged detected -> Repositioning top center.");
+        AppLogger.LogInfo("SystemEvents", "OnDisplaySettingsChanged detected -> Scheduling reposition.");
         Dispatcher.InvokeAsync(() =>
         {
-            PositionTopCenter();
+            ScheduleDebouncedReposition();
             EnsureRenderLoopRunning();
         });
     }

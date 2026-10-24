@@ -22,7 +22,12 @@ public static class Win32Interop
     public const int WM_QUERYENDSESSION = 0x0011;
     public const int WM_ENDSESSION = 0x0016;
     public const int WM_DISPLAYCHANGE = 0x007E;
+    public const int WM_DPICHANGED = 0x02E0;
     public const int WM_POWERBROADCAST = 0x0218;
+
+    public const uint MONITOR_DEFAULTTONULL = 0x00000000;
+    public const uint MONITOR_DEFAULTTOPRIMARY = 0x00000001;
+    public const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
 
     public const int HTTRANSPARENT = -1;
     public const int HTCLIENT = 1;
@@ -82,6 +87,21 @@ public static class Win32Interop
         public int Right;
         public int Bottom;
     }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    public struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
     /// <summary>
     /// Checks if the user's active foreground application has its titlebar/tabs at the top center of the screen
