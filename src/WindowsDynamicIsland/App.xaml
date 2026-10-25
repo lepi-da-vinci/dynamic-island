@@ -37,10 +37,10 @@
         <Geometry x:Key="GeomTerminalLog">M19,3H5C3.89,3 3,3.89 3,5V19C3,20.1 3.89,21 5,21H19C20.1,21 21,20.1 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M7.5,17L11.5,13L7.5,9L8.91,7.59L14.33,13L8.91,18.41L7.5,17M13,15H16.5V17H13V15Z</Geometry>
 
         <Style x:Key="SidePeekPillButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#25FFFFFF"/>
+            <Setter Property="Background" Value="#1AFFFFFF"/>
             <Setter Property="Foreground" Value="#F8FAFC"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#38FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#2AFFFFFF"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Template">
@@ -50,20 +50,20 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="12"
+                                CornerRadius="14"
                                 Padding="{TemplateBinding Padding}">
                             <Border.Effect>
-                                <DropShadowEffect BlurRadius="12" ShadowDepth="0" Color="#000000" Opacity="0.5"/>
+                                <DropShadowEffect BlurRadius="14" ShadowDepth="0" Color="#000000" Opacity="0.45"/>
                             </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="PeekBorder" Property="Background" Value="#45FFFFFF"/>
-                                <Setter TargetName="PeekBorder" Property="BorderBrush" Value="#70FFFFFF"/>
+                                <Setter TargetName="PeekBorder" Property="Background" Value="#35FFFFFF"/>
+                                <Setter TargetName="PeekBorder" Property="BorderBrush" Value="#6038BDF8"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="PeekBorder" Property="Background" Value="#55FFFFFF"/>
+                                <Setter TargetName="PeekBorder" Property="Background" Value="#45FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -107,10 +107,10 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#94A3B8"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="10.8"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="11,5.5"/>
-            <Setter Property="Margin" Value="1.5,0"/>
+            <Setter Property="Padding" Value="8.5,4.5"/>
+            <Setter Property="Margin" Value="1,0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Template">

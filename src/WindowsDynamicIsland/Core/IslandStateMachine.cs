@@ -74,17 +74,7 @@ public sealed class IslandStateMachine
             IslandVisualState.IdlePill => (DynamicIdleWidth, 36, 16, 13, 0.12),
             IslandVisualState.CompactMedia => (DynamicCompactWidth, 40, 18, 14, 0.35),
             IslandVisualState.ToastNotification => (388, 52, 22, 15, 0.48),
-            IslandVisualState.ExpandedDashboard => ActiveTab switch
-            {
-                IslandDashboardTab.MediaLyrics => (530, 246, 26, 18, 0.55),
-                IslandDashboardTab.TodoAndWater => (520, 238, 26, 18, 0.46),
-                IslandDashboardTab.Pomodoro => (480, 224, 26, 18, 0.44),
-                IslandDashboardTab.FileShelf => ShelfItemCount > 3
-                    ? (520, 246, 26, 18, 0.45)
-                    : (496, 220, 26, 18, 0.42),
-                IslandDashboardTab.SystemStatus => (520, 276, 26, 18, 0.42),
-                _ => (504, 230, 26, 18, 0.45)
-            },
+            IslandVisualState.ExpandedDashboard => (540, 260, 26, 18, 0.48),
             _ => (196, 36, 16, 13, 0.10)
         };
     }
