@@ -1015,19 +1015,21 @@
                                         </Grid>
                                     </Border>
 
-                                    <!-- Items Control Daftar Tugas (Scrollable) -->
+                                    <!-- Items Control Daftar Tugas (Scrollable Apple-Style) -->
                                     <ScrollViewer Grid.Row="2"
+                                                  Style="{StaticResource AppleScrollViewerStyle}"
                                                   VerticalScrollBarVisibility="Auto"
-                                                  HorizontalScrollBarVisibility="Disabled">
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  Padding="0,0,7,0">
                                         <ItemsControl x:Name="TodoItemsControl">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border Background="#12FFFFFF"
-                                                            BorderBrush="#1EFFFFFF"
+                                                    <Border Background="#14FFFFFF"
+                                                            BorderBrush="#20FFFFFF"
                                                             BorderThickness="1"
-                                                            CornerRadius="9"
-                                                            Padding="8,5"
-                                                            Margin="0,0,0,4.5">
+                                                            CornerRadius="10"
+                                                            Padding="8.5,5.5"
+                                                            Margin="0,0,0,5">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto"/>
