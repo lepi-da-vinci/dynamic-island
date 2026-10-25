@@ -1618,7 +1618,7 @@
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock x:Name="SysUpdateStatusText"
-                                                   Text="Windows Dynamic Island v1.1.1 (Terbaru)"
+                                                   Text="Windows Dynamic Island v1.4.0 (Terbaru)"
                                                    Foreground="#F8FAFC"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
