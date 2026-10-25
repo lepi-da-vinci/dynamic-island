@@ -119,6 +119,37 @@ public sealed class TodoAndWaterService
         DataChanged?.Invoke();
     }
 
+    public void UpdateTodoTitle(int id, string newTitle)
+    {
+        var item = _data.Todos.FirstOrDefault(t => t.Id == id);
+        if (item != null)
+        {
+            string clean = newTitle.Trim();
+            if (string.IsNullOrWhiteSpace(clean))
+            {
+                DeleteTodo(id);
+                return;
+            }
+
+            if (item.Title != clean)
+            {
+                item.Title = clean;
+                SaveData();
+                DataChanged?.Invoke();
+            }
+        }
+    }
+
+    public void DeleteTodo(int id)
+    {
+        int count = _data.Todos.RemoveAll(t => t.Id == id);
+        if (count > 0)
+        {
+            SaveData();
+            DataChanged?.Invoke();
+        }
+    }
+
     public void DrinkWater(double deltaLiters = 0.25)
     {
         _data.WaterCurrentLiters = Math.Round(_data.WaterCurrentLiters + deltaLiters, 2);

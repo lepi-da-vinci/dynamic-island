@@ -78,7 +78,7 @@ public sealed partial class LyricsService
 
         _loadedTrackKey = trackKey;
         _currentLines = [];
-        StatusMessage = "Mencari lirik sinkron (LRCLIB)...";
+        StatusMessage = "Mencari lirik lagu...";
         LyricsUpdated?.Invoke();
 
         // 1. Check local disk cache first (0ms offline response)
@@ -91,9 +91,12 @@ public sealed partial class LyricsService
                 if (!string.IsNullOrWhiteSpace(cachedLrc))
                 {
                     _currentLines = ParseLrc(cachedLrc);
-                    StatusMessage = _currentLines.Count > 0 ? "Lirik sinkron aktif" : "Lirik instrumental / teks biasa";
-                    LyricsUpdated?.Invoke();
-                    return;
+                    if (_currentLines.Count > 0)
+                    {
+                        StatusMessage = "Lirik sinkron aktif";
+                        LyricsUpdated?.Invoke();
+                        return;
+                    }
                 }
             }
             catch
@@ -102,37 +105,80 @@ public sealed partial class LyricsService
             }
         }
 
-        // 2. Fetch from LRCLIB API
+        // 2. Check local .lrc files in user's Music library
         try
         {
-            string? syncedLrc = await FetchFromLrcLibAsync(cleanTitle, cleanArtist, album, durationSeconds);
+            string? localLrc = await FetchFromLocalFilesAsync(cleanTitle, cleanArtist);
+            if (!string.IsNullOrWhiteSpace(localLrc))
+            {
+                var lines = ParseLrc(localLrc);
+                if (lines.Count > 0)
+                {
+                    _currentLines = lines;
+                    StatusMessage = "Lirik file lokal (.lrc)";
+                    await TrySaveCacheAsync(cacheFile, localLrc);
+                    LyricsUpdated?.Invoke();
+                    return;
+                }
+            }
+        }
+        catch { }
 
+        // 3. Provider 1: LRCLIB (Direct Synced Lyrics)
+        string? candidatePlain = null;
+        try
+        {
+            var (syncedLrc, plainLrc) = await FetchFromLrcLibAsync(cleanTitle, cleanArtist, album, durationSeconds);
             if (!string.IsNullOrWhiteSpace(syncedLrc))
             {
-                _currentLines = ParseLrc(syncedLrc);
-                try
+                var lines = ParseLrc(syncedLrc);
+                if (lines.Count > 0)
                 {
-                    await File.WriteAllTextAsync(cacheFile, syncedLrc);
+                    _currentLines = lines;
+                    StatusMessage = "Lirik sinkron (LRCLIB)";
+                    await TrySaveCacheAsync(cacheFile, syncedLrc);
+                    LyricsUpdated?.Invoke();
+                    return;
                 }
-                catch
-                {
-                    // Ignore disk write failure
-                }
-
-                StatusMessage = _currentLines.Count > 0
-                    ? "Lirik sinkron aktif"
-                    : "Lirik tanpa timestamp";
             }
-            else
-            {
-                StatusMessage = $"{cleanTitle} - {cleanArtist}";
-            }
+            candidatePlain = plainLrc;
         }
-        catch
+        catch { }
+
+        // 4. Provider 2: Lyrics.ovh API
+        try
         {
-            StatusMessage = $"{cleanTitle} - {cleanArtist}";
+            string? ovhLyrics = await FetchFromLyricsOvhAsync(cleanTitle, cleanArtist);
+            if (!string.IsNullOrWhiteSpace(ovhLyrics))
+            {
+                var timedLines = ConvertPlainLyricsToTimedLines(ovhLyrics, durationSeconds);
+                if (timedLines.Count > 0)
+                {
+                    _currentLines = timedLines;
+                    StatusMessage = "Lirik lagu (Lyrics.ovh)";
+                    await TrySaveCacheAsync(cacheFile, FormatAsLrc(timedLines));
+                    LyricsUpdated?.Invoke();
+                    return;
+                }
+            }
+        }
+        catch { }
+
+        // 5. Fallback to LRCLIB plain lyrics if available
+        if (!string.IsNullOrWhiteSpace(candidatePlain))
+        {
+            var timedLines = ConvertPlainLyricsToTimedLines(candidatePlain, durationSeconds);
+            if (timedLines.Count > 0)
+            {
+                _currentLines = timedLines;
+                StatusMessage = "Lirik lagu (LRCLIB)";
+                await TrySaveCacheAsync(cacheFile, FormatAsLrc(timedLines));
+                LyricsUpdated?.Invoke();
+                return;
+            }
         }
 
+        StatusMessage = $"{cleanTitle} - {cleanArtist}";
         LyricsUpdated?.Invoke();
     }
 
@@ -144,7 +190,7 @@ public sealed partial class LyricsService
                 LineIndex: -1,
                 PreviousLine: string.Empty,
                 CurrentLine: StatusMessage,
-                NextLine: "Sinkronisasi lirik otomatis via LRCLIB",
+                NextLine: "Sinkronisasi lirik multi-provider otomatis",
                 LineProgressRatio: 0.0,
                 IsSynced: false);
         }
@@ -208,60 +254,181 @@ public sealed partial class LyricsService
             IsSynced: true);
     }
 
-    private static async Task<string?> FetchFromLrcLibAsync(string title, string artist, string album, double durationSeconds)
+    private static async Task<(string? SyncedLrc, string? PlainLyrics)> FetchFromLrcLibAsync(string title, string artist, string album, double durationSeconds)
     {
-        if (!string.IsNullOrWhiteSpace(artist))
+        try
         {
-            var urlBuilder = new StringBuilder("https://lrclib.net/api/get?");
-            urlBuilder.Append($"track_name={Uri.EscapeDataString(title)}");
-            urlBuilder.Append($"&artist_name={Uri.EscapeDataString(artist)}");
-            if (!string.IsNullOrWhiteSpace(album))
+            if (!string.IsNullOrWhiteSpace(artist))
             {
-                urlBuilder.Append($"&album_name={Uri.EscapeDataString(album)}");
-            }
-            if (durationSeconds > 5)
-            {
-                urlBuilder.Append($"&duration={Math.Round(durationSeconds)}");
+                var urlBuilder = new StringBuilder("https://lrclib.net/api/get?");
+                urlBuilder.Append($"track_name={Uri.EscapeDataString(title)}");
+                urlBuilder.Append($"&artist_name={Uri.EscapeDataString(artist)}");
+                if (!string.IsNullOrWhiteSpace(album))
+                {
+                    urlBuilder.Append($"&album_name={Uri.EscapeDataString(album)}");
+                }
+                if (durationSeconds > 5)
+                {
+                    urlBuilder.Append($"&duration={Math.Round(durationSeconds)}");
+                }
+
+                using var response = await Http.GetAsync(urlBuilder.ToString());
+                if (response.IsSuccessStatusCode)
+                {
+                    string json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+                    string? synced = doc.RootElement.TryGetProperty("syncedLyrics", out var sp) && sp.ValueKind == JsonValueKind.String ? sp.GetString() : null;
+                    string? plain = doc.RootElement.TryGetProperty("plainLyrics", out var pp) && pp.ValueKind == JsonValueKind.String ? pp.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(synced) || !string.IsNullOrWhiteSpace(plain))
+                    {
+                        return (synced, plain);
+                    }
+                }
             }
 
-            using var response = await Http.GetAsync(urlBuilder.ToString());
+            // Fallback search: /api/search?q=...
+            string query = string.IsNullOrWhiteSpace(artist) ? title : $"{artist} {title}";
+            string searchUrl = $"https://lrclib.net/api/search?q={Uri.EscapeDataString(query)}";
+            using var searchResp = await Http.GetAsync(searchUrl);
+            if (searchResp.IsSuccessStatusCode)
+            {
+                string searchJson = await searchResp.Content.ReadAsStringAsync();
+                using var searchDoc = JsonDocument.Parse(searchJson);
+                if (searchDoc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    string? bestPlain = null;
+                    foreach (var item in searchDoc.RootElement.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("syncedLyrics", out var sp) && sp.ValueKind == JsonValueKind.String)
+                        {
+                            string? synced = sp.GetString();
+                            if (!string.IsNullOrWhiteSpace(synced)) return (synced, null);
+                        }
+                        if (bestPlain == null && item.TryGetProperty("plainLyrics", out var pp) && pp.ValueKind == JsonValueKind.String)
+                        {
+                            bestPlain = pp.GetString();
+                        }
+                    }
+                    if (!string.IsNullOrWhiteSpace(bestPlain))
+                    {
+                        return (null, bestPlain);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("LyricsService", "LRCLIB fetch failed", ex);
+        }
+
+        return (null, null);
+    }
+
+    private static async Task<string?> FetchFromLyricsOvhAsync(string title, string artist)
+    {
+        if (string.IsNullOrWhiteSpace(artist) || string.IsNullOrWhiteSpace(title))
+            return null;
+
+        try
+        {
+            string url = $"https://api.lyrics.ovh/v1/{Uri.EscapeDataString(artist)}/{Uri.EscapeDataString(title)}";
+            using var response = await Http.GetAsync(url);
             if (response.IsSuccessStatusCode)
             {
                 string json = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("syncedLyrics", out var prop) &&
-                    prop.ValueKind == JsonValueKind.String)
+                if (doc.RootElement.TryGetProperty("lyrics", out var prop) && prop.ValueKind == JsonValueKind.String)
                 {
-                    string? lrc = prop.GetString();
-                    if (!string.IsNullOrWhiteSpace(lrc))
-                        return lrc;
+                    string? lyrics = prop.GetString();
+                    if (!string.IsNullOrWhiteSpace(lyrics))
+                        return lyrics;
                 }
             }
         }
-
-        // Fallback search: /api/search?q=...
-        string query = string.IsNullOrWhiteSpace(artist) ? title : $"{artist} {title}";
-        string searchUrl = $"https://lrclib.net/api/search?q={Uri.EscapeDataString(query)}";
-        using var searchResp = await Http.GetAsync(searchUrl);
-        if (!searchResp.IsSuccessStatusCode) return null;
-
-        string searchJson = await searchResp.Content.ReadAsStringAsync();
-        using var searchDoc = JsonDocument.Parse(searchJson);
-        if (searchDoc.RootElement.ValueKind == JsonValueKind.Array)
+        catch (Exception ex)
         {
-            foreach (var item in searchDoc.RootElement.EnumerateArray())
-            {
-                if (item.TryGetProperty("syncedLyrics", out var prop) &&
-                    prop.ValueKind == JsonValueKind.String)
-                {
-                    string? lrc = prop.GetString();
-                    if (!string.IsNullOrWhiteSpace(lrc))
-                        return lrc;
-                }
-            }
+            AppLogger.LogError("LyricsService", "Lyrics.ovh fetch failed", ex);
         }
 
         return null;
+    }
+
+    private static async Task<string?> FetchFromLocalFilesAsync(string title, string artist)
+    {
+        try
+        {
+            string myMusic = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+            if (Directory.Exists(myMusic))
+            {
+                string[] patterns = [
+                    $"{artist} - {title}.lrc",
+                    $"{title} - {artist}.lrc",
+                    $"{title}.lrc"
+                ];
+
+                foreach (string pat in patterns)
+                {
+                    var files = Directory.GetFiles(myMusic, pat, SearchOption.AllDirectories);
+                    if (files.Length > 0 && File.Exists(files[0]))
+                    {
+                        return await File.ReadAllTextAsync(files[0]);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore filesystem access exceptions
+        }
+
+        return null;
+    }
+
+    private static List<LyricLine> ConvertPlainLyricsToTimedLines(string plainLyrics, double durationSeconds)
+    {
+        var rawLines = plainLyrics.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .Where(l => !string.IsNullOrWhiteSpace(l) && !l.StartsWith('[') && !l.StartsWith("Paroles de") && !l.StartsWith("Lyrics by"))
+            .ToList();
+
+        if (rawLines.Count == 0) return [];
+
+        double dur = durationSeconds > 15 ? durationSeconds : rawLines.Count * 4.5;
+        double intro = Math.Min(10.0, dur * 0.08);
+        double outro = Math.Max(dur - 8.0, dur * 0.92);
+        double singingSpan = Math.Max(5.0, outro - intro);
+        double lineInterval = singingSpan / rawLines.Count;
+
+        var result = new List<LyricLine>();
+        for (int i = 0; i < rawLines.Count; i++)
+        {
+            double sec = intro + (i * lineInterval);
+            result.Add(new LyricLine(TimeSpan.FromSeconds(sec), rawLines[i]));
+        }
+
+        return result;
+    }
+
+    private static string FormatAsLrc(List<LyricLine> lines)
+    {
+        var sb = new StringBuilder();
+        foreach (var line in lines)
+        {
+            sb.AppendLine($"[{(int)line.Timestamp.TotalMinutes:D2}:{line.Timestamp.Seconds:D2}.{line.Timestamp.Milliseconds / 10:D2}] {line.Text}");
+        }
+        return sb.ToString();
+    }
+
+    private static async Task TrySaveCacheAsync(string cacheFile, string content)
+    {
+        try
+        {
+            await File.WriteAllTextAsync(cacheFile, content);
+        }
+        catch
+        {
+            // Ignore cache write failure
+        }
     }
 
     private static List<LyricLine> ParseLrc(string lrcContent)

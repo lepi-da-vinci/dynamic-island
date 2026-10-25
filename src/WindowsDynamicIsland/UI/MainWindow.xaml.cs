@@ -2070,21 +2070,8 @@ public partial class MainWindow : Window
 
     private void OnIslandMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        int step = e.Delta > 0 ? 4 : -4;
-
-        // Hold Shift + Scroll Wheel to adjust Screen Brightness!
-        if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
-        {
-            int newBrt = _brightnessService.AdjustBrightness(step);
-            ShowBrightnessToast(newBrt);
-        }
-        else
-        {
-            int newVol = _audioService.AdjustMasterVolume(step);
-            ShowVolumeToast(newVol, isMuted: false, muteToggled: false);
-        }
-
-        e.Handled = true;
+        // Scroll wheel on island body does NOT adjust volume or brightness anymore.
+        // Adjustments are preserved exclusively in the System tab sliders and hardware keys.
     }
 
     // --- DRAG AND DROP FILE SHELF HANDLERS ---
@@ -2242,13 +2229,6 @@ public partial class MainWindow : Window
                 .ToList();
 
             TodoCounterText.Text = $"{_todoAndWaterService.CompletedTodosCount}/{_todoAndWaterService.TotalTodosCount} Selesai";
-
-            WaterAmountText.Text = _todoAndWaterService.WaterCurrentLiters.ToString("0.0");
-            WaterTargetText.Text = $" / {_todoAndWaterService.WaterTargetLiters:0.0} L";
-            WaterPercentBadgeText.Text = $"{Math.Round(_todoAndWaterService.WaterPercentage)}%";
-
-            double ratio = Math.Clamp(_todoAndWaterService.WaterPercentage / 100.0, 0.05, 1.0);
-            WaterProgressFill.Width = 110.0 * ratio;
         }
         catch (Exception ex)
         {
@@ -2256,27 +2236,98 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnDrinkWaterClick(object sender, RoutedEventArgs e)
+    private void OnNewTodoInputKeyDown(object sender, KeyEventArgs e)
     {
-        _todoAndWaterService.DrinkWater(0.25);
-        TriggerToast(new ToastPayload(
-            Icon: "BELL",
-            Title: "Air Diminum (+250 ml)",
-            Subtitle: $"Total hari ini: {_todoAndWaterService.WaterCurrentLiters:0.0} / {_todoAndWaterService.WaterTargetLiters:0.0} L",
-            AccentHex: "#38BDF8",
-            Duration: TimeSpan.FromSeconds(2.0)));
+        if (e.Key == Key.Enter)
+        {
+            SubmitNewTodo();
+            e.Handled = true;
+        }
     }
 
-    private void OnResetWaterClick(object sender, RoutedEventArgs e)
+    private void OnNewTodoInputTextChanged(object sender, TextChangedEventArgs e)
     {
-        _todoAndWaterService.ResetWater();
+        if (TodoInputPlaceholder != null && NewTodoInputBox != null)
+        {
+            TodoInputPlaceholder.Visibility = string.IsNullOrEmpty(NewTodoInputBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+    }
+
+    private void OnSubmitTodoClick(object sender, RoutedEventArgs e)
+    {
+        SubmitNewTodo();
+    }
+
+    private void SubmitNewTodo()
+    {
+        if (NewTodoInputBox == null) return;
+        string text = NewTodoInputBox.Text.Trim();
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            _todoAndWaterService.AddTodo(text);
+            NewTodoInputBox.Text = string.Empty;
+            if (TodoInputPlaceholder != null)
+            {
+                TodoInputPlaceholder.Visibility = Visibility.Visible;
+            }
+        }
     }
 
     private void OnTodoItemClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: TodoItemViewModel vm })
+        if (sender is FrameworkElement fe)
         {
-            _todoAndWaterService.ToggleTodo(vm.Id);
+            int id = fe.Tag is int tagId ? tagId : (fe.DataContext is TodoItemViewModel vm ? vm.Id : -1);
+            if (id > 0)
+            {
+                _todoAndWaterService.ToggleTodo(id);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnTodoTitleLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb && tb.Tag is int id)
+        {
+            _todoAndWaterService.UpdateTodoTitle(id, tb.Text);
+        }
+    }
+
+    private void OnTodoTitleKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is TextBox tb)
+        {
+            if (tb.Tag is int id)
+            {
+                _todoAndWaterService.UpdateTodoTitle(id, tb.Text);
+            }
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+    }
+
+    private void OnTodoDeleteClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe)
+        {
+            int id = fe.Tag is int tagId ? tagId : (fe.DataContext is TodoItemViewModel vm ? vm.Id : -1);
+            if (id > 0)
+            {
+                _todoAndWaterService.DeleteTodo(id);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnClearCompletedTodoClick(object sender, RoutedEventArgs e)
+    {
+        var completed = _todoAndWaterService.Todos.Where(t => t.IsDone).ToList();
+        foreach (var item in completed)
+        {
+            _todoAndWaterService.DeleteTodo(item.Id);
         }
     }
 
@@ -2459,7 +2510,7 @@ public partial class MainWindow : Window
 public sealed class TodoItemViewModel
 {
     public int Id { get; init; }
-    public string Title { get; init; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
     public bool IsDone { get; init; }
 
     public Brush CheckBgBrush => IsDone

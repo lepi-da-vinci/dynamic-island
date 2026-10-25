@@ -517,7 +517,7 @@
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                                   Margin="0,0,5,0"
                                                   VerticalAlignment="Center"/>
-                                            <TextBlock Text="Tugas &amp; Air" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Tugas" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
 
@@ -882,182 +882,171 @@
                             </Border>
                         </Grid>
 
-                        <!-- TAB 1: TO-DO LIST & WATER REMINDER (Sesuai Referensi Gambar 2 & 3) -->
+                        <!-- TAB 1: TO-DO LIST (Bisa Diedit, Ditambah, Dihapus, dan Diatur Bebas) -->
                         <Grid x:Name="TodoAndWaterTabGrid" Grid.Row="1" Visibility="Collapsed">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="1.2*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Kolom Kiri: Water Reminder & Hidrasi Harian -->
-                            <Border Grid.Column="0"
-                                    Background="#0EFFFFFF"
+                            <Border Background="#0EFFFFFF"
                                     BorderBrush="#18FFFFFF"
                                     BorderThickness="1"
                                     CornerRadius="16"
-                                    Padding="14,12"
-                                    Margin="0,0,7,0">
-                                <StackPanel VerticalAlignment="Center">
-                                    <Grid Margin="0,0,0,4">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Path Data="{StaticResource GeomWaterDrop}"
-                                                  Width="13" Height="13"
-                                                  Stretch="Uniform"
-                                                  Fill="#38BDF8"
-                                                  Margin="0,0,5,0"
-                                                  VerticalAlignment="Center"/>
-                                            <TextBlock Text="Pengingat Air"
-                                                       Foreground="#38BDF8"
-                                                       FontSize="11.5"
-                                                       FontWeight="Bold"
-                                                       VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                        <Border HorizontalAlignment="Right"
-                                                Background="#2438BDF8"
-                                                CornerRadius="6"
-                                                Padding="5,1.5">
-                                            <TextBlock x:Name="WaterPercentBadgeText"
-                                                       Text="73%"
-                                                       Foreground="#38BDF8"
-                                                       FontSize="10"
-                                                       FontWeight="Bold"/>
-                                        </Border>
-                                    </Grid>
-
-                                    <!-- Teks Liter Besar -->
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,4">
-                                        <TextBlock x:Name="WaterAmountText"
-                                                   Text="1.1"
-                                                   Foreground="#F8FAFC"
-                                                   FontSize="24"
-                                                   FontWeight="Bold"/>
-                                        <TextBlock x:Name="WaterTargetText"
-                                                   Text=" / 1.5 L"
-                                                   Foreground="#94A3B8"
-                                                   FontSize="13"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Bottom"
-                                                   Margin="0,0,0,3"/>
-                                    </StackPanel>
-
-                                    <!-- Progress Bar Hidrasi -->
-                                    <Border Height="7"
-                                            CornerRadius="3.5"
-                                            Background="#20FFFFFF"
-                                            ClipToBounds="True"
-                                            Margin="0,2,0,8">
-                                        <Border x:Name="WaterProgressFill"
-                                                HorizontalAlignment="Left"
-                                                Width="110"
-                                                Height="7"
-                                                CornerRadius="3.5"
-                                                Background="#38BDF8"/>
-                                    </Border>
-
-                                    <!-- Tombol Aksi Minum -->
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button x:Name="DrinkWaterBtn"
-                                                Style="{StaticResource IslandIconButtonStyle}"
-                                                Background="#2538BDF8"
-                                                BorderBrush="#4538BDF8"
-                                                Padding="11,5"
-                                                Margin="0,0,6,0"
-                                                Click="OnDrinkWaterClick">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path Data="{StaticResource GeomCupDrink}"
-                                                      Width="11" Height="11"
-                                                      Stretch="Uniform"
-                                                      Fill="#38BDF8"
-                                                      Margin="0,0,4.5,0"
-                                                      VerticalAlignment="Center"/>
-                                                <TextBlock Text="+250 ml"
-                                                           Foreground="#38BDF8"
-                                                           FontSize="11"
-                                                           FontWeight="SemiBold"
-                                                           VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                        </Button>
-
-                                        <Button Style="{StaticResource IslandIconButtonStyle}"
-                                                Padding="8,5"
-                                                ToolTip="Reset counter air hari ini"
-                                                Click="OnResetWaterClick">
-                                            <Path Data="{StaticResource GeomRefresh}"
-                                                  Width="10" Height="10"
-                                                  Stretch="Uniform"
-                                                  Fill="#94A3B8"/>
-                                        </Button>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Kolom Kanan: To-Do Checklist Interaktif -->
-                            <Border Grid.Column="1"
-                                    Background="#0EFFFFFF"
-                                    BorderBrush="#18FFFFFF"
-                                    BorderThickness="1"
-                                    CornerRadius="16"
-                                    Padding="14,10"
-                                    Margin="7,0,0,0">
+                                    Padding="14,10">
                                 <Grid>
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- Header To-Do List -->
-                                    <Grid Grid.Row="0" Margin="0,0,0,8">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Path Data="{StaticResource GeomChecklist}"
-                                                  Width="13" Height="13"
-                                                  Stretch="Uniform"
-                                                  Fill="#22C55E"
-                                                  Margin="0,0,5,0"
-                                                  VerticalAlignment="Center"/>
+                                    <!-- Bar Atas: Judul, Status Counter, dan Action Bar -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,7">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Border Width="22" Height="22" CornerRadius="6" Background="#1E22C55E" Margin="0,0,7,0" VerticalAlignment="Center">
+                                                <Path Data="{StaticResource GeomChecklist}"
+                                                      Width="12" Height="12"
+                                                      Stretch="Uniform"
+                                                      Fill="#22C55E"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                            </Border>
                                             <TextBlock Text="Daftar Tugas"
                                                        Foreground="#F8FAFC"
-                                                       FontSize="12"
+                                                       FontSize="12.5"
                                                        FontWeight="Bold"
                                                        VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="TodoCounterText"
+                                                       Text="0/0 Selesai"
+                                                       Foreground="#22C55E"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"/>
                                         </StackPanel>
-                                        <TextBlock x:Name="TodoCounterText"
-                                                   Grid.Column="1"
-                                                   Text="3/4 Selesai"
-                                                   Foreground="#22C55E"
-                                                   FontSize="11"
-                                                   FontWeight="Bold"
-                                                   HorizontalAlignment="Right"
-                                                   VerticalAlignment="Center"/>
+
+                                        <!-- Tombol Bersihkan Selesai -->
+                                        <Button x:Name="ClearCompletedTodoBtn"
+                                                Grid.Column="2"
+                                                Style="{StaticResource IslandIconButtonStyle}"
+                                                Padding="7,3"
+                                                Background="#14FFFFFF"
+                                                BorderBrush="#20FFFFFF"
+                                                BorderThickness="1"
+                                                VerticalAlignment="Center"
+                                                ToolTip="Hapus semua tugas yang sudah selesai"
+                                                Click="OnClearCompletedTodoClick">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="{StaticResource GeomCheckCircle}"
+                                                      Width="10" Height="10"
+                                                      Stretch="Uniform"
+                                                      Fill="#94A3B8"
+                                                      Margin="0,0,4,0"
+                                                      VerticalAlignment="Center"/>
+                                                <TextBlock Text="Hapus Selesai"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="10.5"
+                                                           FontWeight="Medium"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
                                     </Grid>
 
-                                    <!-- Items Control Checklist -->
-                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+                                    <!-- Bar Tambah Tugas Cepat -->
+                                    <Border Grid.Row="1"
+                                            Background="#14FFFFFF"
+                                            BorderBrush="#25FFFFFF"
+                                            BorderThickness="1"
+                                            CornerRadius="9"
+                                            Padding="9,4"
+                                            Margin="0,0,0,7">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Path Grid.Column="0"
+                                                  Data="{StaticResource GeomPlus}"
+                                                  Width="11" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="#38BDF8"
+                                                  Margin="0,0,8,0"
+                                                  VerticalAlignment="Center"/>
+
+                                            <Grid Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock x:Name="TodoInputPlaceholder"
+                                                           Text="Ketik tugas baru lalu tekan Enter atau klik Tambah..."
+                                                           Foreground="#64748B"
+                                                           FontSize="11.5"
+                                                           VerticalAlignment="Center"
+                                                           IsHitTestVisible="False"/>
+                                                <TextBox x:Name="NewTodoInputBox"
+                                                         Background="Transparent"
+                                                         BorderThickness="0"
+                                                         Foreground="#F8FAFC"
+                                                         FontSize="11.5"
+                                                         FontWeight="Medium"
+                                                         CaretBrush="#38BDF8"
+                                                         Padding="0"
+                                                         VerticalAlignment="Center"
+                                                         KeyDown="OnNewTodoInputKeyDown"
+                                                         TextChanged="OnNewTodoInputTextChanged"/>
+                                            </Grid>
+
+                                            <Button x:Name="SubmitTodoBtn"
+                                                    Grid.Column="2"
+                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                    Background="#2538BDF8"
+                                                    BorderBrush="#4038BDF8"
+                                                    BorderThickness="1"
+                                                    Padding="9,3"
+                                                    Margin="6,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    Click="OnSubmitTodoClick">
+                                                <TextBlock Text="Tambah"
+                                                           Foreground="#38BDF8"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"/>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Items Control Daftar Tugas (Scrollable) -->
+                                    <ScrollViewer Grid.Row="2"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
                                         <ItemsControl x:Name="TodoItemsControl">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border Background="#16FFFFFF"
-                                                            BorderBrush="#24FFFFFF"
+                                                    <Border Background="#12FFFFFF"
+                                                            BorderBrush="#1EFFFFFF"
                                                             BorderThickness="1"
                                                             CornerRadius="9"
                                                             Padding="8,5"
-                                                            Margin="0,0,0,4.5"
-                                                            Cursor="Hand"
-                                                            MouseLeftButtonUp="OnTodoItemClick">
+                                                            Margin="0,0,0,4.5">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto"/>
                                                                 <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
                                                             </Grid.ColumnDefinitions>
 
-                                                            <!-- Checkmark Icon -->
+                                                            <!-- Checkmark Circle -->
                                                             <Border Grid.Column="0"
-                                                                    Width="18" Height="18"
-                                                                    CornerRadius="9"
+                                                                    Width="19" Height="19"
+                                                                    CornerRadius="9.5"
                                                                     Background="{Binding CheckBgBrush}"
                                                                     BorderBrush="{Binding CheckBorderBrush}"
                                                                     BorderThickness="1.2"
-                                                                    Margin="0,0,8,0"
-                                                                    VerticalAlignment="Center">
+                                                                    Margin="0,0,9,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Cursor="Hand"
+                                                                    Tag="{Binding Id}"
+                                                                    MouseLeftButtonUp="OnTodoItemClick">
                                                                 <Path Data="{StaticResource GeomCheckCircle}"
                                                                       Width="11" Height="11"
                                                                       Stretch="Uniform"
@@ -1067,14 +1056,36 @@
                                                                       VerticalAlignment="Center"/>
                                                             </Border>
 
-                                                            <TextBlock Grid.Column="1"
-                                                                       Text="{Binding Title}"
-                                                                       Foreground="{Binding TitleColorBrush}"
-                                                                       TextDecorations="{Binding TitleDecorations}"
-                                                                       FontSize="11"
-                                                                       FontWeight="Medium"
-                                                                       TextTrimming="CharacterEllipsis"
-                                                                       VerticalAlignment="Center"/>
+                                                            <!-- Editable Todo Title -->
+                                                            <TextBox Grid.Column="1"
+                                                                     Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Foreground="{Binding TitleColorBrush}"
+                                                                     TextDecorations="{Binding TitleDecorations}"
+                                                                     FontSize="11.5"
+                                                                     FontWeight="Medium"
+                                                                     Background="Transparent"
+                                                                     BorderThickness="0"
+                                                                     CaretBrush="#38BDF8"
+                                                                     VerticalAlignment="Center"
+                                                                     Padding="0"
+                                                                     Tag="{Binding Id}"
+                                                                     LostFocus="OnTodoTitleLostFocus"
+                                                                     KeyDown="OnTodoTitleKeyDown"/>
+
+                                                            <!-- Tombol Hapus Tugas -->
+                                                            <Button Grid.Column="2"
+                                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                                    Width="20" Height="20"
+                                                                    Padding="0"
+                                                                    Margin="4,0,0,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Tag="{Binding Id}"
+                                                                    Click="OnTodoDeleteClick">
+                                                                <Path Data="{StaticResource GeomClosePower}"
+                                                                      Width="8.5" Height="8.5"
+                                                                      Stretch="Uniform"
+                                                                      Fill="#64748B"/>
+                                                            </Button>
                                                         </Grid>
                                                     </Border>
                                                 </DataTemplate>
@@ -1736,6 +1747,7 @@
                                 </Button>
 
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
+                                        Visibility="Collapsed"
                                         Padding="11,6"
                                         Margin="0,0,6,0"
                                         ToolTip="Buka file log error dan diagnostik lengkap"
@@ -1783,7 +1795,7 @@
                                     VerticalAlignment="Center"
                                     Margin="0,8,0,0">
                             <Border x:Name="PageDot0" Width="16" Height="3.5" CornerRadius="2" Background="#38BDF8" Margin="3,0" Cursor="Hand" ToolTip="Musik" MouseLeftButtonUp="OnDot0Click"/>
-                            <Border x:Name="PageDot1" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Tugas &amp; Air" MouseLeftButtonUp="OnDot1Click"/>
+                            <Border x:Name="PageDot1" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Tugas" MouseLeftButtonUp="OnDot1Click"/>
                             <Border x:Name="PageDot2" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Fokus" MouseLeftButtonUp="OnDot2Click"/>
                             <Border x:Name="PageDot3" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Rak File" MouseLeftButtonUp="OnDot3Click"/>
                             <Border x:Name="PageDot4" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Sistem" MouseLeftButtonUp="OnDot4Click"/>
