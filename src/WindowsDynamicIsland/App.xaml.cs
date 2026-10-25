@@ -120,6 +120,20 @@ public partial class App : Application
                     catch { }
                 }
             }
+
+            foreach (var proc in Process.GetProcessesByName("dotnet"))
+            {
+                if (proc.Id == currentPid) continue;
+                try
+                {
+                    if (proc.MainWindowTitle.Contains("Dynamic Island", StringComparison.OrdinalIgnoreCase))
+                    {
+                        proc.Kill();
+                        proc.WaitForExit(1000);
+                    }
+                }
+                catch { }
+            }
         }
         catch { }
 
@@ -127,7 +141,7 @@ public partial class App : Application
         try
         {
             _singleInstanceMutex = new Mutex(true, @"Local\WindowsDynamicIsland_SingleInstance_Mutex", out bool createdNew);
-            hasHandle = createdNew || _singleInstanceMutex.WaitOne(500, false);
+            hasHandle = createdNew || _singleInstanceMutex.WaitOne(1500, false);
         }
         catch (AbandonedMutexException)
         {
@@ -140,12 +154,23 @@ public partial class App : Application
 
         if (!hasHandle)
         {
-            AppLogger.LogWarning("Lifecycle", $"[PID {Environment.ProcessId}] Mutex not acquired -> Shutdown()");
-            Shutdown();
-            return;
+            AppLogger.LogWarning("Lifecycle", $"[PID {Environment.ProcessId}] Mutex not acquired on first pass, killing lingering instances to take over.");
+            try
+            {
+                int currentPid = Environment.ProcessId;
+                foreach (var proc in Process.GetProcessesByName("WindowsDynamicIsland"))
+                {
+                    if (proc.Id != currentPid)
+                    {
+                        proc.Kill();
+                        proc.WaitForExit(1000);
+                    }
+                }
+            }
+            catch { }
         }
 
-        AppLogger.LogInfo("Lifecycle", $"[PID {Environment.ProcessId}] Mutex acquired successfully. Creating MainWindow.");
+        AppLogger.LogInfo("Lifecycle", $"[PID {Environment.ProcessId}] Proceeding to MainWindow creation.");
         try
         {
             var islandWindow = new MainWindow();
