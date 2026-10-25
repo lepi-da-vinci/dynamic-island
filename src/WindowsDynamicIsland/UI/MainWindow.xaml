@@ -21,91 +21,31 @@
           VerticalAlignment="Top"
           MouseMove="OnRootCanvasMouseMove">
 
-        <!-- Outer 3-Column Dock: Left Wing, Main Notch Center, Right Wing -->
-        <Grid HorizontalAlignment="Center" VerticalAlignment="Top" Width="760">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="110"/>
-                <ColumnDefinition Width="540"/>
-                <ColumnDefinition Width="110"/>
-            </Grid.ColumnDefinitions>
+        <!-- UNIFIED NOTCH MASTER CONTAINER (Single Continuous Mesh, Zero Gaps, 760px Wide) -->
+        <Grid x:Name="UnifiedMasterGrid" HorizontalAlignment="Left" VerticalAlignment="Top" Width="760" Height="310">
 
-            <!-- LEFT SATELLITE WING (Muncul di sisi kiri notch saat kursor di area kiri) -->
-            <Grid Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,58,4,0">
-                <Border x:Name="LeftWingBorder"
-                        Width="0"
-                        Height="136"
-                        CornerRadius="20,8,8,20"
-                        Background="#0D0E15"
-                        BorderBrush="#30FFFFFF"
-                        BorderThickness="1"
-                        ClipToBounds="True"
-                        Opacity="0.0"
-                        Visibility="Collapsed"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.70" Color="#000000"/>
-                    </Border.Effect>
-                    <Button x:Name="LeftWingBtn"
-                            Style="{StaticResource WingPillButtonStyle}"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            Click="OnLeftWingClick"
-                            ToolTip="Menu Sebelumnya">
-                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Path Data="{StaticResource GeomChevronLeft}"
-                                  Width="11" Height="11"
-                                  Stretch="Uniform"
-                                  Fill="#38BDF8"
-                                  Margin="0,0,0,6"
-                                  HorizontalAlignment="Center"/>
-                            <Border Width="36" Height="36" CornerRadius="18" Background="#1E38BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,0,6">
-                                <Path x:Name="LeftWingIcon"
-                                      Data="{StaticResource GeomMusic}"
-                                      Width="16" Height="16"
-                                      Stretch="Uniform"
-                                      Fill="#F8FAFC"
-                                      HorizontalAlignment="Center"
-                                      VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock x:Name="LeftWingLabel"
-                                       Text="Musik"
-                                       Foreground="#CBD5E1"
-                                       FontSize="10.5"
-                                       FontWeight="SemiBold"
-                                       TextAlignment="Center"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </Border>
-            </Grid>
+            <!-- Soft Ambient Glow Behind the Unified Notch (Dynamically sized and positioned) -->
+            <Border x:Name="AmbientGlowBorder"
+                    Width="196"
+                    Height="36"
+                    CornerRadius="0,0,18,18"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="282,0,0,0"
+                    Opacity="0.0"
+                    IsHitTestVisible="False">
+                <Border.Background>
+                    <SolidColorBrush x:Name="AmbientGlowBrush" Color="#38BDF8"/>
+                </Border.Background>
+                <Border.Effect>
+                    <BlurEffect Radius="24" KernelType="Gaussian"/>
+                </Border.Effect>
+            </Border>
 
-            <!-- CENTER NOTCH COLUMN -->
-            <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top">
-                <!-- Soft Ambient Glow Behind the Unified Notch -->
-                <Border x:Name="AmbientGlowBorder"
-                        Width="196"
-                        Height="36"
-                        CornerRadius="0,0,18,18"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Top"
-                        Margin="0,0,0,0"
-                        Opacity="0.0"
-                        IsHitTestVisible="False">
-                    <Border.Background>
-                        <SolidColorBrush x:Name="AmbientGlowBrush" Color="#38BDF8"/>
-                    </Border.Background>
-                    <Border.Effect>
-                        <BlurEffect Radius="24" KernelType="Gaussian"/>
-                    </Border.Effect>
-                </Border>
-
-                <!-- SINGLE UNIFIED NOTCHNOOK SILHOUETTE (Satu desain utuh menempel di atas layar) -->
-                <Grid x:Name="NotchContainerGrid" HorizontalAlignment="Center" VerticalAlignment="Top">
-            <!-- One-piece pure black NotchNook shape with top concave ears & bottom rounded corners -->
+            <!-- SINGLE UNIFIED NOTCH SILHOUETTE (Satu desain utuh menempel di atas layar, meregang organik) -->
             <Path x:Name="UnifiedNotchPath"
                   Fill="#030305"
-                  HorizontalAlignment="Center"
+                  HorizontalAlignment="Left"
                   VerticalAlignment="Top"
                   IsHitTestVisible="False">
                 <Path.Effect>
@@ -113,21 +53,111 @@
                 </Path.Effect>
             </Path>
 
-            <!-- Subtle contour rim along the sides and bottom only -->
+            <!-- Subtle contour rim along the sides and bottom of the unified shape -->
             <Path x:Name="UnifiedNotchRimPath"
                   Stroke="#22FFFFFF"
                   StrokeThickness="1"
-                  HorizontalAlignment="Center"
+                  HorizontalAlignment="Left"
                   VerticalAlignment="Top"
                   IsHitTestVisible="False"/>
 
-            <!-- Interactive Content Host -->
+            <!-- LEFT INTEGRATED WING CONTENT (Transparent inside unified silhouette, X = 34) -->
+            <Grid x:Name="LeftWingContainer"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Top"
+                  Margin="34,52,0,0"
+                  Width="76"
+                  Height="140"
+                  Opacity="0.0"
+                  Visibility="Collapsed"
+                  IsHitTestVisible="False">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="LeftWingTranslate" X="0" Y="0"/>
+                </Grid.RenderTransform>
+                <Button x:Name="LeftWingBtn"
+                        Style="{StaticResource WingPillButtonStyle}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Click="OnLeftWingClick">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Path Data="{StaticResource GeomChevronLeft}"
+                              Width="11" Height="11"
+                              Stretch="Uniform"
+                              Fill="#38BDF8"
+                              Margin="0,0,0,6"
+                              HorizontalAlignment="Center"/>
+                        <Border Width="36" Height="36" CornerRadius="18" Background="#1E38BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,0,6">
+                            <Path x:Name="LeftWingIcon"
+                                  Data="{StaticResource GeomMusic}"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"
+                                  Fill="#F8FAFC"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="LeftWingLabel"
+                                   Text="Musik"
+                                   Foreground="#CBD5E1"
+                                   FontSize="10.5"
+                                   FontWeight="SemiBold"
+                                   TextAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- RIGHT INTEGRATED WING CONTENT (Transparent inside unified silhouette, X = 650) -->
+            <Grid x:Name="RightWingContainer"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Top"
+                  Margin="650,52,0,0"
+                  Width="76"
+                  Height="140"
+                  Opacity="0.0"
+                  Visibility="Collapsed"
+                  IsHitTestVisible="False">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="RightWingTranslate" X="0" Y="0"/>
+                </Grid.RenderTransform>
+                <Button x:Name="RightWingBtn"
+                        Style="{StaticResource WingPillButtonStyle}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Click="OnRightWingClick">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Path Data="{StaticResource GeomChevronRight}"
+                              Width="11" Height="11"
+                              Stretch="Uniform"
+                              Fill="#38BDF8"
+                              Margin="0,0,0,6"
+                              HorizontalAlignment="Center"/>
+                        <Border Width="36" Height="36" CornerRadius="18" Background="#1E38BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,0,6">
+                            <Path x:Name="RightWingIcon"
+                                  Data="{StaticResource GeomChecklist}"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"
+                                  Fill="#F8FAFC"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="RightWingLabel"
+                                   Text="Tugas"
+                                   Foreground="#CBD5E1"
+                                   FontSize="10.5"
+                                   FontWeight="SemiBold"
+                                   TextAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Interactive Main Content Host (Positioned dynamically at contentLeft, Width="bodyWidth") -->
             <Border x:Name="IslandBorder"
                     Width="196"
                     Height="36"
-                    HorizontalAlignment="Center"
+                    HorizontalAlignment="Left"
                     VerticalAlignment="Top"
-                    Margin="0,0,0,0"
+                    Margin="282,0,0,0"
                     Background="#01000000"
                     BorderThickness="0"
                     ClipToBounds="True"
@@ -1761,59 +1791,6 @@
                     </Grid>
                 </Grid>
             </Border>
-        </Grid>
-    </Grid>
-
-            <!-- RIGHT SATELLITE WING (Column 2 - Muncul di sisi kanan notch saat kursor di area kanan) -->
-            <Grid Grid.Column="2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="4,58,0,0">
-                <Border x:Name="RightWingBorder"
-                        Width="0"
-                        Height="136"
-                        CornerRadius="8,20,20,8"
-                        Background="#0D0E15"
-                        BorderBrush="#30FFFFFF"
-                        BorderThickness="1"
-                        ClipToBounds="True"
-                        Opacity="0.0"
-                        Visibility="Collapsed"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Center">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.70" Color="#000000"/>
-                    </Border.Effect>
-                    <Button x:Name="RightWingBtn"
-                            Style="{StaticResource WingPillButtonStyle}"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Stretch"
-                            Click="OnRightWingClick"
-                            ToolTip="Menu Berikutnya">
-                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Path Data="{StaticResource GeomChevronRight}"
-                                  Width="11" Height="11"
-                                  Stretch="Uniform"
-                                  Fill="#38BDF8"
-                                  Margin="0,0,0,6"
-                                  HorizontalAlignment="Center"/>
-                            <Border Width="36" Height="36" CornerRadius="18" Background="#1E38BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,0,6">
-                                <Path x:Name="RightWingIcon"
-                                      Data="{StaticResource GeomChecklist}"
-                                      Width="16" Height="16"
-                                      Stretch="Uniform"
-                                      Fill="#F8FAFC"
-                                      HorizontalAlignment="Center"
-                                      VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock x:Name="RightWingLabel"
-                                       Text="Tugas"
-                                       Foreground="#CBD5E1"
-                                       FontSize="10.5"
-                                       FontWeight="SemiBold"
-                                       TextAlignment="Center"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </Border>
-            </Grid>
         </Grid>
     </Grid>
 </Window>

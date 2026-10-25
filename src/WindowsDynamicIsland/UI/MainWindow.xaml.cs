@@ -838,34 +838,41 @@ public partial class MainWindow : Window
             bool morphActive = _morph.Update(dt);
 
             // Smooth satellite side-wing width animations (Zero notch drift, rock-solid center)
-            double wingSmooth = Math.Clamp(dt * 18.0, 0.06, 0.45);
+            double wingSmooth = Math.Clamp(dt * 16.0, 0.05, 0.35);
             _leftWingWidth += (_targetLeftWingWidth - _leftWingWidth) * wingSmooth;
             _rightWingWidth += (_targetRightWingWidth - _rightWingWidth) * wingSmooth;
 
+            if (Math.Abs(_targetLeftWingWidth - _leftWingWidth) < 0.1 && _targetLeftWingWidth == 0) _leftWingWidth = 0;
+            if (Math.Abs(_targetRightWingWidth - _rightWingWidth) < 0.1 && _targetRightWingWidth == 0) _rightWingWidth = 0;
+
             if (_leftWingWidth > 1.0)
             {
-                LeftWingBorder.Visibility = Visibility.Visible;
-                LeftWingBorder.Width = _leftWingWidth;
-                LeftWingBorder.Opacity = Math.Clamp(_leftWingWidth / 68.0, 0.0, 1.0);
+                LeftWingContainer.Visibility = Visibility.Visible;
+                LeftWingContainer.Opacity = Math.Clamp((_leftWingWidth - 8.0) / 50.0, 0.0, 1.0);
+                LeftWingTranslate.X = (76.0 - _leftWingWidth) * 0.35;
+                LeftWingContainer.IsHitTestVisible = _leftWingWidth > 32.0;
             }
             else
             {
-                LeftWingBorder.Visibility = Visibility.Collapsed;
-                LeftWingBorder.Width = 0;
-                LeftWingBorder.Opacity = 0.0;
+                LeftWingContainer.Visibility = Visibility.Collapsed;
+                LeftWingContainer.Opacity = 0.0;
+                LeftWingTranslate.X = 0;
+                LeftWingContainer.IsHitTestVisible = false;
             }
 
             if (_rightWingWidth > 1.0)
             {
-                RightWingBorder.Visibility = Visibility.Visible;
-                RightWingBorder.Width = _rightWingWidth;
-                RightWingBorder.Opacity = Math.Clamp(_rightWingWidth / 68.0, 0.0, 1.0);
+                RightWingContainer.Visibility = Visibility.Visible;
+                RightWingContainer.Opacity = Math.Clamp((_rightWingWidth - 8.0) / 50.0, 0.0, 1.0);
+                RightWingTranslate.X = (_rightWingWidth - 76.0) * 0.35;
+                RightWingContainer.IsHitTestVisible = _rightWingWidth > 32.0;
             }
             else
             {
-                RightWingBorder.Visibility = Visibility.Collapsed;
-                RightWingBorder.Width = 0;
-                RightWingBorder.Opacity = 0.0;
+                RightWingContainer.Visibility = Visibility.Collapsed;
+                RightWingContainer.Opacity = 0.0;
+                RightWingTranslate.X = 0;
+                RightWingContainer.IsHitTestVisible = false;
             }
 
             double bodyWidth = Math.Max(48, _morph.Width.Current);
@@ -873,15 +880,21 @@ public partial class MainWindow : Window
             double bottomRadius = Math.Clamp(_morph.BottomCornerRadius.Current, 2, height * 0.65);
             double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 2, height * 0.55);
 
+            double contentLeft = (Width - bodyWidth) / 2.0;
+            IslandBorder.Margin = new Thickness(contentLeft, 0, 0, 0);
             IslandBorder.Width = bodyWidth;
             IslandBorder.Height = height;
 
-            AmbientGlowBorder.Width = bodyWidth;
+            double xLeftBody = contentLeft - _leftWingWidth;
+            double xRightBody = contentLeft + bodyWidth + _rightWingWidth;
+
+            AmbientGlowBorder.Margin = new Thickness(xLeftBody, 0, 0, 0);
+            AmbientGlowBorder.Width = Math.Max(10, xRightBody - xLeftBody);
             AmbientGlowBorder.Height = height;
             AmbientGlowBorder.CornerRadius = new CornerRadius(0, 0, bottomRadius, bottomRadius);
             AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
 
-            UpdateUnifiedNotchGeometry(bodyWidth, height, bottomRadius, topEarRadius);
+            UpdateUnifiedNotchGeometry(xLeftBody, xRightBody, height, bottomRadius, topEarRadius);
             UpdateWindowClickThroughState();
 
             bool isCompactMedia =
@@ -917,7 +930,12 @@ public partial class MainWindow : Window
                 LyricsStageGlowOrb.Width = 180 + peak * 95;
             }
 
-            if (!morphActive && !isCompactMedia && !isExpandedMedia)
+            bool wingsActive = Math.Abs(_targetLeftWingWidth - _leftWingWidth) > 0.05 ||
+                               Math.Abs(_targetRightWingWidth - _rightWingWidth) > 0.05 ||
+                               _leftWingWidth > 0.05 ||
+                               _rightWingWidth > 0.05;
+
+            if (!morphActive && !wingsActive && !isCompactMedia && !isExpandedMedia)
             {
                 StopRenderLoop();
             }
@@ -928,7 +946,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateUnifiedNotchGeometry(double bodyWidth, double height, double bottomRadius, double topEarRadius)
+    private void UpdateUnifiedNotchGeometry(double xLeftBody, double xRightBody, double height, double bottomRadius, double topEarRadius)
     {
         if (topEarRadius + bottomRadius > height)
         {
@@ -937,82 +955,78 @@ public partial class MainWindow : Window
             bottomRadius *= scale;
         }
 
-        double totalWidth = bodyWidth + (topEarRadius * 2.0);
-        double xLeft = topEarRadius;
-        double xRight = topEarRadius + bodyWidth;
+        double xLeftEar = Math.Max(0.0, xLeftBody - topEarRadius);
+        double xRightEar = Math.Min(Width, xRightBody + topEarRadius);
 
         var fillGeom = new StreamGeometry();
         using (StreamGeometryContext ctx = fillGeom.Open())
         {
-            BuildNotchContour(ctx, totalWidth, xLeft, xRight, height, topEarRadius, bottomRadius, isFilled: true, isClosed: true);
+            BuildNotchContourDirect(ctx, xLeftEar, xLeftBody, xRightBody, xRightEar, height, topEarRadius, bottomRadius, isFilled: true, isClosed: true);
         }
         fillGeom.Freeze();
 
-        UnifiedNotchPath.Width = totalWidth;
-        UnifiedNotchPath.Height = height;
         UnifiedNotchPath.Data = fillGeom;
 
         var rimGeom = new StreamGeometry();
         using (StreamGeometryContext ctx = rimGeom.Open())
         {
-            BuildNotchContour(ctx, totalWidth, xLeft, xRight, height, topEarRadius, bottomRadius, isFilled: false, isClosed: false);
+            BuildNotchContourDirect(ctx, xLeftEar, xLeftBody, xRightBody, xRightEar, height, topEarRadius, bottomRadius, isFilled: false, isClosed: false);
         }
         rimGeom.Freeze();
 
-        UnifiedNotchRimPath.Width = totalWidth;
-        UnifiedNotchRimPath.Height = height;
         UnifiedNotchRimPath.Data = rimGeom;
     }
 
-    private static void BuildNotchContour(
+    private static void BuildNotchContourDirect(
         StreamGeometryContext ctx,
-        double totalWidth,
-        double xLeft,
-        double xRight,
+        double xLeftEar,
+        double xLeftBody,
+        double xRightBody,
+        double xRightEar,
         double height,
         double topEarRadius,
         double bottomRadius,
         bool isFilled,
         bool isClosed)
     {
-        ctx.BeginFigure(new Point(0, 0), isFilled: isFilled, isClosed: isClosed);
+        ctx.BeginFigure(new Point(xLeftEar, 0), isFilled: isFilled, isClosed: isClosed);
 
         ctx.QuadraticBezierTo(
-            new Point(xLeft, 0),
-            new Point(xLeft, topEarRadius),
+            new Point(xLeftBody, 0),
+            new Point(xLeftBody, topEarRadius),
             isStroked: true,
             isSmoothJoin: true);
 
         ctx.LineTo(
-            new Point(xLeft, height - bottomRadius),
+            new Point(xLeftBody, height - bottomRadius),
             isStroked: true,
             isSmoothJoin: true);
 
         ctx.QuadraticBezierTo(
-            new Point(xLeft, height),
-            new Point(xLeft + bottomRadius, height),
+            new Point(xLeftBody, height),
+            new Point(xLeftBody + bottomRadius, height),
             isStroked: true,
             isSmoothJoin: true);
 
         ctx.LineTo(
-            new Point(xRight - bottomRadius, height),
+            new Point(xRightBody - bottomRadius, height),
             isStroked: true,
             isSmoothJoin: true);
 
         ctx.QuadraticBezierTo(
-            new Point(xRight, height),
-            new Point(xRight, height - bottomRadius),
+            new Point(xRightBody, height),
+            new Point(xRightBody, height - bottomRadius),
             isStroked: true,
             isSmoothJoin: true);
 
         ctx.LineTo(
-            new Point(xRight, topEarRadius),
+            new Point(xRightBody, topEarRadius),
             isStroked: true,
             isSmoothJoin: true);
 
         ctx.QuadraticBezierTo(
-            new Point(xRight, 0),
-            new Point(totalWidth, 0),
+            new Point(xRightBody, 0),
+            new Point(xRightEar, 0),
             isStroked: true,
             isSmoothJoin: true);
     }
@@ -1906,7 +1920,7 @@ public partial class MainWindow : Window
         double dipY = (pt.Y / dpi.DpiScaleY) - Top;
 
         // In 760px window, main notch is 540px centered: left edge = 110, right edge = 650. Height = 260.
-        bool withinY = dipY >= 0 && dipY <= 275;
+        bool withinY = dipY >= 0 && dipY <= 285;
 
         if (!withinY)
         {
@@ -1914,26 +1928,33 @@ public partial class MainWindow : Window
         }
         else
         {
-            // Hysteresis zones:
-            // Left Zone: trigger when dipX <= 170 (left 60px of notch or left wing area).
-            // Stay active until dipX > 210 or dipX < 8.
-            // Right Zone: trigger when dipX >= 590 (right 60px of notch or right wing area).
-            // Stay active until dipX < 550 or dipX > 752.
+            // If cursor is at the very top (dipY <= 46), it is hovering over the top tab navigation bar (Musik, Tugas, Fokus, Rak, Sistem, Simpan).
+            // Avoid triggering wings here unless cursor is genuinely off to the sides (dipX < 110 or dipX > 650).
+            bool isTopBarArea = dipY <= 46;
+
             if (_hoveredSideZone == -1)
             {
-                if (dipX > 210 || dipX < 8) _hoveredSideZone = 0;
+                // Left wing is active: keep active until cursor moves well inside (dipX > 195) or too far left (dipX < 5)
+                if (dipX > 195 || dipX < 5) _hoveredSideZone = 0;
             }
             else if (_hoveredSideZone == 1)
             {
-                if (dipX < 550 || dipX > 752) _hoveredSideZone = 0;
+                // Right wing is active: keep active until cursor moves well inside (dipX < 565) or too far right (dipX > 755)
+                if (dipX < 565 || dipX > 755) _hoveredSideZone = 0;
             }
             else
             {
-                if (dipX >= 8 && dipX <= 170)
+                // Trigger Left Wing:
+                // Either cursor is outside left edge (dipX < 110)
+                // OR cursor is on left margin of dashboard (dipX <= 165) and NOT clicking the top tab bar buttons
+                if (dipX >= 5 && (dipX < 110 || (!isTopBarArea && dipX <= 165)))
                 {
                     _hoveredSideZone = -1;
                 }
-                else if (dipX >= 590 && dipX <= 752)
+                // Trigger Right Wing:
+                // Either cursor is outside right edge (dipX > 650)
+                // OR cursor is on right margin of dashboard (dipX >= 595) and NOT clicking the top Simpan button
+                else if (dipX <= 755 && (dipX > 650 || (!isTopBarArea && dipX >= 595)))
                 {
                     _hoveredSideZone = 1;
                 }
@@ -1946,13 +1967,13 @@ public partial class MainWindow : Window
 
         if (_hoveredSideZone == -1)
         {
-            _targetLeftWingWidth = 72.0;
+            _targetLeftWingWidth = 76.0;
             _targetRightWingWidth = 0.0;
         }
         else if (_hoveredSideZone == 1)
         {
             _targetLeftWingWidth = 0.0;
-            _targetRightWingWidth = 72.0;
+            _targetRightWingWidth = 76.0;
         }
         else
         {
@@ -1962,7 +1983,7 @@ public partial class MainWindow : Window
 
         UpdateSideWingVisuals();
 
-        if (_targetLeftWingWidth > 0 || _targetRightWingWidth > 0 || _leftWingWidth > 0 || _rightWingWidth > 0)
+        if (_targetLeftWingWidth > 0 || _targetRightWingWidth > 0 || _leftWingWidth > 0.01 || _rightWingWidth > 0.01)
         {
             EnsureRenderLoopRunning();
         }
