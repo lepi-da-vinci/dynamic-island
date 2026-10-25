@@ -69,7 +69,6 @@ public partial class MainWindow : Window
     private ToastSliderKind _activeToastSliderKind = ToastSliderKind.None;
     private CancellationTokenSource? _repositionCts;
     private bool _isWindowActivatable;
-    private bool _isUserTypingTodo;
 
     // Interactive satellite side-wing switcher state (Zero drift, anchor rock-solid at center)
     private double _leftWingWidth;
@@ -129,9 +128,9 @@ public partial class MainWindow : Window
                 !_isDraggingTimeline &&
                 !_isDraggingSysVolume &&
                 !_isDraggingSysBrightness &&
-                !_isDraggingToastSlider &&
-                !_isUserTypingTodo)
+                !_isDraggingToastSlider)
             {
+                Keyboard.ClearFocus();
                 _stateMachine.SetHovered(false);
             }
         };
@@ -628,7 +627,7 @@ public partial class MainWindow : Window
             _isDraggingSysBrightness;
 
         bool cursorInside = IsCursorInsideIslandBounds();
-        bool shouldBeClickThrough = isAltBypass || isHidden || (!cursorInside && !isDraggingControl && !_isUserTypingTodo);
+        bool shouldBeClickThrough = isAltBypass || isHidden || (!cursorInside && !isDraggingControl);
 
         if (shouldBeClickThrough != _isWindowClickThrough)
         {
@@ -656,7 +655,7 @@ public partial class MainWindow : Window
             Win32Interop.SetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE, exStyle);
         }
 
-        if (!cursorInside && !isDraggingControl && !_isUserTypingTodo && _stateMachine.IsHovered && !_collapseDebounceTimer.IsEnabled)
+        if (!cursorInside && !isDraggingControl && _stateMachine.IsHovered && !_collapseDebounceTimer.IsEnabled)
         {
             _collapseDebounceTimer.Start();
         }
@@ -796,7 +795,6 @@ public partial class MainWindow : Window
             else if (tab == IslandDashboardTab.TodoAndWater)
             {
                 UpdateTodoAndWaterUi();
-                Dispatcher.BeginInvoke(new Action(() => ForceActivateAndFocus(NewTodoInputBox)), System.Windows.Threading.DispatcherPriority.Input);
             }
             else if (tab == IslandDashboardTab.Pomodoro)
             {
@@ -806,7 +804,7 @@ public partial class MainWindow : Window
         else
         {
             SetWindowActivatable(false);
-            _isUserTypingTodo = false;
+            Keyboard.ClearFocus();
         }
 
         UpdateTabHighlight();
@@ -2336,17 +2334,14 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (!_isUserTypingTodo)
-            {
-                TodoItemsControl.ItemsSource = _todoAndWaterService.Todos
-                    .Select(t => new TodoItemViewModel
-                    {
-                        Id = t.Id,
-                        Title = t.Title,
-                        IsDone = t.IsDone
-                    })
-                    .ToList();
-            }
+            TodoItemsControl.ItemsSource = _todoAndWaterService.Todos
+                .Select(t => new TodoItemViewModel
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    IsDone = t.IsDone
+                })
+                .ToList();
 
             int total = _todoAndWaterService.TotalTodosCount;
             int done = _todoAndWaterService.CompletedTodosCount;
@@ -2394,7 +2389,6 @@ public partial class MainWindow : Window
 
     private void OnNewTodoInputGotFocus(object sender, RoutedEventArgs e)
     {
-        _isUserTypingTodo = true;
         _collapseDebounceTimer.Stop();
         if (NewTodoInputBorder != null)
         {
@@ -2404,7 +2398,6 @@ public partial class MainWindow : Window
 
     private void OnNewTodoInputLostFocus(object sender, RoutedEventArgs e)
     {
-        _isUserTypingTodo = false;
         if (NewTodoInputBorder != null)
         {
             NewTodoInputBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(42, 255, 255, 255));
@@ -2421,7 +2414,6 @@ public partial class MainWindow : Window
 
     private void OnTodoItemTextBoxGotFocus(object sender, RoutedEventArgs e)
     {
-        _isUserTypingTodo = true;
         _collapseDebounceTimer.Stop();
     }
 
@@ -2481,7 +2473,6 @@ public partial class MainWindow : Window
 
     private void OnTodoTitleLostFocus(object sender, RoutedEventArgs e)
     {
-        _isUserTypingTodo = false;
         if (sender is TextBox tb && tb.Tag is int id)
         {
             _todoAndWaterService.UpdateTodoTitle(id, tb.Text);
@@ -2492,7 +2483,6 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Enter && sender is TextBox tb)
         {
-            _isUserTypingTodo = false;
             if (tb.Tag is int id)
             {
                 _todoAndWaterService.UpdateTodoTitle(id, tb.Text);
