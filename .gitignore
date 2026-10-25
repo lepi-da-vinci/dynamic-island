@@ -36,3 +36,5 @@ Thumbs.db
 # Others
 ide.md
 graphify-out/
+*.txt
+*.log
