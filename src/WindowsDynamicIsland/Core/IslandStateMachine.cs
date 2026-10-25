@@ -51,7 +51,7 @@ public sealed class IslandStateMachine
 
     // Dynamic content sizing inputs so the notch breathes organically
     public double DynamicCompactWidth { get; private set; } = 320;
-    public double DynamicIdleWidth { get; private set; } = 196;
+    public double DynamicIdleWidth { get; private set; } = 268;
     public int ShelfItemCount { get; private set; }
 
     public event Action<IslandVisualState, IslandDashboardTab>? StateChanged;
@@ -71,11 +71,11 @@ public sealed class IslandStateMachine
 
         return CurrentState switch
         {
-            IslandVisualState.IdlePill => (DynamicIdleWidth, 36, 16, 13, 0.12),
+            IslandVisualState.IdlePill => (DynamicIdleWidth, 37, 17, 13, 0.18),
             IslandVisualState.CompactMedia => (DynamicCompactWidth, 40, 18, 14, 0.35),
             IslandVisualState.ToastNotification => (388, 52, 22, 15, 0.48),
             IslandVisualState.ExpandedDashboard => (540, 260, 26, 18, 0.48),
-            _ => (196, 36, 16, 13, 0.10)
+            _ => (268, 37, 17, 13, 0.16)
         };
     }
 
@@ -94,7 +94,7 @@ public sealed class IslandStateMachine
 
     public void UpdateDynamicIdleWidth(bool hasExtraIndicators)
     {
-        double target = hasExtraIndicators ? 228 : 196;
+        double target = hasExtraIndicators ? 296 : 268;
         if (Math.Abs(target - DynamicIdleWidth) > 1.0)
         {
             DynamicIdleWidth = target;

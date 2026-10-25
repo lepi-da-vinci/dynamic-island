@@ -160,7 +160,7 @@ $iconRef = if (Test-Path $installedIco) { $installedIco } else { "$installedExe,
 
 Set-ItemProperty -Path $uninstallRegPath -Name "DisplayName" -Value "Windows Dynamic Island" -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "DisplayIcon" -Value $iconRef -Type String
-Set-ItemProperty -Path $uninstallRegPath -Name "DisplayVersion" -Value "1.4.0" -Type String
+Set-ItemProperty -Path $uninstallRegPath -Name "DisplayVersion" -Value "1.4.1" -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "Publisher" -Value "Lepi Da Vinci" -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "InstallLocation" -Value $installDir -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "InstallDate" -Value (Get-Date -Format "yyyyMMdd") -Type String

@@ -68,6 +68,8 @@ public partial class MainWindow : Window
     private bool _isDraggingSysBrightness;
     private ToastSliderKind _activeToastSliderKind = ToastSliderKind.None;
     private CancellationTokenSource? _repositionCts;
+    private bool _isWindowActivatable;
+    private bool _isUserTypingTodo;
 
     // Interactive satellite side-wing switcher state (Zero drift, anchor rock-solid at center)
     private double _leftWingWidth;
@@ -127,7 +129,8 @@ public partial class MainWindow : Window
                 !_isDraggingTimeline &&
                 !_isDraggingSysVolume &&
                 !_isDraggingSysBrightness &&
-                !_isDraggingToastSlider)
+                !_isDraggingToastSlider &&
+                !_isUserTypingTodo)
             {
                 _stateMachine.SetHovered(false);
             }
@@ -617,7 +620,7 @@ public partial class MainWindow : Window
             _isDraggingSysBrightness;
 
         bool cursorInside = IsCursorInsideIslandBounds();
-        bool shouldBeClickThrough = isAltBypass || isHidden || (!cursorInside && !isDraggingControl);
+        bool shouldBeClickThrough = isAltBypass || isHidden || (!cursorInside && !isDraggingControl && !_isUserTypingTodo);
 
         if (shouldBeClickThrough != _isWindowClickThrough)
         {
@@ -631,12 +634,73 @@ public partial class MainWindow : Window
             {
                 exStyle &= ~Win32Interop.WS_EX_TRANSPARENT;
             }
+
+            // Ensure WS_EX_NOACTIVATE is consistent with _isWindowActivatable
+            if (_isWindowActivatable)
+            {
+                exStyle &= ~Win32Interop.WS_EX_NOACTIVATE;
+            }
+            else
+            {
+                exStyle |= Win32Interop.WS_EX_NOACTIVATE;
+            }
+
             Win32Interop.SetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE, exStyle);
         }
 
-        if (!cursorInside && !isDraggingControl && _stateMachine.IsHovered && !_collapseDebounceTimer.IsEnabled)
+        if (!cursorInside && !isDraggingControl && !_isUserTypingTodo && _stateMachine.IsHovered && !_collapseDebounceTimer.IsEnabled)
         {
             _collapseDebounceTimer.Start();
+        }
+    }
+
+    private void SetWindowActivatable(bool activatable)
+    {
+        if (_hwnd == IntPtr.Zero) return;
+        _isWindowActivatable = activatable;
+        int exStyle = Win32Interop.GetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE);
+        if (activatable)
+        {
+            exStyle &= ~Win32Interop.WS_EX_NOACTIVATE;
+        }
+        else
+        {
+            exStyle |= Win32Interop.WS_EX_NOACTIVATE;
+        }
+        Win32Interop.SetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE, exStyle);
+    }
+
+    private void ForceActivateAndFocus(TextBox? tb)
+    {
+        if (_hwnd == IntPtr.Zero) return;
+        SetWindowActivatable(true);
+
+        try
+        {
+            uint foregroundThreadId = Win32Interop.GetWindowThreadProcessId(Win32Interop.GetForegroundWindow(), out _);
+            uint currentThreadId = Win32Interop.GetCurrentThreadId();
+
+            if (foregroundThreadId != currentThreadId && foregroundThreadId != 0)
+            {
+                Win32Interop.AttachThreadInput(foregroundThreadId, currentThreadId, true);
+                Win32Interop.SetForegroundWindow(_hwnd);
+                Win32Interop.SetFocus(_hwnd);
+                Win32Interop.AttachThreadInput(foregroundThreadId, currentThreadId, false);
+            }
+            else
+            {
+                Win32Interop.SetForegroundWindow(_hwnd);
+                Win32Interop.SetFocus(_hwnd);
+            }
+        }
+        catch { }
+
+        Activate();
+
+        if (tb != null)
+        {
+            tb.Focus();
+            Keyboard.Focus(tb);
         }
     }
 
@@ -711,6 +775,7 @@ public partial class MainWindow : Window
 
         if (state == IslandVisualState.ExpandedDashboard)
         {
+            SetWindowActivatable(true);
             AnimateTabContentSlide(tab);
 
             if (tab == IslandDashboardTab.SystemStatus)
@@ -720,11 +785,17 @@ public partial class MainWindow : Window
             else if (tab == IslandDashboardTab.TodoAndWater)
             {
                 UpdateTodoAndWaterUi();
+                Dispatcher.BeginInvoke(new Action(() => ForceActivateAndFocus(NewTodoInputBox)), System.Windows.Threading.DispatcherPriority.Input);
             }
             else if (tab == IslandDashboardTab.Pomodoro)
             {
                 UpdatePomodoroAndClockUi();
             }
+        }
+        else
+        {
+            SetWindowActivatable(false);
+            _isUserTypingTodo = false;
         }
 
         UpdateTabHighlight();
@@ -1341,21 +1412,35 @@ public partial class MainWindow : Window
         string nowStr = DateTime.Now.ToString("HH:mm");
         ExpandedClockBadge.Text = nowStr;
 
+        string idDate = DateTime.Now.ToString("ddd d", new System.Globalization.CultureInfo("id-ID")).ToUpperInvariant();
+
         if (_pomodoroService.IsRunning)
         {
+            IdleDateBadgeText.Text = _pomodoroService.IsBreakMode ? "REHAT" : "FOKUS";
             ClockTextBlock.Text = _pomodoroService.FormattedRemaining;
-            IdlePulseDot.Fill = new SolidColorBrush(Color.FromRgb(249, 115, 22));
+            IdlePulseDot.Fill = new SolidColorBrush(_pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(249, 115, 22));
         }
         else
         {
+            IdleDateBadgeText.Text = idDate;
             ClockTextBlock.Text = nowStr;
             IdlePulseDot.Fill = new SolidColorBrush(Color.FromRgb(56, 189, 248));
         }
 
         PomodoroTimeText.Text = _pomodoroService.FormattedRemaining;
-        PomodoroModeLabel.Text = _pomodoroService.IsBreakMode ? "WAKTU ISTIRAHAT" : "SESI FOKUS";
+        PomodoroModeLabel.Text = _pomodoroService.IsBreakMode ? "Istirahat" : "Sesi Fokus";
         PomodoroModeLabel.Foreground = new SolidColorBrush(
-            _pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(56, 189, 248));
+            _pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(248, 250, 252));
+
+        PomodoroModeBadge.Background = new SolidColorBrush(
+            _pomodoroService.IsBreakMode ? Color.FromArgb(34, 34, 197, 94) : Color.FromArgb(34, 239, 68, 68));
+        PomodoroModeBadge.BorderBrush = new SolidColorBrush(
+            _pomodoroService.IsBreakMode ? Color.FromArgb(64, 34, 197, 94) : Color.FromArgb(64, 239, 68, 68));
+        PomodoroModeDot.Fill = new SolidColorBrush(
+            _pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(239, 68, 68));
+
+        int pomoPct = (int)Math.Round(_pomodoroService.ProgressRatio * 100);
+        PomodoroPercentText.Text = $"{pomoPct}%";
 
         PomodoroPlayPauseIconPath.Data = _pomodoroService.IsRunning
             ? GetVectorGeometry("GeomPause")
@@ -1403,7 +1488,7 @@ public partial class MainWindow : Window
 
         IdleBatteryPercentText.Text = $"{hw.BatteryPercent}%";
         double idleBatRatio = Math.Clamp(hw.BatteryPercent / 100.0, 0.08, 1.0);
-        IdleBatteryFillBar.Width = 20.5 * idleBatRatio;
+        IdleBatteryFillBar.Width = 18.5 * idleBatRatio;
 
         Color batColor = hw.IsCharging
             ? Color.FromRgb(34, 197, 94)
@@ -1414,11 +1499,18 @@ public partial class MainWindow : Window
         IdleBatteryFillBar.Background = new SolidColorBrush(batColor);
         IdleBatteryBoltPath.Fill = new SolidColorBrush(
             hw.IsCharging ? Color.FromRgb(254, 240, 138) : Color.FromRgb(248, 250, 252));
+        IdleBatteryBoltPath.Visibility = hw.IsCharging ? Visibility.Visible : Visibility.Collapsed;
+
+        IdleWifiIconPath.Data = hw.IsNetworkConnected
+            ? GetVectorGeometry("GeomWifi")
+            : GetVectorGeometry("GeomWifiOff");
+        IdleWifiIconPath.Fill = new SolidColorBrush(
+            hw.IsNetworkConnected ? Color.FromRgb(148, 163, 184) : Color.FromRgb(239, 68, 68));
 
         CameraPrivacyDot.Visibility = hw.IsCameraInUse ? Visibility.Visible : Visibility.Collapsed;
         MicPrivacyDot.Visibility = hw.IsMicrophoneInUse ? Visibility.Visible : Visibility.Collapsed;
 
-        bool hasExtraIdle = hw.IsCameraInUse || hw.IsMicrophoneInUse || _pomodoroService.IsRunning;
+        bool hasExtraIdle = hw.IsCameraInUse || hw.IsMicrophoneInUse || _pomodoroService.IsRunning || (_todoAndWaterService.TotalTodosCount - _todoAndWaterService.CompletedTodosCount > 0);
         _stateMachine.UpdateDynamicIdleWidth(hasExtraIdle);
 
         SysBatteryDetailText.Text = hw.HasBattery
@@ -2024,7 +2116,7 @@ public partial class MainWindow : Window
     private static (string GeometryKey, string Label) GetTabIconAndLabel(IslandDashboardTab tab) => tab switch
     {
         IslandDashboardTab.MediaLyrics => ("GeomMusic", "Musik"),
-        IslandDashboardTab.TodoAndWater => ("GeomChecklist", "Tugas & Air"),
+        IslandDashboardTab.TodoAndWater => ("GeomChecklist", "Tugas"),
         IslandDashboardTab.Pomodoro => ("GeomFocusTimer", "Fokus"),
         IslandDashboardTab.FileShelf => ("GeomFolderTray", "Rak File"),
         IslandDashboardTab.SystemStatus => ("GeomSliders", "Sistem"),
@@ -2146,6 +2238,16 @@ public partial class MainWindow : Window
         ShelfHeaderCountText.Text = count == 0
             ? "Taruh file/gambar sementara di sini (Drag Masuk & Keluar)"
             : $"{count} item tersimpan di rak sementara (Tarik keluar untuk kirim)";
+
+        if (count > 0)
+        {
+            TabShelfCountBadge.Visibility = Visibility.Visible;
+            TabShelfCountText.Text = $"{count}";
+        }
+        else
+        {
+            TabShelfCountBadge.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void OnClearShelfClick(object sender, RoutedEventArgs e)
@@ -2219,21 +2321,91 @@ public partial class MainWindow : Window
     {
         try
         {
-            TodoItemsControl.ItemsSource = _todoAndWaterService.Todos
-                .Select(t => new TodoItemViewModel
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    IsDone = t.IsDone
-                })
-                .ToList();
+            if (!_isUserTypingTodo)
+            {
+                TodoItemsControl.ItemsSource = _todoAndWaterService.Todos
+                    .Select(t => new TodoItemViewModel
+                    {
+                        Id = t.Id,
+                        Title = t.Title,
+                        IsDone = t.IsDone
+                    })
+                    .ToList();
+            }
 
-            TodoCounterText.Text = $"{_todoAndWaterService.CompletedTodosCount}/{_todoAndWaterService.TotalTodosCount} Selesai";
+            int total = _todoAndWaterService.TotalTodosCount;
+            int done = _todoAndWaterService.CompletedTodosCount;
+            int pending = total - done;
+
+            TodoCounterText.Text = $"{done}/{total} Selesai";
+
+            double ratio = total > 0 ? (double)done / total : 0.0;
+            TodoProgressFill.Width = 38.0 * Math.Clamp(ratio, 0.0, 1.0);
+
+            EmptyTodoHintPanel.Visibility = total == 0 ? Visibility.Visible : Visibility.Collapsed;
+            TodoItemsControl.Visibility = total == 0 ? Visibility.Collapsed : Visibility.Visible;
+
+            if (pending > 0)
+            {
+                IdleTodoMiniPill.Visibility = Visibility.Visible;
+                IdleTodoMiniText.Text = $"{pending}";
+                TabTodoCountBadge.Visibility = Visibility.Visible;
+                TabTodoCountText.Text = $"{pending}";
+            }
+            else
+            {
+                IdleTodoMiniPill.Visibility = Visibility.Collapsed;
+                TabTodoCountBadge.Visibility = Visibility.Collapsed;
+            }
         }
         catch (Exception ex)
         {
             AppLogger.LogError("UpdateTodoAndWaterUi", "Error updating Todo and Water UI", ex);
         }
+    }
+
+    private void OnTodoInputBorderMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        ForceActivateAndFocus(NewTodoInputBox);
+        e.Handled = true;
+    }
+
+    private void OnTodoInputBoxMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        ForceActivateAndFocus(NewTodoInputBox);
+    }
+
+    private void OnNewTodoInputGotFocus(object sender, RoutedEventArgs e)
+    {
+        _isUserTypingTodo = true;
+        _collapseDebounceTimer.Stop();
+        if (NewTodoInputBorder != null)
+        {
+            NewTodoInputBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(56, 189, 248));
+        }
+    }
+
+    private void OnNewTodoInputLostFocus(object sender, RoutedEventArgs e)
+    {
+        _isUserTypingTodo = false;
+        if (NewTodoInputBorder != null)
+        {
+            NewTodoInputBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(42, 255, 255, 255));
+        }
+    }
+
+    private void OnTodoItemTextBoxMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            ForceActivateAndFocus(tb);
+        }
+    }
+
+    private void OnTodoItemTextBoxGotFocus(object sender, RoutedEventArgs e)
+    {
+        _isUserTypingTodo = true;
+        _collapseDebounceTimer.Stop();
     }
 
     private void OnNewTodoInputKeyDown(object sender, KeyEventArgs e)
@@ -2290,6 +2462,7 @@ public partial class MainWindow : Window
 
     private void OnTodoTitleLostFocus(object sender, RoutedEventArgs e)
     {
+        _isUserTypingTodo = false;
         if (sender is TextBox tb && tb.Tag is int id)
         {
             _todoAndWaterService.UpdateTodoTitle(id, tb.Text);
@@ -2300,6 +2473,7 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Enter && sender is TextBox tb)
         {
+            _isUserTypingTodo = false;
             if (tb.Tag is int id)
             {
                 _todoAndWaterService.UpdateTodoTitle(id, tb.Text);

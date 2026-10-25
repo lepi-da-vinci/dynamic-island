@@ -18,6 +18,7 @@ public sealed class HardwareStatusSnapshot
     public bool IsMicrophoneInUse { get; init; }
     public string ActiveMicApp { get; init; } = string.Empty;
     public string NetworkName { get; init; } = "Connected";
+    public bool IsNetworkConnected => !string.IsNullOrWhiteSpace(NetworkName) && NetworkName != "Tidak Ada Jaringan" && NetworkName != "Terputus" && NetworkName != "Disconnected";
     public string ConnectedBluetoothName { get; init; } = string.Empty;
     public double AppMemoryMb { get; init; } = 24.0;
 }

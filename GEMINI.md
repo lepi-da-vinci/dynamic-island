@@ -24,3 +24,4 @@ Aturan ini wajib dijalankan dan ditaati pada setiap sesi kerja, pembaruan kode, 
 
 ## 5. Review Mandatori Sebelum Rilis
 Setiap perubahan visual harus diperiksa kesesuaiannya dengan panduan estetika modern Apple ini sebelum di-compile, dipublikasikan, dan di-push ke GitHub.
+
