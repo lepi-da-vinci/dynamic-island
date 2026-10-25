@@ -513,6 +513,14 @@ public partial class MainWindow : Window
                 return new IntPtr(Win32Interop.HTTRANSPARENT);
             }
         }
+        else if (msg == Win32Interop.WM_MOUSEACTIVATE)
+        {
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+            {
+                handled = true;
+                return new IntPtr(Win32Interop.MA_ACTIVATE);
+            }
+        }
         else if (msg == Win32Interop.WM_CLIPBOARDUPDATE)
         {
             OnClipboardUpdated();
@@ -668,6 +676,9 @@ public partial class MainWindow : Window
             exStyle |= Win32Interop.WS_EX_NOACTIVATE;
         }
         Win32Interop.SetWindowLong(_hwnd, Win32Interop.GWL_EXSTYLE, exStyle);
+        Win32Interop.SetWindowPos(_hwnd, IntPtr.Zero, 0, 0, 0, 0,
+            Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOZORDER |
+            Win32Interop.SWP_FRAMECHANGED | Win32Interop.SWP_NOACTIVATE);
     }
 
     private void ForceActivateAndFocus(TextBox? tb)
@@ -1412,20 +1423,24 @@ public partial class MainWindow : Window
         string nowStr = DateTime.Now.ToString("HH:mm");
         ExpandedClockBadge.Text = nowStr;
 
-        string idDate = DateTime.Now.ToString("ddd d", new System.Globalization.CultureInfo("id-ID")).ToUpperInvariant();
+        string idDate = DateTime.Now.ToString("d MMM", new System.Globalization.CultureInfo("id-ID"));
+        IdleDateText.Text = idDate;
 
         if (_pomodoroService.IsRunning)
         {
-            IdleDateBadgeText.Text = _pomodoroService.IsBreakMode ? "REHAT" : "FOKUS";
-            ClockTextBlock.Text = _pomodoroService.FormattedRemaining;
-            IdlePulseDot.Fill = new SolidColorBrush(_pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(249, 115, 22));
+            IdlePomodoroCountdownBadge.Visibility = Visibility.Visible;
+            IdlePomodoroCountdownText.Text = _pomodoroService.FormattedRemaining;
+            var pomoColor = _pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(239, 68, 68);
+            IdlePomodoroCountdownBadge.Background = new SolidColorBrush(Color.FromArgb(34, pomoColor.R, pomoColor.G, pomoColor.B));
+            IdlePomodoroCountdownBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(68, pomoColor.R, pomoColor.G, pomoColor.B));
+            IdlePomodoroCountdownText.Foreground = new SolidColorBrush(pomoColor);
         }
         else
         {
-            IdleDateBadgeText.Text = idDate;
-            ClockTextBlock.Text = nowStr;
-            IdlePulseDot.Fill = new SolidColorBrush(Color.FromRgb(56, 189, 248));
+            IdlePomodoroCountdownBadge.Visibility = Visibility.Collapsed;
         }
+
+        ClockTextBlock.Text = nowStr;
 
         PomodoroTimeText.Text = _pomodoroService.FormattedRemaining;
         PomodoroModeLabel.Text = _pomodoroService.IsBreakMode ? "Istirahat" : "Sesi Fokus";
@@ -2366,8 +2381,10 @@ public partial class MainWindow : Window
 
     private void OnTodoInputBorderMouseDown(object sender, MouseButtonEventArgs e)
     {
-        ForceActivateAndFocus(NewTodoInputBox);
-        e.Handled = true;
+        if (e.OriginalSource != NewTodoInputBox)
+        {
+            ForceActivateAndFocus(NewTodoInputBox);
+        }
     }
 
     private void OnTodoInputBoxMouseDown(object sender, MouseButtonEventArgs e)
@@ -2444,6 +2461,8 @@ public partial class MainWindow : Window
             {
                 TodoInputPlaceholder.Visibility = Visibility.Visible;
             }
+            UpdateTodoAndWaterUi();
+            ForceActivateAndFocus(NewTodoInputBox);
         }
     }
 

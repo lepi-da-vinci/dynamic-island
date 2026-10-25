@@ -13,7 +13,8 @@
         ResizeMode="NoResize"
         AllowDrop="True"
         UseLayoutRounding="True"
-        SnapsToDevicePixels="True">
+        SnapsToDevicePixels="True"
+        Focusable="True">
 
     <Grid x:Name="RootCanvas"
           Background="{x:Null}"
@@ -198,33 +199,47 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Left Wing: Live Date / Focus Capsule + Crisp Time -->
+                        <!-- Left Wing: Date + Clock (Normal) or Focus Countdown Pill (When Pomodoro running) -->
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Border x:Name="IdleDateBadge"
-                                    Background="#1F38BDF8"
-                                    BorderBrush="#3638BDF8"
+                            <!-- Focus Countdown Badge (Shown only when Pomodoro is actively running) -->
+                            <Border x:Name="IdlePomodoroCountdownBadge"
+                                    Background="#22EF4444"
+                                    BorderBrush="#40EF4444"
                                     BorderThickness="1"
                                     CornerRadius="7"
                                     Padding="5.5,2"
                                     Margin="0,0,7,0"
-                                    VerticalAlignment="Center">
+                                    VerticalAlignment="Center"
+                                    Visibility="Collapsed">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Ellipse x:Name="IdlePulseDot"
-                                             Width="5.5" Height="5.5"
-                                             Fill="#38BDF8"
-                                             Margin="0,0,4.5,0"
-                                             VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="IdleDateBadgeText"
-                                               Text="MIN 25"
-                                               Foreground="#38BDF8"
-                                               FontSize="9.5"
+                                    <Path Data="{StaticResource GeomFocusTimer}"
+                                          Width="8.5" Height="8.5"
+                                          Fill="#EF4444"
+                                          Stretch="Uniform"
+                                          Margin="0,0,4,0"
+                                          VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="IdlePomodoroCountdownText"
+                                               Text="24:58"
+                                               Foreground="#EF4444"
+                                               FontSize="10"
                                                FontWeight="Bold"
+                                               FontFamily="Segoe UI Variable Display, Consolas, Segoe UI"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
 
+                            <!-- Clean Date Label (e.g. 25 Okt) -->
+                            <TextBlock x:Name="IdleDateText"
+                                       Text="25 Okt"
+                                       Foreground="#94A3B8"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,6,0"
+                                       VerticalAlignment="Center"/>
+
+                            <!-- Clock -->
                             <TextBlock x:Name="ClockTextBlock"
-                                       Text="14:45"
+                                       Text="16:19"
                                        Foreground="#F8FAFC"
                                        FontSize="12.5"
                                        FontWeight="Bold"
@@ -1111,7 +1126,7 @@
                                             Padding="10,4.5"
                                             Margin="0,0,0,7"
                                             Cursor="IBeam"
-                                            PreviewMouseLeftButtonDown="OnTodoInputBorderMouseDown">
+                                            MouseLeftButtonDown="OnTodoInputBorderMouseDown">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto"/>
@@ -1146,7 +1161,6 @@
                                                          IsTabStop="True"
                                                          Padding="0,1"
                                                          VerticalAlignment="Center"
-                                                         PreviewMouseLeftButtonDown="OnTodoInputBoxMouseDown"
                                                          GotFocus="OnNewTodoInputGotFocus"
                                                          LostFocus="OnNewTodoInputLostFocus"
                                                          KeyDown="OnNewTodoInputKeyDown"

@@ -65,24 +65,23 @@ public sealed class TodoAndWaterService
                         _data.WaterCurrentLiters = 0.0;
                         _data.LastUpdatedDate = DateTime.Today;
                     }
+
+                    // Clean out legacy sample tasks so user starts with an empty list
+                    if (_data.Todos.Count > 0 && _data.Todos.All(t =>
+                        t.Title == "Selesaikan laporan kerja" ||
+                        t.Title == "Balas email & pesan penting" ||
+                        t.Title == "Siram tanaman & rapikan meja" ||
+                        t.Title == "Review target harian"))
+                    {
+                        _data.Todos.Clear();
+                        SaveData();
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            AppLogger.LogError("TodoAndWaterService", "Error loading data, using defaults", ex);
-        }
-
-        if (_data.Todos.Count == 0)
-        {
-            _data.Todos = new List<TodoItem>
-            {
-                new() { Id = 1, Title = "Selesaikan laporan kerja", IsDone = true },
-                new() { Id = 2, Title = "Balas email & pesan penting", IsDone = true },
-                new() { Id = 3, Title = "Siram tanaman & rapikan meja", IsDone = false },
-                new() { Id = 4, Title = "Review target harian", IsDone = false }
-            };
-            SaveData();
+            AppLogger.LogError("TodoAndWaterService", "Error loading data", ex);
         }
     }
 

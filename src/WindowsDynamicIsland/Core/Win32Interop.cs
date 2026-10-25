@@ -13,6 +13,8 @@ public static class Win32Interop
 
     public const int WM_NCHITTEST = 0x0084;
     public const int WM_CLIPBOARDUPDATE = 0x031D;
+    public const int WM_MOUSEACTIVATE = 0x0021;
+    public const int MA_ACTIVATE = 1;
     public const int WM_USER_TRAY = 0x0400 + 101;
     public const int WM_LBUTTONUP = 0x0202;
     public const int WM_RBUTTONUP = 0x0205;
@@ -35,7 +37,9 @@ public static class Win32Interop
     public static readonly IntPtr HWND_TOPMOST = new(-1);
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;
+    public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_FRAMECHANGED = 0x0020;
     public const uint SWP_SHOWWINDOW = 0x0040;
 
     [DllImport("user32.dll", SetLastError = true)]
