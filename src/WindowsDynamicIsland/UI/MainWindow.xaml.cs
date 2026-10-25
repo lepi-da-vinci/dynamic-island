@@ -69,13 +69,11 @@ public partial class MainWindow : Window
     private ToastSliderKind _activeToastSliderKind = ToastSliderKind.None;
     private CancellationTokenSource? _repositionCts;
 
-    // Interactive elastic side-peek switcher state
-    private double _sidePeekBonusWidth;
-    private double _targetSidePeekBonusWidth;
-    private double _sidePeekTranslateX;
-    private double _targetSidePeekTranslateX;
-    private double _dashboardTranslateX;
-    private double _targetDashboardTranslateX;
+    // Interactive satellite side-wing switcher state (Zero drift, anchor rock-solid at center)
+    private double _leftWingWidth;
+    private double _targetLeftWingWidth;
+    private double _rightWingWidth;
+    private double _targetRightWingWidth;
     private int _hoveredSideZone; // -1 = Left, 0 = None, 1 = Right
     private IslandDashboardTab _previousActiveTab = IslandDashboardTab.MediaLyrics;
     private int _explicitSlideDirection;
@@ -107,7 +105,11 @@ public partial class MainWindow : Window
         _fastUpdateTimer.Tick += OnFastUpdateTick;
 
         _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
-        _hitTestTimer.Tick += (_, _) => UpdateWindowClickThroughState();
+        _hitTestTimer.Tick += (_, _) =>
+        {
+            UpdateSideWingHover();
+            UpdateWindowClickThroughState();
+        };
 
         _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         _toastDismissTimer.Tick += (_, _) =>
@@ -576,7 +578,7 @@ public partial class MainWindow : Window
         double dipX = (pt.X / dpi.DpiScaleX) - Left;
         double dipY = (pt.Y / dpi.DpiScaleY) - Top;
 
-        double bodyWidth = Math.Max(48, _morph.Width.Current + _sidePeekBonusWidth);
+        double bodyWidth = Math.Max(48, _morph.Width.Current);
         double bodyHeight = Math.Max(4, _morph.Height.Current);
 
         // In TuckedTopEdge ("Mode Simpan"), restrict clickable zone to top 0..5px
@@ -590,9 +592,9 @@ public partial class MainWindow : Window
 
         // Generous margin tolerance around the notch so swift cursor moves never flicker
         double marginTolerance = 24.0;
-        double centerX = (Width / 2.0) + _sidePeekTranslateX;
-        double leftEdge = centerX - (bodyWidth / 2.0) - marginTolerance;
-        double rightEdge = centerX + (bodyWidth / 2.0) + marginTolerance;
+        double centerX = Width / 2.0;
+        double leftEdge = centerX - (bodyWidth / 2.0) - _leftWingWidth - marginTolerance;
+        double rightEdge = centerX + (bodyWidth / 2.0) + _rightWingWidth + marginTolerance;
         double bottomEdge = bodyHeight + marginTolerance;
 
         return dipX >= leftEdge && dipX <= rightEdge && dipY >= -5 && dipY <= bottomEdge;
@@ -801,7 +803,7 @@ public partial class MainWindow : Window
         SetTabVisual(TabSystemBtn, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
 
         UpdatePaginationDots();
-        UpdateSidePeekVisuals();
+        UpdateSideWingVisuals();
 
         void SetTabVisual(Button btn, bool isSelected)
         {
@@ -835,17 +837,38 @@ public partial class MainWindow : Window
 
             bool morphActive = _morph.Update(dt);
 
-            // Smooth elastic side peek bonus width & translation animations
-            double sideSmooth = Math.Clamp(dt * 15.0, 0.05, 0.40);
-            _sidePeekBonusWidth += (_targetSidePeekBonusWidth - _sidePeekBonusWidth) * sideSmooth;
-            _sidePeekTranslateX += (_targetSidePeekTranslateX - _sidePeekTranslateX) * sideSmooth;
-            _dashboardTranslateX += (_targetDashboardTranslateX - _dashboardTranslateX) * sideSmooth;
+            // Smooth satellite side-wing width animations (Zero notch drift, rock-solid center)
+            double wingSmooth = Math.Clamp(dt * 18.0, 0.06, 0.45);
+            _leftWingWidth += (_targetLeftWingWidth - _leftWingWidth) * wingSmooth;
+            _rightWingWidth += (_targetRightWingWidth - _rightWingWidth) * wingSmooth;
 
-            NotchContainerTranslate.X = _sidePeekTranslateX;
-            AmbientGlowTranslate.X = _sidePeekTranslateX;
-            DashboardContentTranslate.X = _dashboardTranslateX;
+            if (_leftWingWidth > 1.0)
+            {
+                LeftWingBorder.Visibility = Visibility.Visible;
+                LeftWingBorder.Width = _leftWingWidth;
+                LeftWingBorder.Opacity = Math.Clamp(_leftWingWidth / 68.0, 0.0, 1.0);
+            }
+            else
+            {
+                LeftWingBorder.Visibility = Visibility.Collapsed;
+                LeftWingBorder.Width = 0;
+                LeftWingBorder.Opacity = 0.0;
+            }
 
-            double bodyWidth = Math.Max(48, _morph.Width.Current + _sidePeekBonusWidth);
+            if (_rightWingWidth > 1.0)
+            {
+                RightWingBorder.Visibility = Visibility.Visible;
+                RightWingBorder.Width = _rightWingWidth;
+                RightWingBorder.Opacity = Math.Clamp(_rightWingWidth / 68.0, 0.0, 1.0);
+            }
+            else
+            {
+                RightWingBorder.Visibility = Visibility.Collapsed;
+                RightWingBorder.Width = 0;
+                RightWingBorder.Opacity = 0.0;
+            }
+
+            double bodyWidth = Math.Max(48, _morph.Width.Current);
             double height = Math.Max(4, _morph.Height.Current);
             double bottomRadius = Math.Clamp(_morph.BottomCornerRadius.Current, 2, height * 0.65);
             double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 2, height * 0.55);
@@ -1838,122 +1861,128 @@ public partial class MainWindow : Window
 
     private void OnIslandMouseMove(object sender, MouseEventArgs e)
     {
-        if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
+        if (_isDraggingToastSlider)
         {
-            if (_targetSidePeekBonusWidth > 0)
-            {
-                _targetSidePeekBonusWidth = 0.0;
-                _targetSidePeekTranslateX = 0.0;
-                _targetDashboardTranslateX = 0.0;
-                _hoveredSideZone = 0;
-                UpdateSidePeekVisuals();
-            }
+            OnToastSliderMouseMove(sender, e);
             return;
         }
 
-        Point pt = e.GetPosition(IslandBorder);
-        double w = IslandBorder.ActualWidth > 0 ? IslandBorder.ActualWidth : (_morph.Width.Current + _sidePeekBonusWidth);
+        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+        {
+            UpdateSideWingHover();
+        }
+    }
 
-        // Hysteresis edge detection zones:
-        // Left zone: trigger when pt.X <= 68, stay active until pt.X > 88
-        // Right zone: trigger when pt.X >= w - 68, stay active until pt.X < w - 88
-        if (_hoveredSideZone == -1)
+    private void OnRootCanvasMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
         {
-            if (pt.X > 88)
-            {
-                _hoveredSideZone = 0;
-            }
+            UpdateSideWingHover();
         }
-        else if (_hoveredSideZone == 1)
-        {
-            if (pt.X < (w - 88))
-            {
-                _hoveredSideZone = 0;
-            }
-        }
-        else
-        {
-            if (pt.X <= 68)
-            {
-                _hoveredSideZone = -1;
-            }
-            else if (pt.X >= (w - 68))
-            {
-                _hoveredSideZone = 1;
-            }
-        }
-
-        if (_hoveredSideZone == -1)
-        {
-            _targetSidePeekBonusWidth = 84.0;
-            _targetSidePeekTranslateX = -42.0;
-            _targetDashboardTranslateX = 42.0;
-        }
-        else if (_hoveredSideZone == 1)
-        {
-            _targetSidePeekBonusWidth = 84.0;
-            _targetSidePeekTranslateX = 42.0;
-            _targetDashboardTranslateX = -42.0;
-        }
-        else
-        {
-            _targetSidePeekBonusWidth = 0.0;
-            _targetSidePeekTranslateX = 0.0;
-            _targetDashboardTranslateX = 0.0;
-        }
-
-        UpdateSidePeekVisuals();
     }
 
     private void OnIslandMouseLeave(object sender, MouseEventArgs e)
     {
-        _targetSidePeekBonusWidth = 0.0;
-        _targetSidePeekTranslateX = 0.0;
-        _targetDashboardTranslateX = 0.0;
-        _hoveredSideZone = 0;
-        UpdateSidePeekVisuals();
-
+        UpdateSideWingHover();
         _collapseDebounceTimer.Stop();
         _collapseDebounceTimer.Start();
     }
 
-    private void UpdateSidePeekVisuals()
+    private void UpdateSideWingHover()
     {
-        try
+        if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
         {
-            if (_hoveredSideZone == -1 && _stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+            _targetLeftWingWidth = 0.0;
+            _targetRightWingWidth = 0.0;
+            _hoveredSideZone = 0;
+            return;
+        }
+
+        if (_hwnd == IntPtr.Zero || !Win32Interop.GetCursorPos(out var pt))
+            return;
+
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        double dipX = (pt.X / dpi.DpiScaleX) - Left;
+        double dipY = (pt.Y / dpi.DpiScaleY) - Top;
+
+        // In 760px window, main notch is 540px centered: left edge = 110, right edge = 650. Height = 260.
+        bool withinY = dipY >= 0 && dipY <= 275;
+
+        if (!withinY)
+        {
+            _hoveredSideZone = 0;
+        }
+        else
+        {
+            // Hysteresis zones:
+            // Left Zone: trigger when dipX <= 170 (left 60px of notch or left wing area).
+            // Stay active until dipX > 210 or dipX < 8.
+            // Right Zone: trigger when dipX >= 590 (right 60px of notch or right wing area).
+            // Stay active until dipX < 550 or dipX > 752.
+            if (_hoveredSideZone == -1)
             {
-                var prevTab = GetPrevTab(_stateMachine.ActiveTab);
-                var (icon, label) = GetTabIconAndLabel(prevTab);
-                LeftPeekIcon.Data = GetVectorGeometry(icon);
-                LeftPeekLabel.Text = label;
-
-                LeftSidePeekPanel.Opacity = 1.0;
-                LeftSidePeekPanel.IsHitTestVisible = true;
-
-                RightSidePeekPanel.Opacity = 0.0;
-                RightSidePeekPanel.IsHitTestVisible = false;
+                if (dipX > 210 || dipX < 8) _hoveredSideZone = 0;
             }
-            else if (_hoveredSideZone == 1 && _stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+            else if (_hoveredSideZone == 1)
             {
-                var nextTab = GetNextTab(_stateMachine.ActiveTab);
-                var (icon, label) = GetTabIconAndLabel(nextTab);
-                RightPeekIcon.Data = GetVectorGeometry(icon);
-                RightPeekLabel.Text = label;
-
-                RightSidePeekPanel.Opacity = 1.0;
-                RightSidePeekPanel.IsHitTestVisible = true;
-
-                LeftSidePeekPanel.Opacity = 0.0;
-                LeftSidePeekPanel.IsHitTestVisible = false;
+                if (dipX < 550 || dipX > 752) _hoveredSideZone = 0;
             }
             else
             {
-                LeftSidePeekPanel.Opacity = 0.0;
-                LeftSidePeekPanel.IsHitTestVisible = false;
+                if (dipX >= 8 && dipX <= 170)
+                {
+                    _hoveredSideZone = -1;
+                }
+                else if (dipX >= 590 && dipX <= 752)
+                {
+                    _hoveredSideZone = 1;
+                }
+                else
+                {
+                    _hoveredSideZone = 0;
+                }
+            }
+        }
 
-                RightSidePeekPanel.Opacity = 0.0;
-                RightSidePeekPanel.IsHitTestVisible = false;
+        if (_hoveredSideZone == -1)
+        {
+            _targetLeftWingWidth = 72.0;
+            _targetRightWingWidth = 0.0;
+        }
+        else if (_hoveredSideZone == 1)
+        {
+            _targetLeftWingWidth = 0.0;
+            _targetRightWingWidth = 72.0;
+        }
+        else
+        {
+            _targetLeftWingWidth = 0.0;
+            _targetRightWingWidth = 0.0;
+        }
+
+        UpdateSideWingVisuals();
+
+        if (_targetLeftWingWidth > 0 || _targetRightWingWidth > 0 || _leftWingWidth > 0 || _rightWingWidth > 0)
+        {
+            EnsureRenderLoopRunning();
+        }
+    }
+
+    private void UpdateSideWingVisuals()
+    {
+        try
+        {
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+            {
+                var prevTab = GetPrevTab(_stateMachine.ActiveTab);
+                var (prevIcon, prevLabel) = GetTabIconAndLabel(prevTab);
+                LeftWingIcon.Data = GetVectorGeometry(prevIcon);
+                LeftWingLabel.Text = prevLabel;
+
+                var nextTab = GetNextTab(_stateMachine.ActiveTab);
+                var (nextIcon, nextLabel) = GetTabIconAndLabel(nextTab);
+                RightWingIcon.Data = GetVectorGeometry(nextIcon);
+                RightWingLabel.Text = nextLabel;
             }
         }
         catch { }
@@ -1974,7 +2003,7 @@ public partial class MainWindow : Window
     private static (string GeometryKey, string Label) GetTabIconAndLabel(IslandDashboardTab tab) => tab switch
     {
         IslandDashboardTab.MediaLyrics => ("GeomMusic", "Musik"),
-        IslandDashboardTab.TodoAndWater => ("GeomChecklist", "Tugas"),
+        IslandDashboardTab.TodoAndWater => ("GeomChecklist", "Tugas & Air"),
         IslandDashboardTab.Pomodoro => ("GeomFocusTimer", "Fokus"),
         IslandDashboardTab.FileShelf => ("GeomFolderTray", "Rak File"),
         IslandDashboardTab.SystemStatus => ("GeomSliders", "Sistem"),
@@ -2136,18 +2165,18 @@ public partial class MainWindow : Window
         UpdateSlidersAndMuteUi();
     }
 
-    private void OnLeftPeekClick(object sender, RoutedEventArgs e)
+    private void OnLeftWingClick(object sender, RoutedEventArgs e)
     {
         _explicitSlideDirection = -1;
         _stateMachine.CyclePrevTab();
-        UpdateSidePeekVisuals();
+        UpdateSideWingVisuals();
     }
 
-    private void OnRightPeekClick(object sender, RoutedEventArgs e)
+    private void OnRightWingClick(object sender, RoutedEventArgs e)
     {
         _explicitSlideDirection = 1;
         _stateMachine.CycleNextTab();
-        UpdateSidePeekVisuals();
+        UpdateSideWingVisuals();
     }
 
     private void OnDot0Click(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.MediaLyrics);
