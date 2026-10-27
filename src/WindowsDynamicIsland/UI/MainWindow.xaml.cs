@@ -144,9 +144,12 @@ public partial class MainWindow : Window
             {
                 Keyboard.ClearFocus();
                 _stateMachine.SetHovered(false);
-                _stateMachine.ResetIdleCycle();
-                _idleCycleTimer.Stop();
-                _idleCycleTimer.Start();
+                if (!_stateMachine.IsTuckedMode)
+                {
+                    _stateMachine.ResetIdleCycle();
+                    _idleCycleTimer.Stop();
+                    _idleCycleTimer.Start();
+                }
             }
         };
 
@@ -2083,7 +2086,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge || _stateMachine.IsTuckedMode)
+        {
+            // When tucked, do not un-tuck on incidental MouseEnter.
+            // Un-tucking from TuckedTopEdge is handled deliberately by UpdateTuckedProximityHover or clicking the top handle.
+            return;
+        }
+
         _idleCycleTimer.Stop();
+        _stateMachine.SetTuckedMode(false);
         _stateMachine.SetHovered(true);
         UpdateMediaAndLyricsUi();
     }
@@ -2241,6 +2252,7 @@ public partial class MainWindow : Window
                 _topHandleHoverTicks = 0;
                 _collapseDebounceTimer.Stop();
                 _idleCycleTimer.Stop();
+                _stateMachine.SetTuckedMode(false);
                 _stateMachine.SetHovered(true);
                 UpdateMediaAndLyricsUi();
             }
@@ -2673,13 +2685,12 @@ public partial class MainWindow : Window
 
     private void OnManualTuckClick(object sender, RoutedEventArgs e)
     {
-        _tuckCooldownTicks = 20; // ~400ms cooldown so it doesn't immediately re-open on the same cursor position
+        _tuckCooldownTicks = 25; // ~500ms cooldown so it doesn't immediately re-open on the same cursor position
         _topHandleHoverTicks = 0;
         _collapseDebounceTimer.Stop();
-        _stateMachine.SetTuckedMode(true);
-        _stateMachine.SetIdleCycleTucked(true);
         _idleCycleTimer.Stop();
-        _idleCycleTimer.Start();
+        _stateMachine.SetHovered(false);
+        _stateMachine.SetTuckedMode(true);
         Keyboard.ClearFocus();
     }
 

@@ -170,14 +170,12 @@ public sealed class IslandStateMachine
     public void ToggleIdleCycleTuck()
     {
         IsIdleCycleTucked = !IsIdleCycleTucked;
-        IsTuckedMode = false;
         RecalculateState();
     }
 
     public void ResetIdleCycle()
     {
         IsIdleCycleTucked = false;
-        IsTuckedMode = false;
         RecalculateState();
     }
 
@@ -238,6 +236,11 @@ public sealed class IslandStateMachine
         {
             next = IslandVisualState.Hidden;
         }
+        else if (IsTuckedMode)
+        {
+            // Explicit manual "Simpan": user clicked "Simpan" or right-clicked notch, MUST tuck immediately even if cursor is hovering or media is active!
+            next = IslandVisualState.TuckedTopEdge;
+        }
         else if (IsHovered || IsPinnedExpanded)
         {
             next = IslandVisualState.ExpandedDashboard;
@@ -248,13 +251,8 @@ public sealed class IslandStateMachine
         }
         else if (IsMediaActive)
         {
-            // When media is active (music playing), always show CompactMedia as usual
+            // When media is active (music/video playing) and NOT manually tucked, show CompactMedia as usual
             next = IslandVisualState.CompactMedia;
-        }
-        else if (IsTuckedMode)
-        {
-            // Explicit manual "Simpan"
-            next = IslandVisualState.TuckedTopEdge;
         }
         else if (IsAutoTuckEnabled && IsIdleCycleTucked)
         {
