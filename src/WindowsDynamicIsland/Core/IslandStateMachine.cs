@@ -49,6 +49,7 @@ public sealed class IslandStateMachine
     public bool IsFullScreenHidden { get; private set; }
     public bool IsTuckedMode { get; private set; }
     public bool IsAutoTuckEnabled { get; private set; } = true;
+    public bool IsIdleCycleTucked { get; private set; } = false;
 
     // Dynamic content sizing inputs so the notch breathes organically
     public double DynamicCompactWidth { get; private set; } = 320;
@@ -133,6 +134,10 @@ public sealed class IslandStateMachine
     {
         if (IsHovered == hovered) return;
         IsHovered = hovered;
+        if (hovered)
+        {
+            IsTuckedMode = false;
+        }
         if (!hovered && IsPinnedExpanded)
         {
             IsPinnedExpanded = false;
@@ -155,6 +160,30 @@ public sealed class IslandStateMachine
     {
         if (IsAutoTuckEnabled == enabled) return;
         IsAutoTuckEnabled = enabled;
+        if (!enabled)
+        {
+            IsIdleCycleTucked = false;
+        }
+        RecalculateState();
+    }
+
+    public void ToggleIdleCycleTuck()
+    {
+        IsIdleCycleTucked = !IsIdleCycleTucked;
+        IsTuckedMode = false;
+        RecalculateState();
+    }
+
+    public void ResetIdleCycle()
+    {
+        IsIdleCycleTucked = false;
+        IsTuckedMode = false;
+        RecalculateState();
+    }
+
+    public void SetIdleCycleTucked(bool tucked)
+    {
+        IsIdleCycleTucked = tucked;
         RecalculateState();
     }
 
@@ -217,16 +246,24 @@ public sealed class IslandStateMachine
         {
             next = IslandVisualState.ToastNotification;
         }
-        else if (IsTuckedMode || IsAutoTuckEnabled)
-        {
-            next = IslandVisualState.TuckedTopEdge;
-        }
         else if (IsMediaActive)
         {
+            // When media is active (music playing), always show CompactMedia as usual
             next = IslandVisualState.CompactMedia;
+        }
+        else if (IsTuckedMode)
+        {
+            // Explicit manual "Simpan"
+            next = IslandVisualState.TuckedTopEdge;
+        }
+        else if (IsAutoTuckEnabled && IsIdleCycleTucked)
+        {
+            // Periodic 10s auto-tuck phase during idle
+            next = IslandVisualState.TuckedTopEdge;
         }
         else
         {
+            // Default view (tampilan awal): Date, Clock, Battery, Wifi, TrueDepth sensor
             next = IslandVisualState.IdlePill;
         }
 

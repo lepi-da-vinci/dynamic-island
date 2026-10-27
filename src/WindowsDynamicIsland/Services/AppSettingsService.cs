@@ -8,6 +8,7 @@ namespace WindowsDynamicIsland.Services;
 public sealed class AppSettingsData
 {
     public bool AutoTuckEnabled { get; set; } = true;
+    public int IdleCycleSeconds { get; set; } = 10;
     public bool MediaTrackChangeToastEnabled { get; set; } = true;
     public int TopEdgeHoverSensitivityMs { get; set; } = 80;
 }
@@ -26,6 +27,18 @@ public sealed class AppSettingsService
         {
             if (_data.AutoTuckEnabled == value) return;
             _data.AutoTuckEnabled = value;
+            SaveSettings();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public int IdleCycleSeconds
+    {
+        get => _data.IdleCycleSeconds;
+        set
+        {
+            if (_data.IdleCycleSeconds == value) return;
+            _data.IdleCycleSeconds = Math.Clamp(value, 3, 300);
             SaveSettings();
             SettingsChanged?.Invoke();
         }

@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _toastDismissTimer;
     private readonly DispatcherTimer _collapseDebounceTimer;
     private readonly DispatcherTimer _heartbeatTimer;
+    private readonly DispatcherTimer _idleCycleTimer;
 
     private readonly double[] _spectrumHeights = [4, 7, 11, 7, 4];
     private Rectangle[] _waveRectangles = [];
@@ -116,12 +117,19 @@ public partial class MainWindow : Window
             UpdateTuckedProximityHover();
         };
 
+        int cycleSec = Math.Clamp(_settingsService.IdleCycleSeconds, 3, 300);
+        _idleCycleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(cycleSec) };
+        _idleCycleTimer.Tick += OnIdleCycleTick;
+
         _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         _toastDismissTimer.Tick += (_, _) =>
         {
             if (_isDraggingToastSlider) return;
             _toastDismissTimer.Stop();
             _stateMachine.ClearToast();
+            _stateMachine.ResetIdleCycle();
+            _idleCycleTimer.Stop();
+            _idleCycleTimer.Start();
         };
 
         _collapseDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(240) };
@@ -136,6 +144,9 @@ public partial class MainWindow : Window
             {
                 Keyboard.ClearFocus();
                 _stateMachine.SetHovered(false);
+                _stateMachine.ResetIdleCycle();
+                _idleCycleTimer.Stop();
+                _idleCycleTimer.Start();
             }
         };
 
@@ -251,6 +262,7 @@ public partial class MainWindow : Window
             _fastUpdateTimer.Start();
             _hitTestTimer.Start();
             _heartbeatTimer.Start();
+            _idleCycleTimer.Start();
             UpdateWindowClickThroughState();
 
             AppLogger.LogInfo("WindowLifecycle", $"MainWindow loaded successfully. HWND=0x{_hwnd:X}, Left={Left}, Top={Top}, Width={Width}, Height={Height}");
@@ -286,6 +298,7 @@ public partial class MainWindow : Window
         _oneSecondTimer.Stop();
         _fastUpdateTimer.Stop();
         _hitTestTimer.Stop();
+        _idleCycleTimer.Stop();
         _mediaService.Dispose();
         _hardwareService.Dispose();
         _updateService.Dispose();
@@ -323,6 +336,40 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             AppLogger.LogError("Heartbeat", "Error during heartbeat tick", ex);
+        }
+    }
+
+    private void OnIdleCycleTick(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_hwnd == IntPtr.Zero) return;
+
+            // Do not alternate if user is interacting with dashboard
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+                return;
+
+            // Do not alternate if a toast notification is active
+            if (_stateMachine.ActiveToast != null)
+                return;
+
+            // Do not alternate if media is actively playing ("waktu lagi pakai kek musik ... munculin seperti biasa")
+            if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
+                return;
+
+            // Do not alternate if Pomodoro countdown is actively running
+            if (_pomodoroService.IsRunning)
+                return;
+
+            // If AutoTuck is enabled, toggle between IdlePill and TuckedTopEdge
+            if (_settingsService.AutoTuckEnabled)
+            {
+                _stateMachine.ToggleIdleCycleTuck();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("IdleCycle", "Error during idle cycle tick", ex);
         }
     }
 
@@ -1450,7 +1497,7 @@ public partial class MainWindow : Window
         var autoTuckColor = autoTuck ? Color.FromRgb(34, 197, 94) : Color.FromRgb(148, 163, 184);
         var autoTuckBrush = new SolidColorBrush(autoTuckColor);
         ToggleAutoTuckIconPath.Fill = autoTuckBrush;
-        ToggleAutoTuckText.Text = autoTuck ? "Auto-Simpan: ON" : "Auto-Simpan: OFF";
+        ToggleAutoTuckText.Text = autoTuck ? "Auto-Simpan (10s): ON" : "Auto-Simpan: OFF";
         ToggleAutoTuckText.Foreground = autoTuckBrush;
         ToggleAutoTuckBtn.Background = new SolidColorBrush(Color.FromArgb((byte)(autoTuck ? 28 : 14), autoTuckColor.R, autoTuckColor.G, autoTuckColor.B));
     }
@@ -1602,23 +1649,22 @@ public partial class MainWindow : Window
             bool hasSession = track.HasActiveSession && track.Title != "Tidak Ada Media";
             _stateMachine.SetMediaActive(hasSession);
 
+            if (hasSession)
+            {
+                _idleCycleTimer.Stop();
+            }
+            else
+            {
+                _stateMachine.ResetIdleCycle();
+                _idleCycleTimer.Stop();
+                _idleCycleTimer.Start();
+            }
+
             ApplyDominantColor(track.DominantColor);
             UpdateMediaAndLyricsUi();
 
             if (hasSession)
             {
-                if (_settingsService.MediaTrackChangeToastEnabled &&
-                    _stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
-                {
-                    string artist = string.IsNullOrWhiteSpace(track.Artist) ? "Now Playing" : track.Artist;
-                    TriggerToast(new ToastPayload(
-                        Icon: "GeomMusic",
-                        Title: track.Title,
-                        Subtitle: artist,
-                        AccentHex: $"#{track.DominantColor.R:X2}{track.DominantColor.G:X2}{track.DominantColor.B:X2}",
-                        Duration: TimeSpan.FromSeconds(3.5)));
-                }
-
                 await _lyricsService.LoadLyricsForTrackAsync(
                     track.Title,
                     track.Artist,
@@ -1634,6 +1680,18 @@ public partial class MainWindow : Window
         {
             bool hasSession = track.HasActiveSession && track.Title != "Tidak Ada Media";
             _stateMachine.SetMediaActive(hasSession);
+
+            if (hasSession)
+            {
+                _idleCycleTimer.Stop();
+            }
+            else
+            {
+                _stateMachine.ResetIdleCycle();
+                _idleCycleTimer.Stop();
+                _idleCycleTimer.Start();
+            }
+
             UpdateMediaAndLyricsUi();
             EnsureRenderLoopRunning();
         });
@@ -2025,6 +2083,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        _idleCycleTimer.Stop();
         _stateMachine.SetHovered(true);
         UpdateMediaAndLyricsUi();
     }
@@ -2181,6 +2240,7 @@ public partial class MainWindow : Window
             {
                 _topHandleHoverTicks = 0;
                 _collapseDebounceTimer.Stop();
+                _idleCycleTimer.Stop();
                 _stateMachine.SetHovered(true);
                 UpdateMediaAndLyricsUi();
             }
@@ -2617,6 +2677,9 @@ public partial class MainWindow : Window
         _topHandleHoverTicks = 0;
         _collapseDebounceTimer.Stop();
         _stateMachine.SetTuckedMode(true);
+        _stateMachine.SetIdleCycleTucked(true);
+        _idleCycleTimer.Stop();
+        _idleCycleTimer.Start();
         Keyboard.ClearFocus();
     }
 
@@ -2624,6 +2687,17 @@ public partial class MainWindow : Window
     {
         _settingsService.AutoTuckEnabled = !_settingsService.AutoTuckEnabled;
         _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
+        if (_settingsService.AutoTuckEnabled)
+        {
+            _stateMachine.ResetIdleCycle();
+            _idleCycleTimer.Stop();
+            _idleCycleTimer.Start();
+        }
+        else
+        {
+            _stateMachine.ResetIdleCycle();
+            _idleCycleTimer.Stop();
+        }
         UpdateSlidersAndMuteUi();
     }
 
@@ -2631,7 +2705,20 @@ public partial class MainWindow : Window
     private async void OnMediaPlayPauseClick(object sender, RoutedEventArgs e) => await _mediaService.TogglePlayPauseAsync();
     private async void OnMediaNextClick(object sender, RoutedEventArgs e) => await _mediaService.SkipNextAsync();
 
-    private void OnPomodoroStartPauseClick(object sender, RoutedEventArgs e) => _pomodoroService.ToggleStartPause();
+    private void OnPomodoroStartPauseClick(object sender, RoutedEventArgs e)
+    {
+        _pomodoroService.ToggleStartPause();
+        if (_pomodoroService.IsRunning)
+        {
+            _stateMachine.ResetIdleCycle();
+            _idleCycleTimer.Stop();
+        }
+        else
+        {
+            _idleCycleTimer.Stop();
+            _idleCycleTimer.Start();
+        }
+    }
     private void OnPomodoroResetFocusClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(25, isBreak: false);
     private void OnPomodoroBreakClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(5, isBreak: true);
     private void OnPomodoroAdd5MinClick(object sender, RoutedEventArgs e) => _pomodoroService.AddMinutes(5);
