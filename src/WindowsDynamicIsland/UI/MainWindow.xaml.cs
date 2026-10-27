@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly PomodoroTimerService _pomodoroService = new();
     private readonly TodoAndWaterService _todoAndWaterService = new();
     private readonly UpdateCheckerService _updateService = new();
+    private readonly AppSettingsService _settingsService = new();
 
     private readonly DispatcherTimer _oneSecondTimer;
     private readonly DispatcherTimer _fastUpdateTimer;
@@ -59,6 +60,8 @@ public partial class MainWindow : Window
     private double _currentLyricLineProgress;
     private double _currentPanX;
     private int _topBezelHoldTicks;
+    private int _topHandleHoverTicks;
+    private int _tuckCooldownTicks;
 
     // Interactive timeline & slider scrubbing states
     private bool _isDraggingTimeline;
@@ -110,6 +113,7 @@ public partial class MainWindow : Window
         {
             UpdateSideWingHover();
             UpdateWindowClickThroughState();
+            UpdateTuckedProximityHover();
         };
 
         _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
@@ -178,6 +182,13 @@ public partial class MainWindow : Window
         Microsoft.Win32.SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         DpiChanged += OnDpiChanged;
+
+        _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
+        _settingsService.SettingsChanged += () => Dispatcher.InvokeAsync(() =>
+        {
+            _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
+            UpdateSlidersAndMuteUi();
+        });
 
         Loaded += OnWindowLoaded;
         Closed += OnWindowClosed;
@@ -591,13 +602,13 @@ public partial class MainWindow : Window
         double bodyWidth = Math.Max(48, _morph.Width.Current);
         double bodyHeight = Math.Max(4, _morph.Height.Current);
 
-        // In TuckedTopEdge ("Mode Simpan"), restrict clickable zone to top 0..5px
-        // so Chrome tabs right below (Y >= 6px) are 100% clickable!
+        // In TuckedTopEdge ("Mode Simpan"), restrict clickable zone to top 0..6px
+        // so Chrome tabs right below (Y >= 7px) are 100% clickable!
         if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge)
         {
-            bodyHeight = Math.Min(bodyHeight, 5.0);
+            bodyHeight = Math.Min(bodyHeight, 6.0);
             double tuckedLeft = (Width - bodyWidth) / 2.0;
-            return dipX >= tuckedLeft && dipX <= (tuckedLeft + bodyWidth) && dipY >= 0 && dipY <= bodyHeight;
+            return dipX >= (tuckedLeft - 10) && dipX <= (tuckedLeft + bodyWidth + 10) && dipY >= 0 && dipY <= bodyHeight;
         }
 
         // Generous margin tolerance around the notch so swift cursor moves never flicker
@@ -762,6 +773,26 @@ public partial class MainWindow : Window
         _morph.MorphTo(w, h, bottomRadius, topEarRadius, glow, bouncy: expanding);
 
         TuckedHandlePanel.Visibility = state == IslandVisualState.TuckedTopEdge ? Visibility.Visible : Visibility.Collapsed;
+        if (state == IslandVisualState.TuckedTopEdge)
+        {
+            if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
+            {
+                TuckedAccentBar.Background = new SolidColorBrush(_mediaService.CurrentTrack.DominantColor);
+            }
+            else if (_pomodoroService.IsRunning)
+            {
+                TuckedAccentBar.Background = new SolidColorBrush(Color.FromRgb(251, 113, 133));
+            }
+            else if (_hardwareService.Current.IsCharging)
+            {
+                TuckedAccentBar.Background = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            }
+            else
+            {
+                TuckedAccentBar.Background = new SolidColorBrush(Color.FromRgb(56, 189, 248));
+            }
+        }
+
         IdlePillPanel.Visibility = state == IslandVisualState.IdlePill ? Visibility.Visible : Visibility.Collapsed;
         CompactMediaPanel.Visibility = state == IslandVisualState.CompactMedia ? Visibility.Visible : Visibility.Collapsed;
         ToastPanel.Visibility = state == IslandVisualState.ToastNotification ? Visibility.Visible : Visibility.Collapsed;
@@ -1414,6 +1445,14 @@ public partial class MainWindow : Window
         ToggleMicIconPath.Fill = micBtnBrush;
         ToggleMicText.Text = micMuted ? "Mic: MUTED" : "Mic: ON";
         ToggleMicText.Foreground = micBtnBrush;
+
+        bool autoTuck = _settingsService.AutoTuckEnabled;
+        var autoTuckColor = autoTuck ? Color.FromRgb(34, 197, 94) : Color.FromRgb(148, 163, 184);
+        var autoTuckBrush = new SolidColorBrush(autoTuckColor);
+        ToggleAutoTuckIconPath.Fill = autoTuckBrush;
+        ToggleAutoTuckText.Text = autoTuck ? "Auto-Simpan: ON" : "Auto-Simpan: OFF";
+        ToggleAutoTuckText.Foreground = autoTuckBrush;
+        ToggleAutoTuckBtn.Background = new SolidColorBrush(Color.FromArgb((byte)(autoTuck ? 28 : 14), autoTuckColor.R, autoTuckColor.G, autoTuckColor.B));
     }
 
     private void UpdatePomodoroAndClockUi()
@@ -1568,6 +1607,18 @@ public partial class MainWindow : Window
 
             if (hasSession)
             {
+                if (_settingsService.MediaTrackChangeToastEnabled &&
+                    _stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
+                {
+                    string artist = string.IsNullOrWhiteSpace(track.Artist) ? "Now Playing" : track.Artist;
+                    TriggerToast(new ToastPayload(
+                        Icon: "GeomMusic",
+                        Title: track.Title,
+                        Subtitle: artist,
+                        AccentHex: $"#{track.DominantColor.R:X2}{track.DominantColor.G:X2}{track.DominantColor.B:X2}",
+                        Duration: TimeSpan.FromSeconds(3.5)));
+                }
+
                 await _lyricsService.LoadLyricsForTrackAsync(
                     track.Title,
                     track.Artist,
@@ -1969,7 +2020,7 @@ public partial class MainWindow : Window
     {
         _collapseDebounceTimer.Stop();
 
-        if (_stateMachine.CurrentState is IslandVisualState.TuckedTopEdge or IslandVisualState.ToastNotification)
+        if (_stateMachine.CurrentState is IslandVisualState.ToastNotification)
         {
             return;
         }
@@ -2091,6 +2142,52 @@ public partial class MainWindow : Window
         if (_targetLeftWingWidth > 0 || _targetRightWingWidth > 0 || _leftWingWidth > 0.01 || _rightWingWidth > 0.01)
         {
             EnsureRenderLoopRunning();
+        }
+    }
+
+    private void UpdateTuckedProximityHover()
+    {
+        if (_tuckCooldownTicks > 0)
+        {
+            _tuckCooldownTicks--;
+            return;
+        }
+
+        if (_stateMachine.CurrentState != IslandVisualState.TuckedTopEdge)
+        {
+            _topHandleHoverTicks = 0;
+            return;
+        }
+
+        if (_hwnd == IntPtr.Zero || !Win32Interop.GetCursorPos(out var pt))
+        {
+            _topHandleHoverTicks = 0;
+            return;
+        }
+
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        double dipX = (pt.X / dpi.DpiScaleX) - Left;
+        double dipY = (pt.Y / dpi.DpiScaleY) - Top;
+
+        double bodyWidth = Math.Max(48, _morph.Width.Current);
+        double centerX = Width / 2.0;
+        double halfWidth = (bodyWidth / 2.0) + 16.0;
+
+        // Tucked handle is located at top-center (Y <= 6.5 DIPs, X within handle bounds)
+        if (dipY >= 0 && dipY <= 6.5 && Math.Abs(dipX - centerX) <= halfWidth)
+        {
+            _topHandleHoverTicks++;
+            if (_topHandleHoverTicks >= 3) // ~60ms deliberate hover
+            {
+                _topHandleHoverTicks = 0;
+                _collapseDebounceTimer.Stop();
+                _stateMachine.SetHovered(true);
+                UpdateMediaAndLyricsUi();
+            }
+        }
+        else
+        {
+            _topHandleHoverTicks = 0;
         }
     }
 
@@ -2516,7 +2613,18 @@ public partial class MainWindow : Window
 
     private void OnManualTuckClick(object sender, RoutedEventArgs e)
     {
+        _tuckCooldownTicks = 20; // ~400ms cooldown so it doesn't immediately re-open on the same cursor position
+        _topHandleHoverTicks = 0;
+        _collapseDebounceTimer.Stop();
         _stateMachine.SetTuckedMode(true);
+        Keyboard.ClearFocus();
+    }
+
+    private void OnToggleAutoTuckClick(object sender, RoutedEventArgs e)
+    {
+        _settingsService.AutoTuckEnabled = !_settingsService.AutoTuckEnabled;
+        _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
+        UpdateSlidersAndMuteUi();
     }
 
     private async void OnMediaPrevClick(object sender, RoutedEventArgs e) => await _mediaService.SkipPreviousAsync();

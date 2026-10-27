@@ -48,6 +48,7 @@ public sealed class IslandStateMachine
     public bool IsMediaActive { get; private set; }
     public bool IsFullScreenHidden { get; private set; }
     public bool IsTuckedMode { get; private set; }
+    public bool IsAutoTuckEnabled { get; private set; } = true;
 
     // Dynamic content sizing inputs so the notch breathes organically
     public double DynamicCompactWidth { get; private set; } = 320;
@@ -150,6 +151,13 @@ public sealed class IslandStateMachine
         RecalculateState();
     }
 
+    public void SetAutoTuckEnabled(bool enabled)
+    {
+        if (IsAutoTuckEnabled == enabled) return;
+        IsAutoTuckEnabled = enabled;
+        RecalculateState();
+    }
+
     public void TogglePinnedExpanded()
     {
         IsPinnedExpanded = !IsPinnedExpanded;
@@ -209,7 +217,7 @@ public sealed class IslandStateMachine
         {
             next = IslandVisualState.ToastNotification;
         }
-        else if (IsTuckedMode)
+        else if (IsTuckedMode || IsAutoTuckEnabled)
         {
             next = IslandVisualState.TuckedTopEdge;
         }

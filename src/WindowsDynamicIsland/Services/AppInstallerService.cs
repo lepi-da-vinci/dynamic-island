@@ -13,7 +13,7 @@ public static class AppInstallerService
         get
         {
             var v = typeof(AppInstallerService).Assembly.GetName().Version;
-            return v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "1.4.2";
+            return v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "1.4.3";
         }
     }
     public const string Publisher = "Lepi Da Vinci";

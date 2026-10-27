@@ -35,6 +35,8 @@ Thumbs.db
 
 # Others
 ide.md
+publish-unpacked/
+publish-single/
 graphify-out/
 *.txt
 *.log
