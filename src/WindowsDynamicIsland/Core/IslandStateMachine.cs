@@ -236,27 +236,28 @@ public sealed class IslandStateMachine
         {
             next = IslandVisualState.Hidden;
         }
+        else if (ActiveToast != null)
+        {
+            // Notifications always take precedence so incoming toasts (volume, battery, system, alerts) are visible!
+            next = IslandVisualState.ToastNotification;
+        }
         else if (IsTuckedMode)
         {
-            // Explicit manual "Simpan": user clicked "Simpan" or right-clicked notch, MUST tuck immediately even if cursor is hovering or media is active!
+            // Explicit manual "Simpan": user clicked "Simpan" or right-clicked notch, MUST tuck immediately even if media is active!
             next = IslandVisualState.TuckedTopEdge;
         }
         else if (IsHovered || IsPinnedExpanded)
         {
             next = IslandVisualState.ExpandedDashboard;
         }
-        else if (ActiveToast != null)
-        {
-            next = IslandVisualState.ToastNotification;
-        }
         else if (IsMediaActive)
         {
             // When media is active (music/video playing) and NOT manually tucked, show CompactMedia as usual
             next = IslandVisualState.CompactMedia;
         }
-        else if (IsAutoTuckEnabled && IsIdleCycleTucked)
+        else if (IsAutoTuckEnabled)
         {
-            // Periodic 10s auto-tuck phase during idle
+            // When AutoTuck is enabled, rest in tucked mode (Mode Simpan) until a notification or user interaction occurs!
             next = IslandVisualState.TuckedTopEdge;
         }
         else

@@ -121,15 +121,12 @@ public partial class MainWindow : Window
         _idleCycleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(cycleSec) };
         _idleCycleTimer.Tick += OnIdleCycleTick;
 
-        _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
         _toastDismissTimer.Tick += (_, _) =>
         {
             if (_isDraggingToastSlider) return;
             _toastDismissTimer.Stop();
             _stateMachine.ClearToast();
-            _stateMachine.ResetIdleCycle();
-            _idleCycleTimer.Stop();
-            _idleCycleTimer.Start();
         };
 
         _collapseDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(240) };
@@ -144,12 +141,6 @@ public partial class MainWindow : Window
             {
                 Keyboard.ClearFocus();
                 _stateMachine.SetHovered(false);
-                if (!_stateMachine.IsTuckedMode)
-                {
-                    _stateMachine.ResetIdleCycle();
-                    _idleCycleTimer.Stop();
-                    _idleCycleTimer.Start();
-                }
             }
         };
 
@@ -344,36 +335,8 @@ public partial class MainWindow : Window
 
     private void OnIdleCycleTick(object? sender, EventArgs e)
     {
-        try
-        {
-            if (_hwnd == IntPtr.Zero) return;
-
-            // Do not alternate if user is interacting with dashboard
-            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
-                return;
-
-            // Do not alternate if a toast notification is active
-            if (_stateMachine.ActiveToast != null)
-                return;
-
-            // Do not alternate if media is actively playing ("waktu lagi pakai kek musik ... munculin seperti biasa")
-            if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
-                return;
-
-            // Do not alternate if Pomodoro countdown is actively running
-            if (_pomodoroService.IsRunning)
-                return;
-
-            // If AutoTuck is enabled, toggle between IdlePill and TuckedTopEdge
-            if (_settingsService.AutoTuckEnabled)
-            {
-                _stateMachine.ToggleIdleCycleTuck();
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogError("IdleCycle", "Error during idle cycle tick", ex);
-        }
+        // No repeating alternating toggles. The Dynamic Island stays cleanly tucked in AutoTuck mode
+        // and only wakes up when a notification arrives or user explicitly interacts with the island.
     }
 
     private void PositionTopCenter()
@@ -1652,19 +1615,18 @@ public partial class MainWindow : Window
             bool hasSession = track.HasActiveSession && track.Title != "Tidak Ada Media";
             _stateMachine.SetMediaActive(hasSession);
 
-            if (hasSession)
-            {
-                _idleCycleTimer.Stop();
-            }
-            else
-            {
-                _stateMachine.ResetIdleCycle();
-                _idleCycleTimer.Stop();
-                _idleCycleTimer.Start();
-            }
-
             ApplyDominantColor(track.DominantColor);
             UpdateMediaAndLyricsUi();
+
+            if (hasSession && (_stateMachine.IsTuckedMode || _stateMachine.CurrentState == IslandVisualState.TuckedTopEdge))
+            {
+                TriggerToast(new ToastPayload(
+                    Icon: "MUSIC",
+                    Title: track.Title,
+                    Subtitle: string.IsNullOrWhiteSpace(track.Artist) ? "Sedang Memutar" : track.Artist,
+                    AccentHex: $"#{track.DominantColor.R:X2}{track.DominantColor.G:X2}{track.DominantColor.B:X2}",
+                    Duration: TimeSpan.FromSeconds(10)));
+            }
 
             if (hasSession)
             {
@@ -1912,7 +1874,10 @@ public partial class MainWindow : Window
         _stateMachine.ShowToast(toast);
 
         _toastDismissTimer.Stop();
-        _toastDismissTimer.Interval = toast.Duration ?? TimeSpan.FromSeconds(2.2);
+        TimeSpan duration = _settingsService.AutoTuckEnabled
+            ? TimeSpan.FromSeconds(10)
+            : (toast.Duration ?? TimeSpan.FromSeconds(3.5));
+        _toastDismissTimer.Interval = duration;
         _toastDismissTimer.Start();
     }
 
@@ -2124,6 +2089,13 @@ public partial class MainWindow : Window
     private void OnIslandMouseLeave(object sender, MouseEventArgs e)
     {
         UpdateSideWingHover();
+        if (_stateMachine.CurrentState is IslandVisualState.ToastNotification)
+        {
+            _toastDismissTimer.Stop();
+            _toastDismissTimer.Interval = TimeSpan.FromSeconds(10);
+            _toastDismissTimer.Start();
+            return;
+        }
         _collapseDebounceTimer.Stop();
         _collapseDebounceTimer.Start();
     }
@@ -2308,6 +2280,13 @@ public partial class MainWindow : Window
     private void OnIslandMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (_isDraggingToastSlider) return;
+
+        if (_stateMachine.CurrentState == IslandVisualState.ToastNotification)
+        {
+            _toastDismissTimer.Stop();
+            _stateMachine.ClearToast();
+            return;
+        }
 
         if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
         {
