@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using WindowsDynamicIsland.Services;
 
 namespace WindowsDynamicIsland.UI;
@@ -12,29 +13,58 @@ public partial class SettingsWindow : Window
     private readonly AppSettingsService _settings;
     private readonly UpdateCheckerService _updateService;
     private readonly HardwareTelemetryService _hardwareService;
+    private readonly AudioService _audioService;
+    private readonly BrightnessService _brightnessService;
     private readonly TodoAndWaterService _todoAndWaterService;
     private readonly FileShelfService _fileShelfService;
+    private readonly Action _onTuckRequested;
+    private readonly DispatcherTimer _liveTelemetryTimer;
     private bool _isLoadingUi;
+    private bool _isDraggingVol;
+    private bool _isDraggingBrt;
 
     public SettingsWindow(
         AppSettingsService settings,
         UpdateCheckerService updateService,
         HardwareTelemetryService hardwareService,
+        AudioService audioService,
+        BrightnessService brightnessService,
         TodoAndWaterService todoAndWaterService,
-        FileShelfService fileShelfService)
+        FileShelfService fileShelfService,
+        Action onTuckRequested)
     {
         InitializeComponent();
 
         _settings = settings;
         _updateService = updateService;
         _hardwareService = hardwareService;
+        _audioService = audioService;
+        _brightnessService = brightnessService;
         _todoAndWaterService = todoAndWaterService;
         _fileShelfService = fileShelfService;
+        _onTuckRequested = onTuckRequested;
+
+        _liveTelemetryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.0) };
+        _liveTelemetryTimer.Tick += (_, _) =>
+        {
+            if (!_isDraggingVol && !_isDraggingBrt)
+            {
+                RefreshSystemControlCenterCard();
+            }
+        };
+
+        Loaded += (_, _) =>
+        {
+            RefreshSystemControlCenterCard();
+            _liveTelemetryTimer.Start();
+        };
+        Closed += (_, _) => _liveTelemetryTimer.Stop();
 
         LoadSettingsIntoControls();
         RefreshUpdateCard(_updateService.LastResult);
         RefreshBluetoothCard();
         RefreshWaterCard();
+        RefreshSystemControlCenterCard();
     }
 
     public void SelectCategory(int index)
@@ -69,6 +99,12 @@ public partial class SettingsWindow : Window
             ChkMinimalNotch.IsChecked = _settings.MinimalNotchEnabled;
             ChkMascot.IsChecked = _settings.MascotEnabled;
             ChkAutoTuck.IsChecked = _settings.AutoTuckEnabled;
+            ChkScreenshotMode.IsChecked = _settings.ScreenshotAutoTuckEnabled;
+
+            ChkTabMedia.IsChecked = _settings.ShowTabMedia;
+            ChkTabTodo.IsChecked = _settings.ShowTabTodo;
+            ChkTabPomodoro.IsChecked = _settings.ShowTabPomodoro;
+            ChkTabShelf.IsChecked = _settings.ShowTabShelf;
 
             switch (_settings.NotchSizePercent)
             {
@@ -89,6 +125,7 @@ public partial class SettingsWindow : Window
 
             // Page 1: Display
             ChkAutoHideFullScreen.IsChecked = _settings.AutoHideFullScreen;
+            ChkExcludeFromCapture.IsChecked = _settings.ExcludeFromScreenCapture;
             switch (_settings.TopOffsetPx)
             {
                 case 2: Offset2Btn.IsChecked = true; break;
@@ -221,7 +258,9 @@ public partial class SettingsWindow : Window
         _settings.MinimalNotchEnabled = ChkMinimalNotch.IsChecked == true;
         _settings.MascotEnabled = ChkMascot.IsChecked == true;
         _settings.AutoTuckEnabled = ChkAutoTuck.IsChecked == true;
+        _settings.ScreenshotAutoTuckEnabled = ChkScreenshotMode.IsChecked == true;
         _settings.AutoHideFullScreen = ChkAutoHideFullScreen.IsChecked == true;
+        _settings.ExcludeFromScreenCapture = ChkExcludeFromCapture.IsChecked == true;
         _settings.ShowContourRim = ChkShowContourRim.IsChecked == true;
         _settings.LyricsEnabled = ChkLyricsEnabled.IsChecked == true;
         _settings.SlowLyricPanEnabled = ChkSlowLyricPan.IsChecked == true;
@@ -237,6 +276,228 @@ public partial class SettingsWindow : Window
         _settings.BatteryToastEnabled = ChkBatteryToast.IsChecked == true;
         _settings.BluetoothToastEnabled = ChkBluetoothToast.IsChecked == true;
         _settings.SystemNotificationToastEnabled = ChkSystemNotifToast.IsChecked == true;
+    }
+
+    private void OnTabVisibilityToggleClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi) return;
+
+        bool media = ChkTabMedia.IsChecked == true;
+        bool todo = ChkTabTodo.IsChecked == true;
+        bool pomo = ChkTabPomodoro.IsChecked == true;
+        bool shelf = ChkTabShelf.IsChecked == true;
+
+        // Ensure at least 1 tab stays enabled
+        if (!media && !todo && !pomo && !shelf)
+        {
+            if (sender is CheckBox cb)
+            {
+                cb.IsChecked = true;
+            }
+            return;
+        }
+
+        _settings.ShowTabMedia = media;
+        _settings.ShowTabTodo = todo;
+        _settings.ShowTabPomodoro = pomo;
+        _settings.ShowTabShelf = shelf;
+    }
+
+    public void RefreshSystemControlCenterCard()
+    {
+        try
+        {
+            int vol = _audioService.GetMasterVolumePercent();
+            bool soundMuted = _audioService.IsMuted();
+            bool micMuted = _audioService.IsMicrophoneMuted();
+            bool isHeadphones = _audioService.IsHeadphoneOrTws;
+            int brt = _brightnessService.GetBrightnessPercent();
+
+            SettingsVolPercentText.Text = soundMuted ? "MUTED" : $"{vol}%";
+            var volColor = soundMuted
+                ? Color.FromRgb(248, 113, 113)
+                : isHeadphones
+                    ? Color.FromRgb(192, 132, 252)
+                    : Color.FromRgb(56, 189, 248);
+            var volBrush = new SolidColorBrush(volColor);
+            SettingsVolPercentText.Foreground = volBrush;
+            SettingsVolIconPath.Fill = volBrush;
+            SettingsVolIconPath.Data = soundMuted
+                ? (TryFindResource("GeomSpeakerMuted") as Geometry ?? Geometry.Empty)
+                : isHeadphones
+                    ? (TryFindResource("GeomHeadphones") as Geometry ?? Geometry.Empty)
+                    : (TryFindResource("GeomSpeakerOn") as Geometry ?? Geometry.Empty);
+
+            SettingsVolLabelText.Text = soundMuted
+                ? "AUDIO MUTED"
+                : _audioService.ActiveOutputDeviceName.ToUpperInvariant();
+
+            double volTrackW = SettingsVolTrackBorder.ActualWidth > 10 ? SettingsVolTrackBorder.ActualWidth : 195.0;
+            SettingsVolFillBorder.Width = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
+            SettingsVolFillBorder.Background = volBrush;
+
+            SettingsBrtPercentText.Text = $"{brt}%";
+            double brtTrackW = SettingsBrtTrackBorder.ActualWidth > 10 ? SettingsBrtTrackBorder.ActualWidth : 195.0;
+            SettingsBrtFillBorder.Width = brtTrackW * Math.Clamp(brt / 100.0, 0.0, 1.0);
+
+            var hw = _hardwareService.Current;
+            SettingsSysBatteryText.Text = hw.IsCharging
+                ? $"Charging • {hw.BatteryPercent}%"
+                : $"Battery • {hw.BatteryPercent}%";
+            SettingsSysNetworkText.Text = hw.IsNetworkConnected
+                ? $"Wi-Fi: {hw.NetworkName}"
+                : "Offline (Tidak ada internet)";
+
+            if (hw.IsCameraInUse || hw.IsMicrophoneInUse)
+            {
+                string active = hw.IsCameraInUse && hw.IsMicrophoneInUse
+                    ? "Kamera & Mic Sedang Aktif!"
+                    : hw.IsCameraInUse
+                        ? "Kamera Sedang Digunakan"
+                        : "Mikrofon Sedang Digunakan";
+                SettingsSysPrivacyText.Text = active;
+                var warnBrush = new SolidColorBrush(Color.FromRgb(251, 191, 36));
+                SettingsSysPrivacyText.Foreground = warnBrush;
+                SettingsSysPrivacyIcon.Fill = warnBrush;
+            }
+            else
+            {
+                SettingsSysPrivacyText.Text = "Kamera & Mic Aman (Idle)";
+                var safeBrush = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+                SettingsSysPrivacyText.Foreground = safeBrush;
+                SettingsSysPrivacyIcon.Fill = safeBrush;
+            }
+
+            SettingsSysMemoryText.Text = $"RAM: {hw.AppMemoryMb:F1} MB • 0% CPU Idle";
+
+            // Quick Action Buttons
+            SettingsMuteBtnIcon.Data = soundMuted
+                ? (TryFindResource("GeomSpeakerMuted") as Geometry ?? Geometry.Empty)
+                : (TryFindResource("GeomSpeakerOn") as Geometry ?? Geometry.Empty);
+            var soundBtnBrush = new SolidColorBrush(soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248));
+            SettingsMuteBtnIcon.Fill = soundBtnBrush;
+            SettingsMuteBtnText.Text = soundMuted ? "Sound: MUTED" : "Sound: ON";
+            SettingsMuteBtnText.Foreground = new SolidColorBrush(soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(248, 250, 252));
+
+            SettingsMicBtnIcon.Data = micMuted
+                ? (TryFindResource("GeomMicMuted") as Geometry ?? Geometry.Empty)
+                : (TryFindResource("GeomMicOn") as Geometry ?? Geometry.Empty);
+            var micBtnBrush = new SolidColorBrush(micMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(34, 197, 94));
+            SettingsMicBtnIcon.Fill = micBtnBrush;
+            SettingsMicBtnText.Text = micMuted ? "Mic: MUTED" : "Mic: ON";
+            SettingsMicBtnText.Foreground = micBtnBrush;
+
+            bool btOn = hw.IsBluetoothRadioOn;
+            bool btConnected = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName);
+            var btColor = !btOn
+                ? Color.FromRgb(148, 163, 184)
+                : btConnected
+                    ? Color.FromRgb(34, 197, 94)
+                    : Color.FromRgb(56, 189, 248);
+            var btBrush = new SolidColorBrush(btColor);
+            SettingsBtBtnIcon.Data = btOn
+                ? (TryFindResource("GeomBluetooth") as Geometry ?? Geometry.Empty)
+                : (TryFindResource("GeomBluetoothOff") as Geometry ?? Geometry.Empty);
+            SettingsBtBtnIcon.Fill = btBrush;
+            SettingsBtBtnText.Text = !btOn ? "BT: OFF" : (btConnected ? "BT: Aktif" : "Bluetooth");
+            SettingsBtBtnText.Foreground = btBrush;
+        }
+        catch { }
+    }
+
+    private void OnSettingsVolumeMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingVol = true;
+        SettingsVolSliderHitArea.CaptureMouse();
+        ApplySettingsVolumeFromMouse(e.GetPosition(SettingsVolTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnSettingsVolumeMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingVol) return;
+        ApplySettingsVolumeFromMouse(e.GetPosition(SettingsVolTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnSettingsVolumeMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingVol) return;
+        _isDraggingVol = false;
+        SettingsVolSliderHitArea.ReleaseMouseCapture();
+        ApplySettingsVolumeFromMouse(e.GetPosition(SettingsVolTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void ApplySettingsVolumeFromMouse(double mouseX)
+    {
+        double trackW = Math.Max(1.0, SettingsVolTrackBorder.ActualWidth);
+        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100.0);
+        _audioService.SetMasterVolumePercent(pct);
+        RefreshSystemControlCenterCard();
+    }
+
+    private void OnSettingsBrightnessMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingBrt = true;
+        SettingsBrtSliderHitArea.CaptureMouse();
+        ApplySettingsBrightnessFromMouse(e.GetPosition(SettingsBrtTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnSettingsBrightnessMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingBrt) return;
+        ApplySettingsBrightnessFromMouse(e.GetPosition(SettingsBrtTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void OnSettingsBrightnessMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingBrt) return;
+        _isDraggingBrt = false;
+        SettingsBrtSliderHitArea.ReleaseMouseCapture();
+        ApplySettingsBrightnessFromMouse(e.GetPosition(SettingsBrtTrackBorder).X);
+        e.Handled = true;
+    }
+
+    private void ApplySettingsBrightnessFromMouse(double mouseX)
+    {
+        double trackW = Math.Max(1.0, SettingsBrtTrackBorder.ActualWidth);
+        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100.0);
+        _brightnessService.SetBrightnessPercent(pct);
+        RefreshSystemControlCenterCard();
+    }
+
+    private void OnSettingsToggleMuteClick(object sender, RoutedEventArgs e)
+    {
+        _audioService.ToggleMute();
+        RefreshSystemControlCenterCard();
+    }
+
+    private void OnSettingsToggleMicClick(object sender, RoutedEventArgs e)
+    {
+        _audioService.ToggleMicrophoneMute();
+        RefreshSystemControlCenterCard();
+    }
+
+    private async void OnSettingsBluetoothRightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        await _hardwareService.ToggleBluetoothRadioAsync();
+        _hardwareService.RefreshFullTelemetry(emitToasts: false);
+        RefreshSystemControlCenterCard();
+        RefreshBluetoothCard();
+    }
+
+    private void OnSettingsTuckIslandClick(object sender, RoutedEventArgs e)
+    {
+        _onTuckRequested?.Invoke();
+    }
+
+    private void OnSettingsExitAppClick(object sender, RoutedEventArgs e)
+    {
+        Application.Current.Shutdown();
     }
 
     private void OnNotchSizeClicked(object sender, RoutedEventArgs e)

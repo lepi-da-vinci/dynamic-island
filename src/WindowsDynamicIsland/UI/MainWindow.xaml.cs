@@ -115,6 +115,7 @@ public partial class MainWindow : Window
         _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
         _hitTestTimer.Tick += (_, _) =>
         {
+            UpdateScreenshotModeState();
             UpdateSideWingHover();
             UpdateWindowClickThroughState();
             UpdateTuckedProximityHover();
@@ -602,9 +603,7 @@ public partial class MainWindow : Window
             }
             else if (mouseMsg == Win32Interop.WM_RBUTTONUP)
             {
-                _stateMachine.SetTuckedMode(false);
-                _stateMachine.SetActiveTab(IslandDashboardTab.SystemStatus);
-                _stateMachine.TogglePinnedExpanded();
+                OpenSettingsWindow(0);
             }
         }
         else if (msg == Win32Interop.WM_QUERYENDSESSION)
@@ -643,6 +642,24 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
+    private void UpdateScreenshotModeState()
+    {
+        bool active = _settingsService.ScreenshotAutoTuckEnabled && Win32Interop.IsScreenshotSessionActive();
+        if (active != _stateMachine.IsScreenshotMode)
+        {
+            if (active)
+            {
+                _collapseDebounceTimer.Stop();
+                _autoTuckTimer.Stop();
+                _toastDismissTimer.Stop();
+                _topHandleHoverTicks = 0;
+                _topBezelHoldTicks = 0;
+            }
+            _stateMachine.SetScreenshotMode(active);
+            UpdateWindowClickThroughState();
+        }
+    }
+
     private (double GridDipX, double GridDipY) ScreenCursorToMasterGridDip(Win32Interop.POINT pt)
     {
         DpiScale dpi = VisualTreeHelper.GetDpi(this);
@@ -661,6 +678,10 @@ public partial class MainWindow : Window
     /// </summary>
     private bool IsCursorInsideIslandBounds()
     {
+        // During Screenshot Mode ("Mode SS"), Dynamic Island is locked in Mode Simpan & 100% untouchable!
+        if (_stateMachine.IsScreenshotMode)
+            return false;
+
         if (_hwnd == IntPtr.Zero || !Win32Interop.GetCursorPos(out var pt))
             return false;
 
@@ -698,6 +719,7 @@ public partial class MainWindow : Window
 
         bool isAltBypass = (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt;
         bool isHidden = _stateMachine.CurrentState == IslandVisualState.Hidden;
+        bool isScreenshotLocked = _stateMachine.IsScreenshotMode;
         bool isDraggingControl =
             _isDraggingTimeline ||
             _isDraggingToastSlider ||
@@ -705,7 +727,7 @@ public partial class MainWindow : Window
             _isDraggingSysBrightness;
 
         bool cursorInside = IsCursorInsideIslandBounds();
-        bool shouldBeClickThrough = isAltBypass || isHidden || (!cursorInside && !isDraggingControl);
+        bool shouldBeClickThrough = isAltBypass || isHidden || isScreenshotLocked || (!cursorInside && !isDraggingControl);
 
         if (shouldBeClickThrough != _isWindowClickThrough)
         {
@@ -794,6 +816,7 @@ public partial class MainWindow : Window
 
     private void OnClipboardUpdated()
     {
+        if (_stateMachine.IsScreenshotMode) return;
         try
         {
             if (Clipboard.ContainsText())
@@ -836,8 +859,21 @@ public partial class MainWindow : Window
     private void OnIslandStateChanged(IslandVisualState state, IslandDashboardTab tab)
     {
         var (w, h, bottomRadius, topEarRadius, glow) = _stateMachine.GetTargetDimensions();
-        bool expanding = w > _morph.Width.Current || h > _morph.Height.Current;
-        _morph.MorphTo(w, h, bottomRadius, topEarRadius, glow, bouncy: expanding);
+        if (_stateMachine.IsScreenshotMode)
+        {
+            _morph.SnapTo(w, h, bottomRadius, topEarRadius, glow);
+            _targetLeftWingWidth = 0;
+            _targetRightWingWidth = 0;
+            _leftWingWidth = 0;
+            _rightWingWidth = 0;
+            LeftWingContainer.Visibility = Visibility.Collapsed;
+            RightWingContainer.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            bool expanding = w > _morph.Width.Current || h > _morph.Height.Current;
+            _morph.MorphTo(w, h, bottomRadius, topEarRadius, glow, bouncy: expanding);
+        }
 
         TuckedHandlePanel.Visibility = state == IslandVisualState.TuckedTopEdge ? Visibility.Visible : Visibility.Collapsed;
         if (state == IslandVisualState.TuckedTopEdge)
@@ -1260,7 +1296,8 @@ public partial class MainWindow : Window
                 UpdateMediaAndLyricsUi();
             }
 
-            if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge &&
+            if (!_stateMachine.IsScreenshotMode &&
+                _stateMachine.CurrentState == IslandVisualState.TuckedTopEdge &&
                 Win32Interop.GetCursorPos(out var pt))
             {
                 int centerPx = (int)(SystemParameters.PrimaryScreenWidth / 2);
@@ -1961,6 +1998,11 @@ public partial class MainWindow : Window
 
     public void TriggerToast(ToastPayload toast)
     {
+        if (_stateMachine.IsScreenshotMode)
+        {
+            return;
+        }
+
         if (!_settingsService.VolumeBrightnessHudEnabled &&
             toast.SliderKind is ToastSliderKind.Volume or ToastSliderKind.Brightness)
         {
@@ -2197,6 +2239,11 @@ public partial class MainWindow : Window
 
     private void OnIslandMouseEnter(object sender, MouseEventArgs e)
     {
+        if (_stateMachine.IsScreenshotMode)
+        {
+            return;
+        }
+
         _collapseDebounceTimer.Stop();
 
         if (_stateMachine.CurrentState is IslandVisualState.ToastNotification)
@@ -2256,7 +2303,7 @@ public partial class MainWindow : Window
 
     private void UpdateSideWingHover()
     {
-        if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
+        if (_stateMachine.IsScreenshotMode || _stateMachine.CurrentState != IslandVisualState.ExpandedDashboard || GetEnabledTabs().Count <= 1)
         {
             _targetLeftWingWidth = 0.0;
             _targetRightWingWidth = 0.0;
@@ -2341,6 +2388,12 @@ public partial class MainWindow : Window
 
     private void UpdateTuckedProximityHover()
     {
+        if (_stateMachine.IsScreenshotMode)
+        {
+            _topHandleHoverTicks = 0;
+            return;
+        }
+
         if (_tuckCooldownTicks > 0)
         {
             _tuckCooldownTicks--;
@@ -2406,16 +2459,31 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    private static IslandDashboardTab GetPrevTab(IslandDashboardTab tab)
+    private List<IslandDashboardTab> GetEnabledTabs()
     {
-        int count = Enum.GetValues<IslandDashboardTab>().Length;
-        return (IslandDashboardTab)(((int)tab - 1 + count) % count);
+        var list = new List<IslandDashboardTab>(4);
+        if (_settingsService.ShowTabMedia) list.Add(IslandDashboardTab.MediaLyrics);
+        if (_settingsService.ShowTabTodo) list.Add(IslandDashboardTab.TodoAndWater);
+        if (_settingsService.ShowTabPomodoro) list.Add(IslandDashboardTab.Pomodoro);
+        if (_settingsService.ShowTabShelf) list.Add(IslandDashboardTab.FileShelf);
+        if (list.Count == 0) list.Add(IslandDashboardTab.MediaLyrics);
+        return list;
     }
 
-    private static IslandDashboardTab GetNextTab(IslandDashboardTab tab)
+    private IslandDashboardTab GetPrevTab(IslandDashboardTab tab)
     {
-        int count = Enum.GetValues<IslandDashboardTab>().Length;
-        return (IslandDashboardTab)(((int)tab + 1) % count);
+        var tabs = GetEnabledTabs();
+        int idx = tabs.IndexOf(tab);
+        if (idx < 0) return tabs[0];
+        return tabs[(idx - 1 + tabs.Count) % tabs.Count];
+    }
+
+    private IslandDashboardTab GetNextTab(IslandDashboardTab tab)
+    {
+        var tabs = GetEnabledTabs();
+        int idx = tabs.IndexOf(tab);
+        if (idx < 0) return tabs[0];
+        return tabs[(idx + 1) % tabs.Count];
     }
 
     private static (string GeometryKey, string Label) GetTabIconAndLabel(IslandDashboardTab tab) => tab switch
@@ -2468,7 +2536,7 @@ public partial class MainWindow : Window
         else
         {
             _explicitSlideDirection = 1;
-            _stateMachine.CycleNextTab();
+            _stateMachine.SetActiveTab(GetNextTab(_stateMachine.ActiveTab));
             _stateMachine.SetHovered(true);
         }
         e.Handled = true;
@@ -2606,14 +2674,14 @@ public partial class MainWindow : Window
     private void OnLeftWingClick(object sender, RoutedEventArgs e)
     {
         _explicitSlideDirection = -1;
-        _stateMachine.CyclePrevTab();
+        _stateMachine.SetActiveTab(GetPrevTab(_stateMachine.ActiveTab));
         UpdateSideWingVisuals();
     }
 
     private void OnRightWingClick(object sender, RoutedEventArgs e)
     {
         _explicitSlideDirection = 1;
-        _stateMachine.CycleNextTab();
+        _stateMachine.SetActiveTab(GetNextTab(_stateMachine.ActiveTab));
         UpdateSideWingVisuals();
     }
 
@@ -2629,6 +2697,12 @@ public partial class MainWindow : Window
         {
             var activeDotBrush = new SolidColorBrush(Color.FromRgb(56, 189, 248)); // #38BDF8
             var inactiveDotBrush = new SolidColorBrush(Color.FromArgb(48, 255, 255, 255)); // #30FFFFFF
+
+            PageDot0.Visibility = _settingsService.ShowTabMedia ? Visibility.Visible : Visibility.Collapsed;
+            PageDot1.Visibility = _settingsService.ShowTabTodo ? Visibility.Visible : Visibility.Collapsed;
+            PageDot2.Visibility = _settingsService.ShowTabPomodoro ? Visibility.Visible : Visibility.Collapsed;
+            PageDot3.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
+            PageDot4.Visibility = Visibility.Collapsed;
 
             SetDot(PageDot0, _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics);
             SetDot(PageDot1, _stateMachine.ActiveTab == IslandDashboardTab.TodoAndWater);
@@ -2927,8 +3001,11 @@ public partial class MainWindow : Window
                     _settingsService,
                     _updateService,
                     _hardwareService,
+                    _audioService,
+                    _brightnessService,
                     _todoAndWaterService,
-                    _fileShelfService);
+                    _fileShelfService,
+                    () => OnManualTuckClick(this, new RoutedEventArgs()));
                 _settingsWindow.Closed += (_, _) => _settingsWindow = null;
                 _settingsWindow.SelectCategory(categoryIndex);
                 _settingsWindow.Show();
@@ -2987,6 +3064,27 @@ public partial class MainWindow : Window
             else if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
             {
                 ApplyDominantColor(_mediaService.CurrentTrack.DominantColor);
+            }
+
+            // 2b. Customizable Notch Tabs & DWM Capture Shield
+            TabMediaBtn.Visibility = _settingsService.ShowTabMedia ? Visibility.Visible : Visibility.Collapsed;
+            TabTodoBtn.Visibility = _settingsService.ShowTabTodo ? Visibility.Visible : Visibility.Collapsed;
+            TabPomodoroBtn.Visibility = _settingsService.ShowTabPomodoro ? Visibility.Visible : Visibility.Collapsed;
+            TabShelfBtn.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
+            TabSystemBtn.Visibility = Visibility.Collapsed;
+
+            var enabledTabs = GetEnabledTabs();
+            if (!enabledTabs.Contains(_stateMachine.ActiveTab))
+            {
+                _stateMachine.SetActiveTab(enabledTabs[0]);
+            }
+            UpdateTabHighlight();
+
+            if (_hwnd != IntPtr.Zero)
+            {
+                Win32Interop.SetWindowDisplayAffinity(
+                    _hwnd,
+                    _settingsService.ExcludeFromScreenCapture ? Win32Interop.WDA_EXCLUDEFROMCAPTURE : Win32Interop.WDA_NONE);
             }
 
             // 3. Pomodoro & Water defaults
@@ -3075,6 +3173,7 @@ public partial class MainWindow : Window
         if (res.IsUpdateAvailable)
         {
             TabSystemUpdateBadge.Visibility = Visibility.Visible;
+            HeaderSettingsUpdateDot.Visibility = Visibility.Visible;
             SysUpdateCardBorder.Background = new SolidColorBrush(Color.FromArgb(32, 34, 197, 94));
             SysUpdateCardBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(80, 34, 197, 94));
             SysUpdateIconPath.Data = (Geometry)FindResource("GeomUpdate");
@@ -3089,6 +3188,7 @@ public partial class MainWindow : Window
         else
         {
             TabSystemUpdateBadge.Visibility = Visibility.Collapsed;
+            HeaderSettingsUpdateDot.Visibility = Visibility.Collapsed;
             SysUpdateCardBorder.Background = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255));
             SysUpdateCardBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(32, 255, 255, 255));
             SysUpdateIconPath.Data = (Geometry)FindResource("GeomCheckCircle");
@@ -3100,6 +3200,7 @@ public partial class MainWindow : Window
                 : "Sistem sudah menggunakan rilis versi paling mutakhir";
             SysInstallUpdateBtn.Visibility = Visibility.Collapsed;
         }
+        _settingsWindow?.RefreshUpdateCard(res);
     }
 
     private async void OnCheckUpdateClick(object sender, RoutedEventArgs e)

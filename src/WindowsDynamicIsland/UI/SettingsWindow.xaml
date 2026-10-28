@@ -307,9 +307,336 @@
                                   Padding="26,2,26,24">
                         <Grid>
                             <!-- ===================================================== -->
-                            <!-- PAGE 0: GENERAL (Matches Reference Screenshot!)       -->
+                            <!-- PAGE 0: GENERAL & SYSTEM CONTROL CENTER               -->
                             <!-- ===================================================== -->
                             <StackPanel x:Name="PageGeneral" Visibility="Visible">
+                                <TextBlock Text="System Control Center"
+                                           Foreground="#64748B"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,0,6"/>
+
+                                <!-- System Dashboard Card (Moved from Notch Sistem Tab into Settings!) -->
+                                <Border Background="#1F1F25"
+                                        BorderBrush="#1AFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="14,13"
+                                        Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <!-- Row 0: Speaker Volume & Screen Brightness Interactive Sliders -->
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Speaker Volume Card -->
+                                            <Border Grid.Column="0"
+                                                    Background="#151519"
+                                                    BorderBrush="#1EFFFFFF"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="12,9"
+                                                    Margin="0,0,5,0">
+                                                <StackPanel>
+                                                    <Grid Margin="0,0,0,7">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Path x:Name="SettingsVolIconPath"
+                                                              Grid.Column="0"
+                                                              Data="{StaticResource GeomSpeakerOn}"
+                                                              Width="11.5" Height="11.5"
+                                                              Stretch="Uniform"
+                                                              Fill="#38BDF8"
+                                                              Margin="0,0,6,0"
+                                                              VerticalAlignment="Center"/>
+                                                        <TextBlock x:Name="SettingsVolLabelText"
+                                                                   Grid.Column="1"
+                                                                   Text="SPEAKER"
+                                                                   Foreground="#CBD5E1"
+                                                                   FontSize="10.5"
+                                                                   FontWeight="Bold"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center"/>
+                                                        <TextBlock x:Name="SettingsVolPercentText"
+                                                                   Grid.Column="2"
+                                                                   Text="50%"
+                                                                   Foreground="#38BDF8"
+                                                                   FontSize="11"
+                                                                   FontWeight="Bold"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Grid>
+
+                                                    <Grid x:Name="SettingsVolSliderHitArea"
+                                                          Height="16"
+                                                          Background="Transparent"
+                                                          Cursor="Hand"
+                                                          MouseLeftButtonDown="OnSettingsVolumeMouseDown"
+                                                          MouseMove="OnSettingsVolumeMouseMove"
+                                                          MouseLeftButtonUp="OnSettingsVolumeMouseUp">
+                                                        <Border x:Name="SettingsVolTrackBorder"
+                                                                Height="8"
+                                                                CornerRadius="4"
+                                                                Background="#26FFFFFF"
+                                                                ClipToBounds="True"
+                                                                VerticalAlignment="Center">
+                                                            <Border x:Name="SettingsVolFillBorder"
+                                                                    HorizontalAlignment="Left"
+                                                                    Width="90"
+                                                                    Height="8"
+                                                                    CornerRadius="4"
+                                                                    Background="#38BDF8"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Brightness Slider Card -->
+                                            <Border Grid.Column="1"
+                                                    Background="#151519"
+                                                    BorderBrush="#1EFFFFFF"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="12,9"
+                                                    Margin="5,0,0,0">
+                                                <StackPanel>
+                                                    <Grid Margin="0,0,0,7">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Path Grid.Column="0"
+                                                              Data="{StaticResource GeomBrightnessSun}"
+                                                              Width="11.5" Height="11.5"
+                                                              Stretch="Uniform"
+                                                              Fill="#FBBF24"
+                                                              Margin="0,0,6,0"
+                                                              VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="KECERAHAN LAYAR"
+                                                                   Foreground="#CBD5E1"
+                                                                   FontSize="10.5"
+                                                                   FontWeight="Bold"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center"/>
+                                                        <TextBlock x:Name="SettingsBrtPercentText"
+                                                                   Grid.Column="2"
+                                                                   Text="50%"
+                                                                   Foreground="#FBBF24"
+                                                                   FontSize="11"
+                                                                   FontWeight="Bold"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Grid>
+
+                                                    <Grid x:Name="SettingsBrtSliderHitArea"
+                                                          Height="16"
+                                                          Background="Transparent"
+                                                          Cursor="Hand"
+                                                          MouseLeftButtonDown="OnSettingsBrightnessMouseDown"
+                                                          MouseMove="OnSettingsBrightnessMouseMove"
+                                                          MouseLeftButtonUp="OnSettingsBrightnessMouseUp">
+                                                        <Border x:Name="SettingsBrtTrackBorder"
+                                                                Height="8"
+                                                                CornerRadius="4"
+                                                                Background="#26FFFFFF"
+                                                                ClipToBounds="True"
+                                                                VerticalAlignment="Center">
+                                                            <Border x:Name="SettingsBrtFillBorder"
+                                                                    HorizontalAlignment="Left"
+                                                                    Width="90"
+                                                                    Height="8"
+                                                                    CornerRadius="4"
+                                                                    Background="#FBBF24"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Row 1: Hardware Telemetry Cards (Battery/Wi-Fi & Camera/Mic/RAM/CPU) -->
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0"
+                                                    Background="#151519"
+                                                    BorderBrush="#1EFFFFFF"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="12,8"
+                                                    Margin="0,0,5,0">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path Data="{StaticResource GeomBolt}"
+                                                              Width="10" Height="11"
+                                                              Stretch="Uniform"
+                                                              Fill="#22C55E"
+                                                              Margin="0,0,5,0"
+                                                              VerticalAlignment="Center"/>
+                                                        <TextBlock x:Name="SettingsSysBatteryText"
+                                                                   Text="Charging • 100%"
+                                                                   Foreground="#F8FAFC"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="SettingsSysNetworkText"
+                                                               Text="Wi-Fi Terhubung"
+                                                               Foreground="#94A3B8"
+                                                               FontSize="10.5"
+                                                               Margin="0,2,0,0"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border Grid.Column="1"
+                                                    Background="#151519"
+                                                    BorderBrush="#1EFFFFFF"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="12,8"
+                                                    Margin="5,0,0,0">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path x:Name="SettingsSysPrivacyIcon"
+                                                              Data="{StaticResource GeomShield}"
+                                                              Width="10.5" Height="11"
+                                                              Stretch="Uniform"
+                                                              Fill="#22C55E"
+                                                              Margin="0,0,5,0"
+                                                              VerticalAlignment="Center"/>
+                                                        <TextBlock x:Name="SettingsSysPrivacyText"
+                                                                   Text="Kamera &amp; Mic Aman (Idle)"
+                                                                   Foreground="#22C55E"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="SettingsSysMemoryText"
+                                                               Text="RAM: 26 MB • 0% CPU Idle"
+                                                               Foreground="#94A3B8"
+                                                               FontSize="10.5"
+                                                               Margin="0,2,0,0"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Row 2: Quick Action Bar (Sound, Mic, Bluetooth, Simpan, Keluar) -->
+                                        <WrapPanel Orientation="Horizontal">
+                                            <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                    Padding="10,6"
+                                                    Margin="0,0,6,0"
+                                                    ToolTip="Mute / Unmute Output Audio"
+                                                    Click="OnSettingsToggleMuteClick">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path x:Name="SettingsMuteBtnIcon"
+                                                          Data="{StaticResource GeomSpeakerOn}"
+                                                          Width="11" Height="11"
+                                                          Stretch="Uniform"
+                                                          Fill="#38BDF8"
+                                                          Margin="0,0,5,0"
+                                                          VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="SettingsMuteBtnText"
+                                                               Text="Sound: ON"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+
+                                            <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                    Padding="10,6"
+                                                    Margin="0,0,6,0"
+                                                    ToolTip="Mute / Unmute Mikrofon"
+                                                    Click="OnSettingsToggleMicClick">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path x:Name="SettingsMicBtnIcon"
+                                                          Data="{StaticResource GeomMicOn}"
+                                                          Width="11" Height="11"
+                                                          Stretch="Uniform"
+                                                          Fill="#22C55E"
+                                                          Margin="0,0,5,0"
+                                                          VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="SettingsMicBtnText"
+                                                               Text="Mic: ON"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+
+                                            <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                    Padding="10,6"
+                                                    Margin="0,0,6,0"
+                                                    ToolTip="Klik: Buka Pengaturan Pair Bluetooth • Klik Kanan: Matikan/Nyalakan Radio Bluetooth"
+                                                    Click="OnOpenBluetoothSettingsClick"
+                                                    MouseRightButtonUp="OnSettingsBluetoothRightClick">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path x:Name="SettingsBtBtnIcon"
+                                                          Data="{StaticResource GeomBluetooth}"
+                                                          Width="11" Height="11"
+                                                          Stretch="Uniform"
+                                                          Fill="#38BDF8"
+                                                          Margin="0,0,5,0"
+                                                          VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="SettingsBtBtnText"
+                                                               Text="Bluetooth"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+
+                                            <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                    Padding="10,6"
+                                                    Margin="0,0,6,0"
+                                                    ToolTip="Lipat / Simpan Dynamic Island ke tepi atas layar"
+                                                    Click="OnSettingsTuckIslandClick">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Data="{StaticResource GeomChevronUp}"
+                                                          Width="10" Height="10"
+                                                          Stretch="Uniform"
+                                                          Fill="#CBD5E1"
+                                                          Margin="0,0,4.5,0"
+                                                          VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Simpan"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+
+                                            <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                    Padding="10,6"
+                                                    ToolTip="Tutup aplikasi Windows Dynamic Island"
+                                                    Click="OnSettingsExitAppClick">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Data="{StaticResource GeomClosePower}"
+                                                          Width="10" Height="10"
+                                                          Stretch="Uniform"
+                                                          Fill="#F87171"
+                                                          Margin="0,0,4.5,0"
+                                                          VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Keluar"
+                                                               Foreground="#F87171"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+
                                 <TextBlock Text="Startup"
                                            Foreground="#64748B"
                                            FontSize="11.5"
@@ -352,7 +679,7 @@
                                            FontWeight="SemiBold"
                                            Margin="2,0,0,6"/>
 
-                                <!-- Notch Customization Card (Size, Minimal notch, Mascot, Auto-Simpan) -->
+                                <!-- Notch Customization Card (Size, Minimal notch, Mascot, Auto-Simpan, Mode Screenshot) -->
                                 <Border Background="#1F1F25"
                                         BorderBrush="#1AFFFFFF"
                                         BorderThickness="1"
@@ -472,6 +799,145 @@
                                                 <RadioButton x:Name="Tuck30sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSegmentOptionStyle}" Content="30 Detik" Tag="30" Click="OnTuckDelayClicked"/>
                                             </UniformGrid>
                                         </Border>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <!-- Mode Screenshot (Auto-Simpan & Kunci Sentuh saat SS) -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Mode Screenshot (Simpan &amp; Kunci Sentuh)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Otomatis masuk mode simpan &amp; tidak bisa disentuh saat melakukan screenshot"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkScreenshotMode"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnSettingToggleClicked"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Text="Notch Tabs (Kustomisasi Tab)"
+                                           Foreground="#64748B"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,0,6"/>
+
+                                <!-- Notch Tabs Customization Card -->
+                                <Border Background="#1F1F25"
+                                        BorderBrush="#1AFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="16,14"
+                                        Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <!-- Tab Musik -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Tab Musik"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Tampilkan tab pemutar media &amp; panggung lirik lagu di Dynamic Island"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkTabMedia"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnTabVisibilityToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
+
+                                        <!-- Tab Tugas -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Tab Tugas (To-do)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Tampilkan tab daftar tugas harian di Dynamic Island"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkTabTodo"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnTabVisibilityToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
+
+                                        <!-- Tab Fokus -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Tab Fokus (Pomodoro &amp; Air)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Tampilkan tab timer fokus Pomodoro &amp; target hidrasi di Dynamic Island"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkTabPomodoro"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnTabVisibilityToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
+
+                                        <!-- Tab Rak File -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Tab Rak File (Shelf)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Tampilkan tab penyimpanan file drag-and-drop sementara di Dynamic Island"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkTabShelf"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnTabVisibilityToggleClicked"/>
+                                        </Grid>
                                     </StackPanel>
                                 </Border>
 
@@ -494,7 +960,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock x:Name="SettingsUpdateTitleText"
-                                                       Text="Windows Dynamic Island v1.5.0"
+                                                       Text="Windows Dynamic Island v1.5.1"
                                                        Foreground="#F8FAFC"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"/>
@@ -558,6 +1024,30 @@
                                                            Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkAutoHideFullScreen"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnSettingToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Sembunyikan dari Hasil Tangkapan Layar (Capture Shield)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Gunakan proteksi DWM agar Dynamic Island tidak pernah terekam di gambar screenshot"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkExcludeFromCapture"
                                                       Grid.Column="1"
                                                       Style="{StaticResource AppleToggleSwitchStyle}"
                                                       VerticalAlignment="Center"

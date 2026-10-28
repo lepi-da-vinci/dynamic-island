@@ -47,6 +47,7 @@ public sealed class IslandStateMachine
     public bool IsPinnedExpanded { get; private set; }
     public bool IsMediaActive { get; private set; }
     public bool IsFullScreenHidden { get; private set; }
+    public bool IsScreenshotMode { get; private set; }
     public bool IsTuckedMode { get; private set; }
     public bool IsAutoTuckEnabled { get; private set; } = true;
     public bool IsAutoTucked { get; private set; } = false;
@@ -131,6 +132,19 @@ public sealed class IslandStateMachine
     {
         if (IsFullScreenHidden == hidden) return;
         IsFullScreenHidden = hidden;
+        RecalculateState();
+    }
+
+    public void SetScreenshotMode(bool active)
+    {
+        if (IsScreenshotMode == active) return;
+        IsScreenshotMode = active;
+        if (active)
+        {
+            IsHovered = false;
+            IsPinnedExpanded = false;
+            ActiveToast = null;
+        }
         RecalculateState();
     }
 
@@ -237,6 +251,11 @@ public sealed class IslandStateMachine
         if (IsFullScreenHidden)
         {
             next = IslandVisualState.Hidden;
+        }
+        else if (IsScreenshotMode)
+        {
+            // Screenshot mode ("Mode SS"): lock Dynamic Island in tucked top-edge strip without touching or expanding
+            next = IslandVisualState.TuckedTopEdge;
         }
         else if (ActiveToast != null)
         {

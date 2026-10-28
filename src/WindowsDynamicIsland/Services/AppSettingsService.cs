@@ -16,8 +16,16 @@ public sealed class AppSettingsData
     public bool AutoTuckEnabled { get; set; } = true;
     public int IdleCycleSeconds { get; set; } = 10;
 
-    // Display
+    // General - Notch Tabs Customization
+    public bool ShowTabMedia { get; set; } = true;
+    public bool ShowTabTodo { get; set; } = true;
+    public bool ShowTabPomodoro { get; set; } = true;
+    public bool ShowTabShelf { get; set; } = true;
+
+    // Display & Screenshot Mode
     public bool AutoHideFullScreen { get; set; } = true;
+    public bool ScreenshotAutoTuckEnabled { get; set; } = true;
+    public bool ExcludeFromScreenCapture { get; set; } = false;
     public int TopOffsetPx { get; set; } = 0;
     public int TopEdgeHoverSensitivityMs { get; set; } = 60;
 
@@ -162,6 +170,82 @@ public sealed class AppSettingsService
         {
             if (_data.AutoHideFullScreen == value) return;
             _data.AutoHideFullScreen = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool ScreenshotAutoTuckEnabled
+    {
+        get => _data.ScreenshotAutoTuckEnabled;
+        set
+        {
+            if (_data.ScreenshotAutoTuckEnabled == value) return;
+            _data.ScreenshotAutoTuckEnabled = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool ExcludeFromScreenCapture
+    {
+        get => _data.ExcludeFromScreenCapture;
+        set
+        {
+            if (_data.ExcludeFromScreenCapture == value) return;
+            _data.ExcludeFromScreenCapture = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool ShowTabMedia
+    {
+        get => _data.ShowTabMedia;
+        set
+        {
+            if (_data.ShowTabMedia == value) return;
+            if (!value && !_data.ShowTabTodo && !_data.ShowTabPomodoro && !_data.ShowTabShelf) return;
+            _data.ShowTabMedia = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool ShowTabTodo
+    {
+        get => _data.ShowTabTodo;
+        set
+        {
+            if (_data.ShowTabTodo == value) return;
+            if (!value && !_data.ShowTabMedia && !_data.ShowTabPomodoro && !_data.ShowTabShelf) return;
+            _data.ShowTabTodo = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool ShowTabPomodoro
+    {
+        get => _data.ShowTabPomodoro;
+        set
+        {
+            if (_data.ShowTabPomodoro == value) return;
+            if (!value && !_data.ShowTabMedia && !_data.ShowTabTodo && !_data.ShowTabShelf) return;
+            _data.ShowTabPomodoro = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool ShowTabShelf
+    {
+        get => _data.ShowTabShelf;
+        set
+        {
+            if (_data.ShowTabShelf == value) return;
+            if (!value && !_data.ShowTabMedia && !_data.ShowTabTodo && !_data.ShowTabPomodoro) return;
+            _data.ShowTabShelf = value;
             Save();
             SettingsChanged?.Invoke();
         }

@@ -105,6 +105,15 @@ public sealed class IslandMorphController
         GlowOpacity.SetTarget(glowOpacity);
     }
 
+    public void SnapTo(double width, double height, double bottomCornerRadius, double topEarRadius, double glowOpacity)
+    {
+        Width.SnapTo(width);
+        Height.SnapTo(height);
+        BottomCornerRadius.SnapTo(bottomCornerRadius);
+        TopEarRadius.SnapTo(topEarRadius);
+        GlowOpacity.SnapTo(glowOpacity);
+    }
+
     public bool Update(double dtSeconds)
     {
         bool w = Width.Step(dtSeconds);

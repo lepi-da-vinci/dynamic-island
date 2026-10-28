@@ -34,6 +34,15 @@ public static class Win32Interop
     public const int HTTRANSPARENT = -1;
     public const int HTCLIENT = 1;
 
+    public const int VK_SHIFT = 0x10;
+    public const int VK_SNAPSHOT = 0x2C;
+    public const int VK_S = 0x53;
+    public const int VK_LWIN = 0x5B;
+    public const int VK_RWIN = 0x5C;
+
+    public const uint WDA_NONE = 0x00000000;
+    public const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+
     public static readonly IntPtr HWND_TOPMOST = new(-1);
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;
@@ -93,6 +102,108 @@ public static class Win32Interop
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
+
+    private static IntPtr _lastCheckedFgHwnd;
+    private static bool _lastCheckedFgIsScreenshot;
+    private static long _lastCheckedFgTick;
+    private static long _screenshotHotkeyLockUntilTick;
+
+    /// <summary>
+    /// Detects whether the user is currently taking a screenshot (Win+Shift+S, PrintScreen,
+    /// Snipping Tool overlay, ScreenClippingHost, Lightshot, ShareX, Greenshot, etc.).
+    /// </summary>
+    public static bool IsScreenshotSessionActive()
+    {
+        long nowTick = Environment.TickCount64;
+
+        // 1. Instantaneous hotkey detection (PrintScreen or Win + Shift + S)
+        bool prtScDown = (GetAsyncKeyState(VK_SNAPSHOT) & 0x8000) != 0;
+        bool winDown = ((GetAsyncKeyState(VK_LWIN) & 0x8000) != 0) || ((GetAsyncKeyState(VK_RWIN) & 0x8000) != 0);
+        bool shiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+        bool sDown = (GetAsyncKeyState(VK_S) & 0x8000) != 0;
+
+        if (prtScDown || (winDown && shiftDown && sDown))
+        {
+            _screenshotHotkeyLockUntilTick = nowTick + 3500;
+            return true;
+        }
+
+        // 2. Check known Windows 10/11 Snipping Overlay window classes directly
+        IntPtr clipWnd = FindWindow("ScreenClippingWindowClass", null);
+        if (clipWnd != IntPtr.Zero && IsWindowVisible(clipWnd))
+        {
+            return true;
+        }
+
+        IntPtr snipToolbarWnd = FindWindow("Microsoft-Windows-SnipperToolbar", null);
+        if (snipToolbarWnd != IntPtr.Zero && IsWindowVisible(snipToolbarWnd))
+        {
+            return true;
+        }
+
+        // 3. Check Foreground Window process & class name (cached per HWND / 120ms for zero overhead)
+        IntPtr fg = GetForegroundWindow();
+        if (fg != IntPtr.Zero)
+        {
+            if (fg == _lastCheckedFgHwnd && (nowTick - _lastCheckedFgTick) < 120)
+            {
+                if (_lastCheckedFgIsScreenshot) return true;
+            }
+            else
+            {
+                _lastCheckedFgHwnd = fg;
+                _lastCheckedFgTick = nowTick;
+                _lastCheckedFgIsScreenshot = IsWindowScreenshotTool(fg);
+                if (_lastCheckedFgIsScreenshot) return true;
+            }
+        }
+
+        return nowTick < _screenshotHotkeyLockUntilTick;
+    }
+
+    private static bool IsWindowScreenshotTool(IntPtr hWnd)
+    {
+        try
+        {
+            var classSb = new StringBuilder(64);
+            GetClassName(hWnd, classSb, 64);
+            string cls = classSb.ToString();
+
+            if (cls is "ScreenClippingWindowClass" or "Microsoft-Windows-SnipperToolbar" or "Lightshot.MainWindow")
+                return true;
+
+            GetWindowThreadProcessId(hWnd, out uint pid);
+            if (pid == 0) return false;
+
+            using var proc = System.Diagnostics.Process.GetProcessById((int)pid);
+            string name = proc.ProcessName;
+            if (string.IsNullOrEmpty(name)) return false;
+
+            return name.Equals("ScreenClippingHost", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("SnippingTool", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("ScreenSketch", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Lightshot", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("ShareX", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Greenshot", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Flameshot", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT

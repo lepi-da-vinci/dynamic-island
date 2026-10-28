@@ -702,6 +702,7 @@
                                     </Button>
 
                                     <Button x:Name="TabSystemBtn"
+                                            Visibility="Collapsed"
                                             Style="{StaticResource TabPillButtonStyle}"
                                             Click="OnTabSystemClick">
                                         <StackPanel Orientation="Horizontal">
@@ -740,15 +741,23 @@
                                                VerticalAlignment="Center"/>
                                 </Border>
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="7,4"
+                                        Padding="8,4"
                                         Margin="0,0,5,0"
-                                        ToolTip="Buka Pengaturan Dynamic Island (System Settings)"
+                                        ToolTip="Buka Pengaturan &amp; Kontrol Sistem (System Settings)"
                                         Click="OnOpenSettingsClick">
-                                    <Path Data="{StaticResource GeomSettingsGear}"
-                                          Width="11" Height="11"
-                                          Stretch="Uniform"
-                                          Fill="#38BDF8"
-                                          VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource GeomSettingsGear}"
+                                              Width="11.5" Height="11.5"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              VerticalAlignment="Center"/>
+                                        <Ellipse x:Name="HeaderSettingsUpdateDot"
+                                                 Width="5.5" Height="5.5"
+                                                 Fill="#22C55E"
+                                                 Margin="4,0,0,0"
+                                                 VerticalAlignment="Center"
+                                                 Visibility="Collapsed"/>
+                                    </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="8.5,4"
@@ -2183,7 +2192,7 @@
                             <Border x:Name="PageDot1" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Tugas" MouseLeftButtonUp="OnDot1Click"/>
                             <Border x:Name="PageDot2" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Fokus" MouseLeftButtonUp="OnDot2Click"/>
                             <Border x:Name="PageDot3" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Rak File" MouseLeftButtonUp="OnDot3Click"/>
-                            <Border x:Name="PageDot4" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Sistem" MouseLeftButtonUp="OnDot4Click"/>
+                            <Border x:Name="PageDot4" Visibility="Collapsed" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Sistem" MouseLeftButtonUp="OnDot4Click"/>
                         </StackPanel>
                     </Grid>
                 </Grid>
