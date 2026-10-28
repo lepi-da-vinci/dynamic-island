@@ -41,7 +41,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _toastDismissTimer;
     private readonly DispatcherTimer _collapseDebounceTimer;
     private readonly DispatcherTimer _heartbeatTimer;
-    private readonly DispatcherTimer _idleCycleTimer;
+    private readonly DispatcherTimer _autoTuckTimer;
 
     private readonly double[] _spectrumHeights = [4, 7, 11, 7, 4];
     private Rectangle[] _waveRectangles = [];
@@ -117,16 +117,38 @@ public partial class MainWindow : Window
             UpdateTuckedProximityHover();
         };
 
-        int cycleSec = Math.Clamp(_settingsService.IdleCycleSeconds, 3, 300);
-        _idleCycleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(cycleSec) };
-        _idleCycleTimer.Tick += OnIdleCycleTick;
+        _autoTuckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _autoTuckTimer.Tick += (_, _) =>
+        {
+            _autoTuckTimer.Stop();
+            if (_settingsService.AutoTuckEnabled &&
+                !_stateMachine.IsHovered &&
+                !_stateMachine.IsPinnedExpanded &&
+                _stateMachine.ActiveToast == null &&
+                !_isDraggingTimeline &&
+                !_isDraggingSysVolume &&
+                !_isDraggingSysBrightness &&
+                !_isDraggingToastSlider)
+            {
+                _stateMachine.SetAutoTucked(true);
+            }
+        };
 
-        _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _toastDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.8) };
         _toastDismissTimer.Tick += (_, _) =>
         {
             if (_isDraggingToastSlider) return;
             _toastDismissTimer.Stop();
             _stateMachine.ClearToast();
+
+            // After notification finishes (2-3s), display the default normal view (IdlePill) for 10 seconds before auto-tucking!
+            if (_settingsService.AutoTuckEnabled && !_stateMachine.IsTuckedMode)
+            {
+                _stateMachine.SetAutoTucked(false);
+                _autoTuckTimer.Stop();
+                _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                _autoTuckTimer.Start();
+            }
         };
 
         _collapseDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(240) };
@@ -141,6 +163,15 @@ public partial class MainWindow : Window
             {
                 Keyboard.ClearFocus();
                 _stateMachine.SetHovered(false);
+
+                // When user un-hovers from expanded dashboard, display default normal view for 10 seconds before auto-tucking!
+                if (_settingsService.AutoTuckEnabled && !_stateMachine.IsTuckedMode)
+                {
+                    _stateMachine.SetAutoTucked(false);
+                    _autoTuckTimer.Stop();
+                    _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                    _autoTuckTimer.Start();
+                }
             }
         };
 
@@ -256,7 +287,13 @@ public partial class MainWindow : Window
             _fastUpdateTimer.Start();
             _hitTestTimer.Start();
             _heartbeatTimer.Start();
-            _idleCycleTimer.Start();
+            if (_settingsService.AutoTuckEnabled)
+            {
+                _stateMachine.SetAutoTucked(false);
+                _autoTuckTimer.Stop();
+                _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                _autoTuckTimer.Start();
+            }
             UpdateWindowClickThroughState();
 
             AppLogger.LogInfo("WindowLifecycle", $"MainWindow loaded successfully. HWND=0x{_hwnd:X}, Left={Left}, Top={Top}, Width={Width}, Height={Height}");
@@ -292,7 +329,7 @@ public partial class MainWindow : Window
         _oneSecondTimer.Stop();
         _fastUpdateTimer.Stop();
         _hitTestTimer.Stop();
-        _idleCycleTimer.Stop();
+        _autoTuckTimer.Stop();
         _mediaService.Dispose();
         _hardwareService.Dispose();
         _updateService.Dispose();
@@ -1625,7 +1662,7 @@ public partial class MainWindow : Window
                     Title: track.Title,
                     Subtitle: string.IsNullOrWhiteSpace(track.Artist) ? "Sedang Memutar" : track.Artist,
                     AccentHex: $"#{track.DominantColor.R:X2}{track.DominantColor.G:X2}{track.DominantColor.B:X2}",
-                    Duration: TimeSpan.FromSeconds(10)));
+                    Duration: TimeSpan.FromSeconds(2.8)));
             }
 
             if (hasSession)
@@ -1648,13 +1685,17 @@ public partial class MainWindow : Window
 
             if (hasSession)
             {
-                _idleCycleTimer.Stop();
+                _autoTuckTimer.Stop();
             }
             else
             {
-                _stateMachine.ResetIdleCycle();
-                _idleCycleTimer.Stop();
-                _idleCycleTimer.Start();
+                if (_settingsService.AutoTuckEnabled && !_stateMachine.IsTuckedMode)
+                {
+                    _stateMachine.SetAutoTucked(false);
+                    _autoTuckTimer.Stop();
+                    _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                    _autoTuckTimer.Start();
+                }
             }
 
             UpdateMediaAndLyricsUi();
@@ -1871,12 +1912,11 @@ public partial class MainWindow : Window
             ToastBatteryContainer.Visibility = Visibility.Collapsed;
         }
 
+        _autoTuckTimer.Stop();
         _stateMachine.ShowToast(toast);
 
         _toastDismissTimer.Stop();
-        TimeSpan duration = _settingsService.AutoTuckEnabled
-            ? TimeSpan.FromSeconds(10)
-            : (toast.Duration ?? TimeSpan.FromSeconds(3.5));
+        TimeSpan duration = toast.Duration ?? TimeSpan.FromSeconds(2.8);
         _toastDismissTimer.Interval = duration;
         _toastDismissTimer.Start();
     }
@@ -2058,8 +2098,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        _idleCycleTimer.Stop();
+        _autoTuckTimer.Stop();
         _stateMachine.SetTuckedMode(false);
+        _stateMachine.SetAutoTucked(false);
         _stateMachine.SetHovered(true);
         UpdateMediaAndLyricsUi();
     }
@@ -2092,7 +2133,7 @@ public partial class MainWindow : Window
         if (_stateMachine.CurrentState is IslandVisualState.ToastNotification)
         {
             _toastDismissTimer.Stop();
-            _toastDismissTimer.Interval = TimeSpan.FromSeconds(10);
+            _toastDismissTimer.Interval = TimeSpan.FromSeconds(2.8);
             _toastDismissTimer.Start();
             return;
         }
@@ -2223,8 +2264,9 @@ public partial class MainWindow : Window
             {
                 _topHandleHoverTicks = 0;
                 _collapseDebounceTimer.Stop();
-                _idleCycleTimer.Stop();
+                _autoTuckTimer.Stop();
                 _stateMachine.SetTuckedMode(false);
+                _stateMachine.SetAutoTucked(false);
                 _stateMachine.SetHovered(true);
                 UpdateMediaAndLyricsUi();
             }
@@ -2285,13 +2327,23 @@ public partial class MainWindow : Window
         {
             _toastDismissTimer.Stop();
             _stateMachine.ClearToast();
+
+            if (_settingsService.AutoTuckEnabled && !_stateMachine.IsTuckedMode)
+            {
+                _stateMachine.SetAutoTucked(false);
+                _autoTuckTimer.Stop();
+                _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                _autoTuckTimer.Start();
+            }
             return;
         }
 
         if (_stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
         {
             _stateMachine.ClearToast();
+            _autoTuckTimer.Stop();
             _stateMachine.SetTuckedMode(false);
+            _stateMachine.SetAutoTucked(false);
             _stateMachine.SetHovered(true);
             UpdateMediaAndLyricsUi();
         }
@@ -2301,6 +2353,7 @@ public partial class MainWindow : Window
     {
         if (_stateMachine.CurrentState is IslandVisualState.CompactMedia or IslandVisualState.IdlePill)
         {
+            _autoTuckTimer.Stop();
             _stateMachine.SetTuckedMode(true);
         }
         else
@@ -2335,7 +2388,9 @@ public partial class MainWindow : Window
         {
             e.Effects = DragDropEffects.Copy;
             _collapseDebounceTimer.Stop();
+            _autoTuckTimer.Stop();
             _stateMachine.SetTuckedMode(false);
+            _stateMachine.SetAutoTucked(false);
             _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
             _stateMachine.SetHovered(true);
         }
@@ -2667,7 +2722,7 @@ public partial class MainWindow : Window
         _tuckCooldownTicks = 25; // ~500ms cooldown so it doesn't immediately re-open on the same cursor position
         _topHandleHoverTicks = 0;
         _collapseDebounceTimer.Stop();
-        _idleCycleTimer.Stop();
+        _autoTuckTimer.Stop();
         _stateMachine.SetHovered(false);
         _stateMachine.SetTuckedMode(true);
         Keyboard.ClearFocus();
@@ -2679,14 +2734,15 @@ public partial class MainWindow : Window
         _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
         if (_settingsService.AutoTuckEnabled)
         {
-            _stateMachine.ResetIdleCycle();
-            _idleCycleTimer.Stop();
-            _idleCycleTimer.Start();
+            _stateMachine.SetAutoTucked(false);
+            _autoTuckTimer.Stop();
+            _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+            _autoTuckTimer.Start();
         }
         else
         {
-            _stateMachine.ResetIdleCycle();
-            _idleCycleTimer.Stop();
+            _autoTuckTimer.Stop();
+            _stateMachine.SetAutoTucked(false);
         }
         UpdateSlidersAndMuteUi();
     }
@@ -2700,13 +2756,17 @@ public partial class MainWindow : Window
         _pomodoroService.ToggleStartPause();
         if (_pomodoroService.IsRunning)
         {
-            _stateMachine.ResetIdleCycle();
-            _idleCycleTimer.Stop();
+            _autoTuckTimer.Stop();
         }
         else
         {
-            _idleCycleTimer.Stop();
-            _idleCycleTimer.Start();
+            if (_settingsService.AutoTuckEnabled && !_stateMachine.IsTuckedMode)
+            {
+                _stateMachine.SetAutoTucked(false);
+                _autoTuckTimer.Stop();
+                _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                _autoTuckTimer.Start();
+            }
         }
     }
     private void OnPomodoroResetFocusClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(25, isBreak: false);

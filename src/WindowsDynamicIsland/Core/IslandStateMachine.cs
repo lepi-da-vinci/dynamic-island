@@ -49,7 +49,7 @@ public sealed class IslandStateMachine
     public bool IsFullScreenHidden { get; private set; }
     public bool IsTuckedMode { get; private set; }
     public bool IsAutoTuckEnabled { get; private set; } = true;
-    public bool IsIdleCycleTucked { get; private set; } = false;
+    public bool IsAutoTucked { get; private set; } = false;
 
     // Dynamic content sizing inputs so the notch breathes organically
     public double DynamicCompactWidth { get; private set; } = 320;
@@ -137,6 +137,7 @@ public sealed class IslandStateMachine
         if (hovered)
         {
             IsTuckedMode = false;
+            IsAutoTucked = false;
         }
         if (!hovered && IsPinnedExpanded)
         {
@@ -152,6 +153,7 @@ public sealed class IslandStateMachine
         {
             IsHovered = false;
             IsPinnedExpanded = false;
+            IsAutoTucked = true;
         }
         RecalculateState();
     }
@@ -162,26 +164,15 @@ public sealed class IslandStateMachine
         IsAutoTuckEnabled = enabled;
         if (!enabled)
         {
-            IsIdleCycleTucked = false;
+            IsAutoTucked = false;
         }
         RecalculateState();
     }
 
-    public void ToggleIdleCycleTuck()
+    public void SetAutoTucked(bool autoTucked)
     {
-        IsIdleCycleTucked = !IsIdleCycleTucked;
-        RecalculateState();
-    }
-
-    public void ResetIdleCycle()
-    {
-        IsIdleCycleTucked = false;
-        RecalculateState();
-    }
-
-    public void SetIdleCycleTucked(bool tucked)
-    {
-        IsIdleCycleTucked = tucked;
+        if (IsAutoTucked == autoTucked) return;
+        IsAutoTucked = autoTucked;
         RecalculateState();
     }
 
@@ -255,14 +246,14 @@ public sealed class IslandStateMachine
             // When media is active (music/video playing) and NOT manually tucked, show CompactMedia as usual
             next = IslandVisualState.CompactMedia;
         }
-        else if (IsAutoTuckEnabled)
+        else if (IsAutoTuckEnabled && IsAutoTucked)
         {
-            // When AutoTuck is enabled, rest in tucked mode (Mode Simpan) until a notification or user interaction occurs!
+            // Automatically tucked after 10 seconds of inactivity in default view!
             next = IslandVisualState.TuckedTopEdge;
         }
         else
         {
-            // Default view (tampilan awal): Date, Clock, Battery, Wifi, TrueDepth sensor
+            // Default normal view (tampilan awal): Date, Clock, Battery, Wifi, TrueDepth sensor
             next = IslandVisualState.IdlePill;
         }
 
