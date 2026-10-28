@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Net.NetworkInformation;
 using Microsoft.Win32;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Enumeration;
+using Windows.Devices.Radios;
 using Windows.Media.Devices;
 using WindowsDynamicIsland.Core;
 
@@ -20,6 +22,7 @@ public sealed class HardwareStatusSnapshot
     public string NetworkName { get; init; } = "Connected";
     public bool IsNetworkConnected => !string.IsNullOrWhiteSpace(NetworkName) && NetworkName != "Tidak Ada Jaringan" && NetworkName != "Terputus" && NetworkName != "Disconnected";
     public string ConnectedBluetoothName { get; init; } = string.Empty;
+    public bool IsBluetoothRadioOn { get; init; } = true;
     public double AppMemoryMb { get; init; } = 24.0;
 }
 
@@ -44,8 +47,10 @@ public sealed class HardwareTelemetryService : IDisposable
     private bool _cachedMicActive;
     private string _cachedMicApp = string.Empty;
     private string _cachedNetworkName = "Terhubung";
+    private bool _isBtRadioOn = true;
 
     public HardwareStatusSnapshot Current { get; private set; } = new();
+    public IReadOnlyList<string> ConnectedBluetoothDevices => _connectedBtDevices.Values.ToList();
 
     public event Action<ToastPayload>? HardwareToastTriggered;
 
@@ -193,6 +198,17 @@ public sealed class HardwareTelemetryService : IDisposable
                 _connectedBtDevices[kvp.Key] = kvp.Value;
             }
             _btBaselineCaptured = true;
+
+            try
+            {
+                var radios = await Radio.GetRadiosAsync();
+                var btRadio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
+                if (btRadio != null)
+                {
+                    _isBtRadioOn = btRadio.State == RadioState.On;
+                }
+            }
+            catch { }
         }
         catch
         {
@@ -202,6 +218,60 @@ public sealed class HardwareTelemetryService : IDisposable
         {
             _isScanningBt = false;
         }
+    }
+
+    public async Task<bool> SetBluetoothRadioStateAsync(bool turnOn)
+    {
+        try
+        {
+            var access = await Radio.RequestAccessAsync();
+            if (access == RadioAccessStatus.Allowed)
+            {
+                var radios = await Radio.GetRadiosAsync();
+                var btRadio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
+                if (btRadio != null)
+                {
+                    var result = await btRadio.SetStateAsync(turnOn ? RadioState.On : RadioState.Off);
+                    if (result == RadioAccessStatus.Allowed)
+                    {
+                        _isBtRadioOn = turnOn;
+                        if (!turnOn)
+                        {
+                            _connectedBtDevices.Clear();
+                        }
+                        HardwareToastTriggered?.Invoke(new ToastPayload(
+                            Icon: turnOn ? "BLUETOOTH" : "BLUETOOTH_OFF",
+                            Title: turnOn ? "Bluetooth: ON (Aktif)" : "Bluetooth: OFF (Nonaktif)",
+                            Subtitle: turnOn ? "Siap menghubungkan perangkat" : "Radio Bluetooth dimatikan",
+                            AccentHex: turnOn ? "#38BDF8" : "#94A3B8",
+                            Duration: TimeSpan.FromSeconds(2.5)));
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("BluetoothControl", "Failed to toggle Bluetooth radio directly", ex);
+        }
+
+        OpenWindowsBluetoothSettings();
+        return false;
+    }
+
+    public Task<bool> ToggleBluetoothRadioAsync() => SetBluetoothRadioStateAsync(!_isBtRadioOn);
+
+    public static void OpenWindowsBluetoothSettings()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "ms-settings:bluetooth",
+                UseShellExecute = true
+            });
+        }
+        catch { }
     }
 
     public void PollFastKeyboardIndicators()
@@ -319,6 +389,7 @@ public sealed class HardwareTelemetryService : IDisposable
             ActiveMicApp = _cachedMicApp,
             NetworkName = _cachedNetworkName,
             ConnectedBluetoothName = btName,
+            IsBluetoothRadioOn = _isBtRadioOn,
             AppMemoryMb = memoryMb
         };
     }

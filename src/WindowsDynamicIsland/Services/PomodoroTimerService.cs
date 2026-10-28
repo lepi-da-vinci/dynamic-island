@@ -4,6 +4,8 @@ namespace WindowsDynamicIsland.Services;
 
 public sealed class PomodoroTimerService
 {
+    public int DefaultFocusMinutes { get; set; } = 25;
+    public int DefaultBreakMinutes { get; set; } = 5;
     public TimeSpan TotalDuration { get; private set; } = TimeSpan.FromMinutes(25);
     public TimeSpan Remaining { get; private set; } = TimeSpan.FromMinutes(25);
     public bool IsRunning { get; private set; }
@@ -65,12 +67,12 @@ public sealed class PomodoroTimerService
         {
             IsRunning = false;
             bool finishedBreak = IsBreakMode;
-            Reset(finishedBreak ? 25 : 5, isBreak: !finishedBreak);
+            Reset(finishedBreak ? DefaultFocusMinutes : DefaultBreakMinutes, isBreak: !finishedBreak);
 
             TimerCompleted?.Invoke(new ToastPayload(
                 Icon: finishedBreak ? "POMO_FOCUS" : "POMO_BREAK",
                 Title: finishedBreak ? "Break Selesai! Siap Fokus" : "Sesi Fokus Selesai!",
-                Subtitle: finishedBreak ? "Timer disetel ke 25m Fokus" : "Waktunya istirahat 5 menit",
+                Subtitle: finishedBreak ? $"Timer disetel ke {DefaultFocusMinutes}m Fokus" : $"Waktunya istirahat {DefaultBreakMinutes} menit",
                 AccentHex: finishedBreak ? "#38BDF8" : "#22C55E",
                 Duration: TimeSpan.FromSeconds(4.0)));
         }

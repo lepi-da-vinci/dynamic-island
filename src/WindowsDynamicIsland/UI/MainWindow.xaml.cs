@@ -47,13 +47,16 @@ public partial class MainWindow : Window
     private Rectangle[] _waveRectangles = [];
     private Rectangle[] _expWaveRectangles = [];
 
+    private const double MasterGridWidth = 760.0;
+
     private IntPtr _hwnd;
     private Win32Interop.NOTIFYICONDATA _trayIconData;
+    private SettingsWindow? _settingsWindow;
     private bool _isRenderLoopAttached;
     private bool _isWindowClickThrough;
     private long _lastRenderTick;
     private string _lastClipboardPreview = string.Empty;
-    private readonly bool _autoHideFullScreen = true;
+    private double _lastAppliedScale = 1.0;
 
     // Lyric animation & slow one-way pan tracking
     private int _lastAnimatedLyricIndex = -999;
@@ -141,12 +144,12 @@ public partial class MainWindow : Window
             _toastDismissTimer.Stop();
             _stateMachine.ClearToast();
 
-            // After notification finishes (2-3s), display the default normal view (IdlePill) for 10 seconds before auto-tucking!
+            // After notification finishes (2-3s), display the default normal view (IdlePill) for IdleCycleSeconds (default 10s) before auto-tucking!
             if (_settingsService.AutoTuckEnabled && !_stateMachine.IsTuckedMode)
             {
                 _stateMachine.SetAutoTucked(false);
                 _autoTuckTimer.Stop();
-                _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                _autoTuckTimer.Interval = TimeSpan.FromSeconds(_settingsService.IdleCycleSeconds);
                 _autoTuckTimer.Start();
             }
         };
@@ -164,12 +167,12 @@ public partial class MainWindow : Window
                 Keyboard.ClearFocus();
                 _stateMachine.SetHovered(false);
 
-                // When user un-hovers from expanded dashboard, display default normal view for 10 seconds before auto-tucking!
+                // When user un-hovers from expanded dashboard, display default normal view for IdleCycleSeconds (default 10s) before auto-tucking!
                 if (_settingsService.AutoTuckEnabled && !_stateMachine.IsTuckedMode)
                 {
                     _stateMachine.SetAutoTucked(false);
                     _autoTuckTimer.Stop();
-                    _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                    _autoTuckTimer.Interval = TimeSpan.FromSeconds(_settingsService.IdleCycleSeconds);
                     _autoTuckTimer.Start();
                 }
             }
@@ -183,7 +186,13 @@ public partial class MainWindow : Window
         _mediaService.PlaybackStateChanged += OnMediaPlaybackStateChanged;
         _lyricsService.LyricsUpdated += () => Dispatcher.InvokeAsync(UpdateMediaAndLyricsUi);
         _hardwareService.HardwareToastTriggered += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
-        _notificationService.NotificationReceived += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
+        _notificationService.NotificationReceived += toast => Dispatcher.InvokeAsync(() =>
+        {
+            if (_settingsService.SystemNotificationToastEnabled)
+            {
+                TriggerToast(toast);
+            }
+        });
         _pomodoroService.TimerTicked += () => Dispatcher.InvokeAsync(UpdatePomodoroAndClockUi);
         _pomodoroService.TimerCompleted += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
         _todoAndWaterService.DataChanged += () => Dispatcher.InvokeAsync(UpdateTodoAndWaterUi);
@@ -220,11 +229,7 @@ public partial class MainWindow : Window
         DpiChanged += OnDpiChanged;
 
         _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
-        _settingsService.SettingsChanged += () => Dispatcher.InvokeAsync(() =>
-        {
-            _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
-            UpdateSlidersAndMuteUi();
-        });
+        _settingsService.SettingsChanged += () => Dispatcher.InvokeAsync(ApplyAppSettings);
 
         Loaded += OnWindowLoaded;
         Closed += OnWindowClosed;
@@ -276,6 +281,7 @@ public partial class MainWindow : Window
             _hardwareService.RefreshFullTelemetry(emitToasts: false);
             _audioService.PollExternalChanges();
             _brightnessService.PollExternalChanges();
+            ApplyAppSettings();
             UpdateHardwareUi();
             UpdateSlidersAndMuteUi();
             UpdatePomodoroAndClockUi();
@@ -291,7 +297,7 @@ public partial class MainWindow : Window
             {
                 _stateMachine.SetAutoTucked(false);
                 _autoTuckTimer.Stop();
-                _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                _autoTuckTimer.Interval = TimeSpan.FromSeconds(_settingsService.IdleCycleSeconds);
                 _autoTuckTimer.Start();
             }
             UpdateWindowClickThroughState();
@@ -324,6 +330,7 @@ public partial class MainWindow : Window
     private void OnWindowClosed(object? sender, EventArgs e)
     {
         AppLogger.LogInfo("WindowLifecycle", $"MainWindow.OnWindowClosed called. CallStack:\r\n{new StackTrace(1, true)}");
+        try { _settingsWindow?.Close(); } catch { }
         StopRenderLoop();
         _heartbeatTimer.Stop();
         _oneSecondTimer.Stop();
@@ -410,7 +417,7 @@ public partial class MainWindow : Window
                     int monitorWidthPx = mi.rcMonitor.Right - mi.rcMonitor.Left;
                     screenWidthDip = monitorWidthPx / scaleX;
                     double monitorLeftDip = mi.rcMonitor.Left / scaleX;
-                    double monitorTopDip = mi.rcMonitor.Top / scaleY;
+                    double monitorTopDip = (mi.rcMonitor.Top / scaleY) + _settingsService.TopOffsetPx;
 
                     targetLeft = monitorLeftDip + (screenWidthDip - Width) / 2.0;
                     targetTop = monitorTopDip;
@@ -422,7 +429,7 @@ public partial class MainWindow : Window
                     int windowWidthPx = (int)Math.Round(Width * scaleX);
                     int windowHeightPx = (int)Math.Round(Height * scaleY);
                     int pixelX = mi.rcMonitor.Left + (monitorWidthPx - windowWidthPx) / 2;
-                    int pixelY = mi.rcMonitor.Top;
+                    int pixelY = mi.rcMonitor.Top + (int)Math.Round(_settingsService.TopOffsetPx * scaleY);
 
                     Win32Interop.SetWindowPos(
                         _hwnd,
@@ -636,6 +643,18 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
+    private (double GridDipX, double GridDipY) ScreenCursorToMasterGridDip(Win32Interop.POINT pt)
+    {
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        double winDipX = (pt.X / dpi.DpiScaleX) - Left;
+        double winDipY = (pt.Y / dpi.DpiScaleY) - Top;
+        double scale = Math.Max(0.5, _settingsService.EffectiveNotchScale);
+        double winCenterX = Width / 2.0;
+        double gridDipX = (MasterGridWidth / 2.0) + ((winDipX - winCenterX) / scale);
+        double gridDipY = winDipY / scale;
+        return (gridDipX, gridDipY);
+    }
+
     /// <summary>
     /// Checks whether the mouse cursor is strictly inside the active Dynamic Island rectangle.
     /// Any pixel outside (including DropShadowEffect and BlurEffect areas) is treated as click-through.
@@ -645,9 +664,7 @@ public partial class MainWindow : Window
         if (_hwnd == IntPtr.Zero || !Win32Interop.GetCursorPos(out var pt))
             return false;
 
-        DpiScale dpi = VisualTreeHelper.GetDpi(this);
-        double dipX = (pt.X / dpi.DpiScaleX) - Left;
-        double dipY = (pt.Y / dpi.DpiScaleY) - Top;
+        var (dipX, dipY) = ScreenCursorToMasterGridDip(pt);
 
         double bodyWidth = Math.Max(48, _morph.Width.Current);
         double bodyHeight = Math.Max(4, _morph.Height.Current);
@@ -657,13 +674,13 @@ public partial class MainWindow : Window
         if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge)
         {
             bodyHeight = Math.Min(bodyHeight, 6.0);
-            double tuckedLeft = (Width - bodyWidth) / 2.0;
+            double tuckedLeft = (MasterGridWidth - bodyWidth) / 2.0;
             return dipX >= (tuckedLeft - 10) && dipX <= (tuckedLeft + bodyWidth + 10) && dipY >= 0 && dipY <= bodyHeight;
         }
 
         // Generous margin tolerance around the notch so swift cursor moves never flicker
         double marginTolerance = 24.0;
-        double centerX = Width / 2.0;
+        double centerX = MasterGridWidth / 2.0;
         double leftEdge = centerX - (bodyWidth / 2.0) - _leftWingWidth - marginTolerance;
         double rightEdge = centerX + (bodyWidth / 2.0) + _rightWingWidth + marginTolerance;
         double bottomEdge = bodyHeight + marginTolerance;
@@ -1041,7 +1058,7 @@ public partial class MainWindow : Window
             double bottomRadius = Math.Clamp(_morph.BottomCornerRadius.Current, 2, height * 0.65);
             double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 2, height * 0.55);
 
-            double contentLeft = (Width - bodyWidth) / 2.0;
+            double contentLeft = (MasterGridWidth - bodyWidth) / 2.0;
             IslandBorder.Margin = new Thickness(contentLeft, 0, 0, 0);
             IslandBorder.Width = bodyWidth;
             IslandBorder.Height = height;
@@ -1053,7 +1070,7 @@ public partial class MainWindow : Window
             AmbientGlowBorder.Width = Math.Max(10, xRightBody - xLeftBody);
             AmbientGlowBorder.Height = height;
             AmbientGlowBorder.CornerRadius = new CornerRadius(0, 0, bottomRadius, bottomRadius);
-            AmbientGlowBorder.Opacity = _morph.GlowOpacity.Current;
+            AmbientGlowBorder.Opacity = Math.Clamp(_morph.GlowOpacity.Current * _settingsService.GlowIntensity, 0.0, 1.0);
 
             UpdateUnifiedNotchGeometry(xLeftBody, xRightBody, height, bottomRadius, topEarRadius);
             UpdateWindowClickThroughState();
@@ -1069,21 +1086,30 @@ public partial class MainWindow : Window
 
             if (isCompactMedia)
             {
-                _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 18.0);
-                for (int i = 0; i < _waveRectangles.Length; i++)
+                if (_settingsService.AudioVisualizerEnabled)
                 {
-                    _waveRectangles[i].Height = _spectrumHeights[i];
+                    _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 18.0);
+                    for (int i = 0; i < _waveRectangles.Length; i++)
+                    {
+                        _waveRectangles[i].Height = _spectrumHeights[i];
+                    }
                 }
 
-                UpdateCompactLyricSlowPan(dt);
+                if (_settingsService.SlowLyricPanEnabled)
+                {
+                    UpdateCompactLyricSlowPan(dt);
+                }
             }
             else if (isExpandedMedia)
             {
                 // Drive real-time WASAPI Loopback 5-band waveform in Expanded Music Player too!
-                _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 15.0);
-                for (int i = 0; i < _expWaveRectangles.Length; i++)
+                if (_settingsService.AudioVisualizerEnabled)
                 {
-                    _expWaveRectangles[i].Height = _spectrumHeights[i];
+                    _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 15.0);
+                    for (int i = 0; i < _expWaveRectangles.Length; i++)
+                    {
+                        _expWaveRectangles[i].Height = _spectrumHeights[i];
+                    }
                 }
 
                 float peak = _audioService.GetCurrentPeakLevel(_mediaService.CurrentTrack.IsPlaying);
@@ -1117,7 +1143,7 @@ public partial class MainWindow : Window
         }
 
         double xLeftEar = Math.Max(0.0, xLeftBody - topEarRadius);
-        double xRightEar = Math.Min(Width, xRightBody + topEarRadius);
+        double xRightEar = Math.Min(MasterGridWidth, xRightBody + topEarRadius);
 
         var fillGeom = new StreamGeometry();
         using (StreamGeometryContext ctx = fillGeom.Open())
@@ -1267,7 +1293,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (_autoHideFullScreen)
+            if (_settingsService.AutoHideFullScreen)
             {
                 bool fullScreen = Win32Interop.IsFullScreenAppActive();
                 bool wasFullScreen = _stateMachine.IsFullScreenHidden;
@@ -1278,6 +1304,10 @@ public partial class MainWindow : Window
                     AppLogger.LogInfo("FullScreenCheck", "Exited full screen app -> Scheduling reposition.");
                     ScheduleDebouncedReposition();
                 }
+            }
+            else if (_stateMachine.IsFullScreenHidden)
+            {
+                _stateMachine.SetFullScreenHidden(false);
             }
 
             if (_hwnd != IntPtr.Zero && _stateMachine.CurrentState != IslandVisualState.Hidden)
@@ -1500,31 +1530,58 @@ public partial class MainWindow : Window
         var autoTuckColor = autoTuck ? Color.FromRgb(34, 197, 94) : Color.FromRgb(148, 163, 184);
         var autoTuckBrush = new SolidColorBrush(autoTuckColor);
         ToggleAutoTuckIconPath.Fill = autoTuckBrush;
-        ToggleAutoTuckText.Text = autoTuck ? "Auto-Simpan (10s): ON" : "Auto-Simpan: OFF";
+        ToggleAutoTuckText.Text = autoTuck ? $"Auto-Simpan ({_settingsService.IdleCycleSeconds}s): ON" : "Auto-Simpan: OFF";
         ToggleAutoTuckText.Foreground = autoTuckBrush;
         ToggleAutoTuckBtn.Background = new SolidColorBrush(Color.FromArgb((byte)(autoTuck ? 28 : 14), autoTuckColor.R, autoTuckColor.G, autoTuckColor.B));
+
+        var hw = _hardwareService.Current;
+        bool btOn = hw.IsBluetoothRadioOn;
+        bool btConnected = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName);
+        var btColor = !btOn
+            ? Color.FromRgb(148, 163, 184)
+            : btConnected
+                ? Color.FromRgb(34, 197, 94)
+                : Color.FromRgb(56, 189, 248);
+        var btBrush = new SolidColorBrush(btColor);
+        SysBluetoothIconPath.Data = btOn ? GetVectorGeometry("GeomBluetooth") : GetVectorGeometry("GeomBluetoothOff");
+        SysBluetoothIconPath.Fill = btBrush;
+        SysBluetoothBtnText.Text = !btOn ? "BT: OFF" : (btConnected ? "BT: Aktif" : "Bluetooth");
+        SysBluetoothBtnText.Foreground = btBrush;
     }
 
     private void UpdatePomodoroAndClockUi()
     {
-        string nowStr = DateTime.Now.ToString("HH:mm");
-        ExpandedClockBadge.Text = nowStr;
+        string fmt = _settingsService.Use24HourClock
+            ? (_settingsService.ShowSecondsOnClock ? "HH:mm:ss" : "HH:mm")
+            : (_settingsService.ShowSecondsOnClock ? "h:mm:ss tt" : "h:mm tt");
+
+        string nowStr = DateTime.Now.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
+        ExpandedClockBadge.Text = DateTime.Now.ToString(_settingsService.Use24HourClock ? "HH:mm" : "h:mm tt", System.Globalization.CultureInfo.InvariantCulture);
 
         string idDate = DateTime.Now.ToString("d MMM", new System.Globalization.CultureInfo("id-ID"));
         IdleDateText.Text = idDate;
+        IdleDateText.Visibility = (_settingsService.ShowDateOnIdle && !_settingsService.MinimalNotchEnabled)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
-        if (_pomodoroService.IsRunning)
+        if (_pomodoroService.IsRunning && _settingsService.ShowPomodoroOnIdle)
         {
             IdlePomodoroCountdownBadge.Visibility = Visibility.Visible;
             IdlePomodoroCountdownText.Text = _pomodoroService.FormattedRemaining;
-            var pomoColor = _pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(239, 68, 68);
-            IdlePomodoroCountdownBadge.Background = new SolidColorBrush(Color.FromArgb(34, pomoColor.R, pomoColor.G, pomoColor.B));
-            IdlePomodoroCountdownBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(68, pomoColor.R, pomoColor.G, pomoColor.B));
-            IdlePomodoroCountdownText.Foreground = new SolidColorBrush(pomoColor);
+            var pomoColor = _pomodoroService.IsBreakMode ? Color.FromRgb(56, 189, 248) : Color.FromRgb(34, 197, 94);
+            var pomoBrush = new SolidColorBrush(pomoColor);
+            IdlePomodoroCountdownBadge.Background = new SolidColorBrush(Color.FromArgb(32, pomoColor.R, pomoColor.G, pomoColor.B));
+            IdlePomodoroCountdownBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(64, pomoColor.R, pomoColor.G, pomoColor.B));
+            IdlePomodoroRingPath.Stroke = pomoBrush;
+            UpdateIdlePomodoroMiniRing(_pomodoroService.ProgressRatio);
+
+            // In Minimal Notch mode while Pomodoro is running, show the sleek [ Green Ring | Timer ] layout from Reference Image 1
+            ClockTextBlock.Visibility = _settingsService.MinimalNotchEnabled ? Visibility.Collapsed : Visibility.Visible;
         }
         else
         {
             IdlePomodoroCountdownBadge.Visibility = Visibility.Collapsed;
+            ClockTextBlock.Visibility = Visibility.Visible;
         }
 
         ClockTextBlock.Text = nowStr;
@@ -1550,6 +1607,36 @@ public partial class MainWindow : Window
         PomodoroStartPauseText.Text = _pomodoroService.IsRunning ? "Jeda" : "Mulai";
 
         UpdatePomodoroProgressRing(_pomodoroService.ProgressRatio);
+    }
+
+    private void UpdateIdlePomodoroMiniRing(double progressRatio)
+    {
+        try
+        {
+            double radius = 5.2;
+            double cx = 6.5;
+            double cy = 6.5;
+
+            double ratio = Math.Clamp(1.0 - progressRatio, 0.05, 0.999);
+            double angleDeg = ratio * 360.0;
+            double angleRad = (angleDeg - 90.0) * Math.PI / 180.0;
+
+            double startX = cx;
+            double startY = cy - radius;
+            double endX = cx + radius * Math.Cos(angleRad);
+            double endY = cy + radius * Math.Sin(angleRad);
+            bool isLargeArc = angleDeg > 180.0;
+
+            var geom = new StreamGeometry();
+            using (var ctx = geom.Open())
+            {
+                ctx.BeginFigure(new Point(startX, startY), isFilled: false, isClosed: false);
+                ctx.ArcTo(new Point(endX, endY), new Size(radius, radius), 0, isLargeArc, SweepDirection.Clockwise, isStroked: true, isSmoothJoin: true);
+            }
+            geom.Freeze();
+            IdlePomodoroRingPath.Data = geom;
+        }
+        catch { }
     }
 
     private void UpdatePomodoroProgressRing(double progressRatio)
@@ -1609,10 +1696,20 @@ public partial class MainWindow : Window
         IdleWifiIconPath.Fill = new SolidColorBrush(
             hw.IsNetworkConnected ? Color.FromRgb(148, 163, 184) : Color.FromRgb(239, 68, 68));
 
+        bool minimal = _settingsService.MinimalNotchEnabled;
+        IdleWifiIconPath.Visibility = minimal ? Visibility.Collapsed : Visibility.Visible;
+        IdleBatteryPercentText.Visibility = minimal ? Visibility.Collapsed : Visibility.Visible;
+        IdleMascotBorder.Visibility = _settingsService.MascotEnabled ? Visibility.Visible : Visibility.Collapsed;
+
         CameraPrivacyDot.Visibility = hw.IsCameraInUse ? Visibility.Visible : Visibility.Collapsed;
         MicPrivacyDot.Visibility = hw.IsMicrophoneInUse ? Visibility.Visible : Visibility.Collapsed;
 
-        bool hasExtraIdle = hw.IsCameraInUse || hw.IsMicrophoneInUse || _pomodoroService.IsRunning || (_todoAndWaterService.TotalTodosCount - _todoAndWaterService.CompletedTodosCount > 0);
+        bool hasExtraIdle = hw.IsCameraInUse ||
+                            hw.IsMicrophoneInUse ||
+                            _settingsService.MascotEnabled ||
+                            (_pomodoroService.IsRunning && _settingsService.ShowPomodoroOnIdle) ||
+                            (_settingsService.ShowTodoBadgeOnIdle && (_todoAndWaterService.TotalTodosCount - _todoAndWaterService.CompletedTodosCount > 0));
+        _stateMachine.SetMinimalNotch(minimal, hasExtraIdle);
         _stateMachine.UpdateDynamicIdleWidth(hasExtraIdle);
 
         SysBatteryDetailText.Text = hw.HasBattery
@@ -1655,14 +1752,14 @@ public partial class MainWindow : Window
             ApplyDominantColor(track.DominantColor);
             UpdateMediaAndLyricsUi();
 
-            if (hasSession && (_stateMachine.IsTuckedMode || _stateMachine.CurrentState == IslandVisualState.TuckedTopEdge))
+            if (hasSession && _settingsService.MediaTrackChangeToastEnabled && (_stateMachine.IsTuckedMode || _stateMachine.CurrentState == IslandVisualState.TuckedTopEdge))
             {
                 TriggerToast(new ToastPayload(
                     Icon: "MUSIC",
                     Title: track.Title,
                     Subtitle: string.IsNullOrWhiteSpace(track.Artist) ? "Sedang Memutar" : track.Artist,
                     AccentHex: $"#{track.DominantColor.R:X2}{track.DominantColor.G:X2}{track.DominantColor.B:X2}",
-                    Duration: TimeSpan.FromSeconds(2.8)));
+                    Duration: TimeSpan.FromSeconds(_settingsService.ToastDurationSeconds)));
             }
 
             if (hasSession)
@@ -1787,11 +1884,11 @@ public partial class MainWindow : Window
         LyricLineProgressFill.Width = 120.0 * Math.Clamp(lyricSnap.LineProgressRatio, 0.0, 1.0);
 
         string compactTargetText;
-        if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "• • •")
+        if (_settingsService.LyricsEnabled && lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "• • •")
         {
             compactTargetText = lyricSnap.CurrentLine;
         }
-        else if (lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.NextLine))
+        else if (_settingsService.LyricsEnabled && lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.NextLine))
         {
             compactTargetText = lyricSnap.NextLine;
         }
@@ -1864,6 +1961,22 @@ public partial class MainWindow : Window
 
     public void TriggerToast(ToastPayload toast)
     {
+        if (!_settingsService.VolumeBrightnessHudEnabled &&
+            toast.SliderKind is ToastSliderKind.Volume or ToastSliderKind.Brightness)
+        {
+            return;
+        }
+
+        if (!_settingsService.BatteryToastEnabled && toast.SliderKind == ToastSliderKind.Battery)
+        {
+            return;
+        }
+
+        if (!_settingsService.BluetoothToastEnabled && toast.Icon.StartsWith("BLUETOOTH", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         _activeToastSliderKind = toast.SliderKind;
         ToastTitleText.Text = toast.Title;
         ToastSubtitleText.Text = toast.Subtitle;
@@ -1916,7 +2029,7 @@ public partial class MainWindow : Window
         _stateMachine.ShowToast(toast);
 
         _toastDismissTimer.Stop();
-        TimeSpan duration = toast.Duration ?? TimeSpan.FromSeconds(2.8);
+        TimeSpan duration = TimeSpan.FromSeconds(_settingsService.ToastDurationSeconds);
         _toastDismissTimer.Interval = duration;
         _toastDismissTimer.Start();
     }
@@ -2154,11 +2267,9 @@ public partial class MainWindow : Window
         if (_hwnd == IntPtr.Zero || !Win32Interop.GetCursorPos(out var pt))
             return;
 
-        DpiScale dpi = VisualTreeHelper.GetDpi(this);
-        double dipX = (pt.X / dpi.DpiScaleX) - Left;
-        double dipY = (pt.Y / dpi.DpiScaleY) - Top;
+        var (dipX, dipY) = ScreenCursorToMasterGridDip(pt);
 
-        // In 760px window, main notch is 540px centered: left edge = 110, right edge = 650. Height = 260.
+        // In 760px master grid, main notch is 540px centered: left edge = 110, right edge = 650. Height = 260.
         bool withinY = dipY >= 0 && dipY <= 285;
 
         if (!withinY)
@@ -2248,12 +2359,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        DpiScale dpi = VisualTreeHelper.GetDpi(this);
-        double dipX = (pt.X / dpi.DpiScaleX) - Left;
-        double dipY = (pt.Y / dpi.DpiScaleY) - Top;
+        var (dipX, dipY) = ScreenCursorToMasterGridDip(pt);
 
         double bodyWidth = Math.Max(48, _morph.Width.Current);
-        double centerX = Width / 2.0;
+        double centerX = MasterGridWidth / 2.0;
         double halfWidth = (bodyWidth / 2.0) + 16.0;
 
         // Tucked handle is located at top-center (Y <= 6.5 DIPs, X within handle bounds)
@@ -2387,12 +2496,15 @@ public partial class MainWindow : Window
         if (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormats.Bitmap))
         {
             e.Effects = DragDropEffects.Copy;
-            _collapseDebounceTimer.Stop();
-            _autoTuckTimer.Stop();
-            _stateMachine.SetTuckedMode(false);
-            _stateMachine.SetAutoTucked(false);
-            _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
-            _stateMachine.SetHovered(true);
+            if (_settingsService.AutoOpenShelfOnDrag)
+            {
+                _collapseDebounceTimer.Stop();
+                _autoTuckTimer.Stop();
+                _stateMachine.SetTuckedMode(false);
+                _stateMachine.SetAutoTucked(false);
+                _stateMachine.SetActiveTab(IslandDashboardTab.FileShelf);
+                _stateMachine.SetHovered(true);
+            }
         }
         else
         {
@@ -2560,7 +2672,7 @@ public partial class MainWindow : Window
 
             if (pending > 0)
             {
-                IdleTodoMiniPill.Visibility = Visibility.Visible;
+                IdleTodoMiniPill.Visibility = _settingsService.ShowTodoBadgeOnIdle ? Visibility.Visible : Visibility.Collapsed;
                 IdleTodoMiniText.Text = $"{pending}";
                 TabTodoCountBadge.Visibility = Visibility.Visible;
                 TabTodoCountText.Text = $"{pending}";
@@ -2764,13 +2876,13 @@ public partial class MainWindow : Window
             {
                 _stateMachine.SetAutoTucked(false);
                 _autoTuckTimer.Stop();
-                _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
+                _autoTuckTimer.Interval = TimeSpan.FromSeconds(_settingsService.IdleCycleSeconds);
                 _autoTuckTimer.Start();
             }
         }
     }
-    private void OnPomodoroResetFocusClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(25, isBreak: false);
-    private void OnPomodoroBreakClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(5, isBreak: true);
+    private void OnPomodoroResetFocusClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(_settingsService.DefaultFocusMinutes, isBreak: false);
+    private void OnPomodoroBreakClick(object sender, RoutedEventArgs e) => _pomodoroService.Reset(_settingsService.DefaultBreakMinutes, isBreak: true);
     private void OnPomodoroAdd5MinClick(object sender, RoutedEventArgs e) => _pomodoroService.AddMinutes(5);
 
     private void OnToggleMuteClick(object sender, RoutedEventArgs e)
@@ -2783,6 +2895,138 @@ public partial class MainWindow : Window
     {
         _audioService.ToggleMicrophoneMute();
         UpdateSlidersAndMuteUi();
+    }
+
+    private void OnOpenSettingsClick(object sender, RoutedEventArgs e)
+    {
+        OpenSettingsWindow();
+    }
+
+    private void OnBluetoothQuickClick(object sender, RoutedEventArgs e)
+    {
+        HardwareTelemetryService.OpenWindowsBluetoothSettings();
+    }
+
+    private async void OnBluetoothQuickRightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        await _hardwareService.ToggleBluetoothRadioAsync();
+        _hardwareService.RefreshFullTelemetry(emitToasts: false);
+        UpdateSlidersAndMuteUi();
+        UpdateHardwareUi();
+        _settingsWindow?.RefreshBluetoothCard();
+    }
+
+    private void OpenSettingsWindow(int categoryIndex = 0)
+    {
+        try
+        {
+            if (_settingsWindow == null || !_settingsWindow.IsLoaded)
+            {
+                _settingsWindow = new SettingsWindow(
+                    _settingsService,
+                    _updateService,
+                    _hardwareService,
+                    _todoAndWaterService,
+                    _fileShelfService);
+                _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+                _settingsWindow.SelectCategory(categoryIndex);
+                _settingsWindow.Show();
+                _settingsWindow.Activate();
+            }
+            else
+            {
+                if (_settingsWindow.WindowState == WindowState.Minimized)
+                {
+                    _settingsWindow.WindowState = WindowState.Normal;
+                }
+                _settingsWindow.SelectCategory(categoryIndex);
+                _settingsWindow.Activate();
+                _settingsWindow.Focus();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("OpenSettingsWindow", "Failed to open SettingsWindow", ex);
+        }
+    }
+
+    private void ApplyAppSettings()
+    {
+        try
+        {
+            // 1. Notch Scale (Auto / 100% / 115% / 130% / 150%)
+            double targetScale = _settingsService.EffectiveNotchScale;
+            if (Math.Abs(targetScale - _lastAppliedScale) > 0.005)
+            {
+                _lastAppliedScale = targetScale;
+                var scaleAnim = new DoubleAnimation(targetScale, TimeSpan.FromMilliseconds(240))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                };
+                NotchMasterScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
+                NotchMasterScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+            }
+
+            // 2. Contour Rim & Accent Theme
+            UnifiedNotchRimPath.Visibility = _settingsService.ShowContourRim ? Visibility.Visible : Visibility.Collapsed;
+
+            if (_settingsService.AccentTheme != "Auto")
+            {
+                Color themeColor = _settingsService.AccentTheme switch
+                {
+                    "Green" => Color.FromRgb(34, 197, 94),
+                    "Purple" => Color.FromRgb(168, 85, 247),
+                    "Orange" => Color.FromRgb(249, 115, 22),
+                    "Rose" => Color.FromRgb(244, 63, 94),
+                    _ => Color.FromRgb(56, 189, 248)
+                };
+                AmbientGlowBrush.Color = themeColor;
+                TuckedAccentBar.Background = new SolidColorBrush(themeColor);
+            }
+            else if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
+            {
+                ApplyDominantColor(_mediaService.CurrentTrack.DominantColor);
+            }
+
+            // 3. Pomodoro & Water defaults
+            _pomodoroService.DefaultFocusMinutes = _settingsService.DefaultFocusMinutes;
+            _pomodoroService.DefaultBreakMinutes = _settingsService.DefaultBreakMinutes;
+            if (!_pomodoroService.IsRunning)
+            {
+                _pomodoroService.Reset(
+                    _pomodoroService.IsBreakMode ? _settingsService.DefaultBreakMinutes : _settingsService.DefaultFocusMinutes,
+                    isBreak: _pomodoroService.IsBreakMode);
+            }
+            _todoAndWaterService.SetWaterTargetLiters(_settingsService.WaterDailyTargetLiters);
+
+            // 4. Auto-Simpan state
+            _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
+            if (_settingsService.AutoTuckEnabled && !_stateMachine.IsHovered && !_stateMachine.IsPinnedExpanded && !_stateMachine.IsMediaActive)
+            {
+                _autoTuckTimer.Stop();
+                _autoTuckTimer.Interval = TimeSpan.FromSeconds(_settingsService.IdleCycleSeconds);
+                _autoTuckTimer.Start();
+            }
+            else if (!_settingsService.AutoTuckEnabled)
+            {
+                _autoTuckTimer.Stop();
+                _stateMachine.SetAutoTucked(false);
+            }
+
+            // 5. Reposition & Refresh UI
+            PositionTopCenter();
+            UpdateHardwareUi();
+            UpdatePomodoroAndClockUi();
+            UpdateTodoAndWaterUi();
+            UpdateSlidersAndMuteUi();
+            UpdateMediaAndLyricsUi();
+            EnsureRenderLoopRunning();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("ApplyAppSettings", "Error applying app settings", ex);
+        }
     }
 
     private void OnOpenLogClick(object sender, RoutedEventArgs e)

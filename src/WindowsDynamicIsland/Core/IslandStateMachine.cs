@@ -50,6 +50,7 @@ public sealed class IslandStateMachine
     public bool IsTuckedMode { get; private set; }
     public bool IsAutoTuckEnabled { get; private set; } = true;
     public bool IsAutoTucked { get; private set; } = false;
+    public bool IsMinimalNotch { get; private set; } = false;
 
     // Dynamic content sizing inputs so the notch breathes organically
     public double DynamicCompactWidth { get; private set; } = 320;
@@ -96,7 +97,9 @@ public sealed class IslandStateMachine
 
     public void UpdateDynamicIdleWidth(bool hasExtraIndicators)
     {
-        double target = hasExtraIndicators ? 296 : 268;
+        double target = IsMinimalNotch
+            ? (hasExtraIndicators ? 218 : 186)
+            : (hasExtraIndicators ? 296 : 268);
         if (Math.Abs(target - DynamicIdleWidth) > 1.0)
         {
             DynamicIdleWidth = target;
@@ -105,6 +108,14 @@ public sealed class IslandStateMachine
                 StateChanged?.Invoke(CurrentState, ActiveTab);
             }
         }
+    }
+
+    public void SetMinimalNotch(bool minimal, bool hasExtraIndicators)
+    {
+        if (IsMinimalNotch == minimal) return;
+        IsMinimalNotch = minimal;
+        UpdateDynamicIdleWidth(hasExtraIndicators);
+        StateChanged?.Invoke(CurrentState, ActiveTab);
     }
 
     public void UpdateShelfCount(int count)

@@ -157,6 +157,15 @@ public sealed class TodoAndWaterService
         DataChanged?.Invoke();
     }
 
+    public void SetWaterTargetLiters(double targetLiters)
+    {
+        double clamped = Math.Round(Math.Clamp(targetLiters, 0.5, 5.0), 2);
+        if (Math.Abs(_data.WaterTargetLiters - clamped) < 0.01) return;
+        _data.WaterTargetLiters = clamped;
+        SaveData();
+        DataChanged?.Invoke();
+    }
+
     public void ResetWater()
     {
         _data.WaterCurrentLiters = 0.0;

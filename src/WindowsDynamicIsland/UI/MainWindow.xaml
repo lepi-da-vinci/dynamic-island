@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Windows Dynamic Island"
         Icon="pack://application:,,,/Assets/app_icon.ico"
-        Width="760"
-        Height="310"
+        Width="1140"
+        Height="465"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="{x:Null}"
@@ -22,8 +22,16 @@
           VerticalAlignment="Top"
           MouseMove="OnRootCanvasMouseMove">
 
-        <!-- UNIFIED NOTCH MASTER CONTAINER (Single Continuous Mesh, Zero Gaps, 760px Wide) -->
-        <Grid x:Name="UnifiedMasterGrid" HorizontalAlignment="Left" VerticalAlignment="Top" Width="760" Height="310">
+        <!-- UNIFIED NOTCH MASTER CONTAINER (Single Continuous Mesh, Zero Gaps, 760px Base Width, Scalable up to 150%) -->
+        <Grid x:Name="UnifiedMasterGrid"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Top"
+              Width="760"
+              Height="310"
+              RenderTransformOrigin="0.5,0">
+            <Grid.RenderTransform>
+                <ScaleTransform x:Name="NotchMasterScale" ScaleX="1.0" ScaleY="1.0"/>
+            </Grid.RenderTransform>
 
             <!-- Soft Ambient Glow Behind the Unified Notch (Dynamically sized and positioned) -->
             <Border x:Name="AmbientGlowBorder"
@@ -201,36 +209,38 @@
 
                         <!-- Left Wing: Date + Clock (Normal) or Focus Countdown Pill (When Pomodoro running) -->
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <!-- Focus Countdown Badge (Shown only when Pomodoro is actively running) -->
+                            <!-- Focus Countdown Badge with Circular Ring (Matches Reference Image 1!) -->
                             <Border x:Name="IdlePomodoroCountdownBadge"
-                                    Background="#22EF4444"
-                                    BorderBrush="#40EF4444"
+                                    Background="#1E22C55E"
+                                    BorderBrush="#4022C55E"
                                     BorderThickness="1"
-                                    CornerRadius="7"
+                                    CornerRadius="8"
                                     Padding="5.5,2"
                                     Margin="0,0,7,0"
                                     VerticalAlignment="Center"
                                     Visibility="Collapsed">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Path Data="{StaticResource GeomFocusTimer}"
-                                          Width="8.5" Height="8.5"
-                                          Fill="#EF4444"
-                                          Stretch="Uniform"
-                                          Margin="0,0,4,0"
-                                          VerticalAlignment="Center"/>
+                                    <Grid Width="13" Height="13" Margin="0,0,5,0" VerticalAlignment="Center">
+                                        <Ellipse Width="13" Height="13" Stroke="#28FFFFFF" StrokeThickness="2"/>
+                                        <Path x:Name="IdlePomodoroRingPath"
+                                              Stroke="#22C55E"
+                                              StrokeThickness="2"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"/>
+                                    </Grid>
                                     <TextBlock x:Name="IdlePomodoroCountdownText"
                                                Text="24:58"
-                                               Foreground="#EF4444"
-                                               FontSize="10"
+                                               Foreground="#F8FAFC"
+                                               FontSize="10.5"
                                                FontWeight="Bold"
                                                FontFamily="Segoe UI Variable Display, Consolas, Segoe UI"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
 
-                            <!-- Clean Date Label (e.g. 25 Okt) -->
+                            <!-- Clean Date Label (e.g. 28 Okt) -->
                             <TextBlock x:Name="IdleDateText"
-                                       Text="25 Okt"
+                                       Text="28 Okt"
                                        Foreground="#94A3B8"
                                        FontSize="11"
                                        FontWeight="SemiBold"
@@ -247,13 +257,14 @@
                                        VerticalAlignment="Center"/>
                         </StackPanel>
 
-                        <!-- Center Zone: Apple TrueDepth Camera Lens Housing + Live Privacy & Todo Indicators -->
+                        <!-- Center Zone: Apple TrueDepth Camera Lens Housing + Island Mascot + Live Privacy & Todo Indicators -->
                         <StackPanel Grid.Column="1"
                                     Orientation="Horizontal"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center">
                             <!-- Subtle Apple TrueDepth Optical Lens Ring -->
-                            <Border Width="24" Height="13"
+                            <Border x:Name="IdleTrueDepthSensorBorder"
+                                    Width="24" Height="13"
                                     CornerRadius="6.5"
                                     Background="#0BFFFFFF"
                                     BorderBrush="#19FFFFFF"
@@ -272,6 +283,24 @@
                                                  Margin="1.4,1.2,0,0"/>
                                     </Border>
                                 </Grid>
+                            </Border>
+
+                            <!-- Island Mascot Companion ("A little friend that lives in the notch") -->
+                            <Border x:Name="IdleMascotBorder"
+                                    Background="#2038BDF8"
+                                    BorderBrush="#4038BDF8"
+                                    BorderThickness="1"
+                                    CornerRadius="7"
+                                    Padding="4.5,1.5"
+                                    Margin="5,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Visibility="Collapsed"
+                                    ToolTip="Island Mascot Aktif">
+                                <Path Data="{StaticResource GeomMascotCat}"
+                                      Width="12.5" Height="12.5"
+                                      Stretch="Uniform"
+                                      Fill="#38BDF8"
+                                      VerticalAlignment="Center"/>
                             </Border>
 
                             <!-- Live Task Progress Micro-Pill (Shown when tasks exist) -->
@@ -700,7 +729,7 @@
                                         BorderThickness="1"
                                         CornerRadius="7"
                                         Padding="6,2.5"
-                                        Margin="0,0,6,0"
+                                        Margin="0,0,5,0"
                                         VerticalAlignment="Center">
                                     <TextBlock x:Name="ExpandedClockBadge"
                                                Text="14:25"
@@ -711,7 +740,18 @@
                                                VerticalAlignment="Center"/>
                                 </Border>
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="9,4"
+                                        Padding="7,4"
+                                        Margin="0,0,5,0"
+                                        ToolTip="Buka Pengaturan Dynamic Island (System Settings)"
+                                        Click="OnOpenSettingsClick">
+                                    <Path Data="{StaticResource GeomSettingsGear}"
+                                          Width="11" Height="11"
+                                          Stretch="Uniform"
+                                          Fill="#38BDF8"
+                                          VerticalAlignment="Center"/>
+                                </Button>
+                                <Button Style="{StaticResource IslandIconButtonStyle}"
+                                        Padding="8.5,4"
                                         ToolTip="Lipat ke bibir atas layar agar tab/tombol aplikasi di belakangnya bisa diklik"
                                         Click="OnManualTuckClick">
                                     <StackPanel Orientation="Horizontal">
@@ -1976,25 +2016,25 @@
                                 </Grid>
                             </Border>
 
-                            <!-- Row 3: Sound Mute, Mic Mute, Tuck & Exit Buttons with Bespoke Vector Icons -->
+                            <!-- Row 3: Sound Mute, Mic Mute, Bluetooth, Pengaturan, Simpan & Exit Buttons with Bespoke Vector Icons -->
                             <WrapPanel Grid.Row="3" Orientation="Horizontal">
                                 <Button x:Name="ToggleMuteBtn"
                                         Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="11,6"
-                                        Margin="0,0,6,0"
+                                        Padding="9.5,5.5"
+                                        Margin="0,0,5,0"
                                         ToolTip="Mute / Unmute Suara Output Sistem"
                                         Click="OnToggleMuteClick">
                                     <StackPanel Orientation="Horizontal">
                                         <Path x:Name="ToggleMuteIconPath"
                                               Data="{StaticResource GeomSpeakerOn}"
-                                              Width="11.5" Height="11.5"
+                                              Width="11" Height="11"
                                               Stretch="Uniform"
                                               Fill="#38BDF8"
-                                              Margin="0,0,5.5,0"
+                                              Margin="0,0,4.5,0"
                                               VerticalAlignment="Center"/>
                                         <TextBlock x:Name="ToggleMuteText"
                                                    Text="Sound: ON"
-                                                   FontSize="11"
+                                                   FontSize="10.5"
                                                    FontWeight="SemiBold"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -2002,62 +2042,102 @@
 
                                 <Button x:Name="ToggleMicMuteBtn"
                                         Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="11,6"
-                                        Margin="0,0,6,0"
+                                        Padding="9.5,5.5"
+                                        Margin="0,0,5,0"
                                         ToolTip="Mute / Unmute Mikrofon Secara Global"
                                         Click="OnToggleMicMuteClick">
                                     <StackPanel Orientation="Horizontal">
                                         <Path x:Name="ToggleMicIconPath"
                                               Data="{StaticResource GeomMicOn}"
-                                              Width="11.5" Height="11.5"
+                                              Width="11" Height="11"
                                               Stretch="Uniform"
                                               Fill="#22C55E"
-                                              Margin="0,0,5.5,0"
+                                              Margin="0,0,4.5,0"
                                               VerticalAlignment="Center"/>
                                         <TextBlock x:Name="ToggleMicText"
                                                    Text="Mic: ON"
-                                                   FontSize="11"
+                                                   FontSize="10.5"
                                                    FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="SysBluetoothBtn"
+                                        Style="{StaticResource IslandIconButtonStyle}"
+                                        Padding="9.5,5.5"
+                                        Margin="0,0,5,0"
+                                        ToolTip="Klik: Pair &amp; Pengaturan Bluetooth • Klik Kanan: Matikan/Nyalakan Radio Bluetooth"
+                                        Click="OnBluetoothQuickClick"
+                                        MouseRightButtonUp="OnBluetoothQuickRightClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path x:Name="SysBluetoothIconPath"
+                                              Data="{StaticResource GeomBluetooth}"
+                                              Width="11" Height="11"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              Margin="0,0,4.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="SysBluetoothBtnText"
+                                                   Text="Bluetooth"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="OpenSettingsBtn"
+                                        Style="{StaticResource IslandIconButtonStyle}"
+                                        Background="#2238BDF8"
+                                        BorderBrush="#4538BDF8"
+                                        Padding="10,5.5"
+                                        Margin="0,0,5,0"
+                                        ToolTip="Buka Jendela Pengaturan Lengkap (macOS System Settings)"
+                                        Click="OnOpenSettingsClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource GeomSettingsGear}"
+                                              Width="11" Height="11"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              Margin="0,0,4.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock Text="Pengaturan"
+                                                   Foreground="#38BDF8"
+                                                   FontSize="10.5"
+                                                   FontWeight="Bold"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
 
                                 <Button x:Name="ToggleAutoTuckBtn"
+                                        Visibility="Collapsed"
                                         Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="11,6"
-                                        Margin="0,0,6,0"
-                                        ToolTip="Otomatis bergantian simpan (10s) dan tampil default saat idle"
+                                        Padding="9.5,5.5"
+                                        Margin="0,0,5,0"
                                         Click="OnToggleAutoTuckClick">
                                     <StackPanel Orientation="Horizontal">
                                         <Path x:Name="ToggleAutoTuckIconPath"
                                               Data="{StaticResource GeomChevronUp}"
-                                              Width="10.5" Height="10.5"
+                                              Width="10" Height="10"
                                               Stretch="Uniform"
-                                              Fill="#22C55E"
-                                              Margin="0,0,5.5,0"
-                                              VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="ToggleAutoTuckText"
-                                                   Text="Auto-Simpan (10s): ON"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"/>
+                                              Fill="#22C55E"/>
+                                        <TextBlock x:Name="ToggleAutoTuckText" Text="Auto-Simpan"/>
                                     </StackPanel>
                                 </Button>
 
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="11,6"
-                                        Margin="0,0,6,0"
+                                        Padding="9.5,5.5"
+                                        Margin="0,0,5,0"
                                         ToolTip="Lipat pulau ke bibir atas layar"
                                         Click="OnManualTuckClick">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="{StaticResource GeomChevronUp}"
-                                              Width="10.5" Height="10.5"
+                                              Width="10" Height="10"
                                               Stretch="Uniform"
                                               Fill="#CBD5E1"
-                                              Margin="0,0,4.5,0"
+                                              Margin="0,0,4,0"
                                               VerticalAlignment="Center"/>
                                         <TextBlock Text="Simpan"
-                                                   FontSize="11"
+                                                   FontSize="10.5"
                                                    FontWeight="SemiBold"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -2065,36 +2145,24 @@
 
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
                                         Visibility="Collapsed"
-                                        Padding="11,6"
-                                        Margin="0,0,6,0"
-                                        ToolTip="Buka file log error dan diagnostik lengkap"
+                                        Padding="9.5,5.5"
+                                        Margin="0,0,5,0"
                                         Click="OnOpenLogClick">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Data="{StaticResource GeomTerminalLog}"
-                                              Width="10.5" Height="10.5"
-                                              Stretch="Uniform"
-                                              Fill="#38BDF8"
-                                              Margin="0,0,4.5,0"
-                                              VerticalAlignment="Center"/>
-                                        <TextBlock Text="Log"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"/>
-                                    </StackPanel>
+                                    <TextBlock Text="Log"/>
                                 </Button>
 
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="11,6"
+                                        Padding="9.5,5.5"
                                         Click="OnExitAppClick">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="{StaticResource GeomClosePower}"
-                                              Width="10.5" Height="10.5"
+                                              Width="10" Height="10"
                                               Stretch="Uniform"
                                               Fill="#F87171"
-                                              Margin="0,0,4.5,0"
+                                              Margin="0,0,4,0"
                                               VerticalAlignment="Center"/>
                                         <TextBlock Text="Keluar"
-                                                   FontSize="11"
+                                                   FontSize="10.5"
                                                    FontWeight="SemiBold"
                                                    Foreground="#F87171"
                                                    VerticalAlignment="Center"/>

@@ -13,9 +13,9 @@
     <OptimizationPreference>Speed</OptimizationPreference>
     <Product>Windows Dynamic Island</Product>
     <Company>Lepi Da Vinci</Company>
-    <Version>1.4.7</Version>
-    <FileVersion>1.4.7.0</FileVersion>
-    <AssemblyVersion>1.4.7.0</AssemblyVersion>
+    <Version>1.5.0</Version>
+    <FileVersion>1.5.0.0</FileVersion>
+    <AssemblyVersion>1.5.0.0</AssemblyVersion>
     <Description>Native Dynamic Island for Windows 10 and 11</Description>
   </PropertyGroup>
 
