@@ -337,4 +337,59 @@ public static class Win32Interop
     public static extern IntPtr LoadIcon(IntPtr hInstance, IntPtr lpIconName);
 
     public static readonly IntPtr IDI_APPLICATION = new(32512);
+
+    // System CPU & Physical RAM Telemetry (Zero-Overhead Native Win32)
+    [StructLayout(LayoutKind.Sequential)]
+    public struct FILETIME
+    {
+        public uint dwLowDateTime;
+        public uint dwHighDateTime;
+
+        public ulong ToUInt64() => ((ulong)dwHighDateTime << 32) | dwLowDateTime;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool GetSystemTimes(out FILETIME lpIdleTime, out FILETIME lpKernelTime, out FILETIME lpUserTime);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    public struct MEMORYSTATUSEX
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+    // SHGetFileInfo for extracting icons from .exe, .lnk, and folders
+    public const uint SHGFI_ICON = 0x000000100;
+    public const uint SHGFI_LARGEICON = 0x000000000;
+    public const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct SHFILEINFO
+    {
+        public IntPtr hIcon;
+        public int iIcon;
+        public uint dwAttributes;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string szDisplayName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+        public string szTypeName;
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr SHGetFileInfo(
+        string pszPath,
+        uint dwFileAttributes,
+        ref SHFILEINFO psfi,
+        uint cbFileInfo,
+        uint uFlags);
 }

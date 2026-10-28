@@ -20,6 +20,8 @@ public sealed class AppSettingsData
     public bool ShowTabMedia { get; set; } = true;
     public bool ShowTabTodo { get; set; } = true;
     public bool ShowTabPomodoro { get; set; } = true;
+    public bool ShowTabShortcuts { get; set; } = true;
+    public bool ShowTabPerformance { get; set; } = true;
     public bool ShowTabShelf { get; set; } = true;
 
     // Display & Screenshot Mode
@@ -29,8 +31,12 @@ public sealed class AppSettingsData
     public int TopOffsetPx { get; set; } = 0;
     public int TopEdgeHoverSensitivityMs { get; set; } = 60;
 
-    // Appearance
-    public string AccentTheme { get; set; } = "Auto"; // Auto, Cyan, Green, Purple, Orange, Rose
+    // Appearance & Design Themes
+    public string IslandSurfaceTheme { get; set; } = "OledBlack"; // OledBlack, MidnightCarbon, FrostedGraphite, CyberMatrix, RoyalAmethyst, CrimsonObsidian
+    public string AccentTheme { get; set; } = "Auto"; // Auto, Cyan, Green, Purple, Orange, Rose, Gold, White
+    public string NotchCornerStyle { get; set; } = "Squircle"; // Squircle, UltraPill, Sharp
+    public string RimGlowStyle { get; set; } = "Subtle"; // Subtle, AccentNeon, Hidden
+    public double NotchBackgroundOpacity { get; set; } = 1.0; // 1.0, 0.94, 0.86
     public double GlowIntensity { get; set; } = 1.0; // 0.0, 0.5, 1.0, 1.4
     public bool ShowContourRim { get; set; } = true;
 
@@ -199,13 +205,25 @@ public sealed class AppSettingsService
         }
     }
 
+    private int EnabledTabCount()
+    {
+        int count = 0;
+        if (_data.ShowTabMedia) count++;
+        if (_data.ShowTabTodo) count++;
+        if (_data.ShowTabPomodoro) count++;
+        if (_data.ShowTabShortcuts) count++;
+        if (_data.ShowTabPerformance) count++;
+        if (_data.ShowTabShelf) count++;
+        return count;
+    }
+
     public bool ShowTabMedia
     {
         get => _data.ShowTabMedia;
         set
         {
             if (_data.ShowTabMedia == value) return;
-            if (!value && !_data.ShowTabTodo && !_data.ShowTabPomodoro && !_data.ShowTabShelf) return;
+            if (!value && EnabledTabCount() <= 1) return;
             _data.ShowTabMedia = value;
             Save();
             SettingsChanged?.Invoke();
@@ -218,7 +236,7 @@ public sealed class AppSettingsService
         set
         {
             if (_data.ShowTabTodo == value) return;
-            if (!value && !_data.ShowTabMedia && !_data.ShowTabPomodoro && !_data.ShowTabShelf) return;
+            if (!value && EnabledTabCount() <= 1) return;
             _data.ShowTabTodo = value;
             Save();
             SettingsChanged?.Invoke();
@@ -231,8 +249,34 @@ public sealed class AppSettingsService
         set
         {
             if (_data.ShowTabPomodoro == value) return;
-            if (!value && !_data.ShowTabMedia && !_data.ShowTabTodo && !_data.ShowTabShelf) return;
+            if (!value && EnabledTabCount() <= 1) return;
             _data.ShowTabPomodoro = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool ShowTabShortcuts
+    {
+        get => _data.ShowTabShortcuts;
+        set
+        {
+            if (_data.ShowTabShortcuts == value) return;
+            if (!value && EnabledTabCount() <= 1) return;
+            _data.ShowTabShortcuts = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool ShowTabPerformance
+    {
+        get => _data.ShowTabPerformance;
+        set
+        {
+            if (_data.ShowTabPerformance == value) return;
+            if (!value && EnabledTabCount() <= 1) return;
+            _data.ShowTabPerformance = value;
             Save();
             SettingsChanged?.Invoke();
         }
@@ -244,7 +288,7 @@ public sealed class AppSettingsService
         set
         {
             if (_data.ShowTabShelf == value) return;
-            if (!value && !_data.ShowTabMedia && !_data.ShowTabTodo && !_data.ShowTabPomodoro) return;
+            if (!value && EnabledTabCount() <= 1) return;
             _data.ShowTabShelf = value;
             Save();
             SettingsChanged?.Invoke();
@@ -276,6 +320,18 @@ public sealed class AppSettingsService
         }
     }
 
+    public string IslandSurfaceTheme
+    {
+        get => string.IsNullOrWhiteSpace(_data.IslandSurfaceTheme) ? "OledBlack" : _data.IslandSurfaceTheme;
+        set
+        {
+            if (_data.IslandSurfaceTheme == value) return;
+            _data.IslandSurfaceTheme = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
     public string AccentTheme
     {
         get => _data.AccentTheme;
@@ -283,6 +339,43 @@ public sealed class AppSettingsService
         {
             if (_data.AccentTheme == value) return;
             _data.AccentTheme = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public string NotchCornerStyle
+    {
+        get => string.IsNullOrWhiteSpace(_data.NotchCornerStyle) ? "Squircle" : _data.NotchCornerStyle;
+        set
+        {
+            if (_data.NotchCornerStyle == value) return;
+            _data.NotchCornerStyle = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public string RimGlowStyle
+    {
+        get => string.IsNullOrWhiteSpace(_data.RimGlowStyle) ? "Subtle" : _data.RimGlowStyle;
+        set
+        {
+            if (_data.RimGlowStyle == value) return;
+            _data.RimGlowStyle = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public double NotchBackgroundOpacity
+    {
+        get => Math.Clamp(_data.NotchBackgroundOpacity, 0.75, 1.0);
+        set
+        {
+            double clamped = Math.Clamp(value, 0.75, 1.0);
+            if (Math.Abs(_data.NotchBackgroundOpacity - clamped) < 0.005) return;
+            _data.NotchBackgroundOpacity = clamped;
             Save();
             SettingsChanged?.Invoke();
         }

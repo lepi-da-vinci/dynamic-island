@@ -15,8 +15,10 @@ public enum IslandDashboardTab
     MediaLyrics = 0,
     TodoAndWater = 1,
     Pomodoro = 2,
-    FileShelf = 3,
-    SystemStatus = 4
+    AppShortcuts = 3,
+    PerformanceMonitor = 4,
+    FileShelf = 5,
+    SystemStatus = 6
 }
 
 public enum ToastSliderKind
@@ -58,7 +60,17 @@ public sealed class IslandStateMachine
     public double DynamicIdleWidth { get; private set; } = 268;
     public int ShelfItemCount { get; private set; }
 
+    public string CornerStyle { get; private set; } = "Squircle";
+
     public event Action<IslandVisualState, IslandDashboardTab>? StateChanged;
+
+    public void SetCornerStyle(string style)
+    {
+        if (string.IsNullOrWhiteSpace(style)) style = "Squircle";
+        if (CornerStyle == style) return;
+        CornerStyle = style;
+        StateChanged?.Invoke(CurrentState, ActiveTab);
+    }
 
     public (double BodyWidth, double Height, double BottomCornerRadius, double TopEarRadius, double GlowOpacity) GetTargetDimensions()
     {
@@ -73,14 +85,27 @@ public sealed class IslandStateMachine
             return (118, 5, 4, 4, 0.0);
         }
 
-        return CurrentState switch
+        var (w, h, bRad, eRad, glow) = CurrentState switch
         {
-            IslandVisualState.IdlePill => (DynamicIdleWidth, 37, 17, 13, 0.18),
-            IslandVisualState.CompactMedia => (DynamicCompactWidth, 40, 18, 14, 0.35),
-            IslandVisualState.ToastNotification => (388, 52, 22, 15, 0.48),
-            IslandVisualState.ExpandedDashboard => (540, 260, 26, 18, 0.48),
-            _ => (268, 37, 17, 13, 0.16)
+            IslandVisualState.IdlePill => (DynamicIdleWidth, 37.0, 17.0, 13.0, 0.18),
+            IslandVisualState.CompactMedia => (DynamicCompactWidth, 40.0, 18.0, 14.0, 0.35),
+            IslandVisualState.ToastNotification => (388.0, 52.0, 22.0, 15.0, 0.48),
+            IslandVisualState.ExpandedDashboard => (540.0, 260.0, 26.0, 18.0, 0.48),
+            _ => (268.0, 37.0, 17.0, 13.0, 0.16)
         };
+
+        if (CornerStyle == "UltraPill")
+        {
+            bRad = Math.Min(h * 0.62, bRad + 6.0);
+            eRad = Math.Min(h * 0.50, eRad + 4.0);
+        }
+        else if (CornerStyle == "Sharp")
+        {
+            bRad = Math.Max(8.0, bRad * 0.52);
+            eRad = Math.Max(5.0, eRad * 0.50);
+        }
+
+        return (w, h, bRad, eRad, glow);
     }
 
     public void UpdateDynamicCompactWidth(int lyricCharLength)

@@ -916,6 +916,56 @@
 
                                         <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
 
+                                        <!-- Tab Pintasan Aplikasi -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Tab Pintasan Aplikasi (App Shortcuts)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Tampilkan tab Launchpad pintasan cepat untuk membuka aplikasi tanpa Start Menu"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkTabShortcuts"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnTabVisibilityToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
+
+                                        <!-- Tab Monitor Performa -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Tab Monitor Performa (CPU / GPU / RAM)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Tampilkan tab pemantau performa perangkat real-time (CPU, GPU, RAM, Disk, Network)"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkTabPerformance"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnTabVisibilityToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
+
                                         <!-- Tab Rak File -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -1086,6 +1136,91 @@
                             <!-- PAGE 2: APPEARANCE                                    -->
                             <!-- ===================================================== -->
                             <StackPanel x:Name="PageAppearance" Visibility="Collapsed">
+                                <TextBlock Text="Tema Permukaan &amp; Material Dynamic Island"
+                                           Foreground="#64748B"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,0,6"/>
+
+                                <Border Background="#1F1F25"
+                                        BorderBrush="#1AFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="16,14"
+                                        Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <TextBlock Text="Island Surface Theme (Tema Desain Pulau)"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="Pilih material latar belakang dan nuansa permukaan kontur Dynamic Island"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="11"
+                                                   Margin="0,2,0,10"/>
+
+                                        <Border Background="#141418"
+                                                BorderBrush="#1AFFFFFF"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="2">
+                                            <UniformGrid Columns="3" Rows="2">
+                                                <RadioButton x:Name="SurfOledBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="OLED Pitch Black" Tag="OledBlack" Click="OnSurfaceThemeClicked"/>
+                                                <RadioButton x:Name="SurfCarbonBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Midnight Carbon" Tag="MidnightCarbon" Click="OnSurfaceThemeClicked"/>
+                                                <RadioButton x:Name="SurfGraphiteBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Frosted Graphite" Tag="FrostedGraphite" Click="OnSurfaceThemeClicked"/>
+                                                <RadioButton x:Name="SurfMatrixBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Cyber Matrix" Tag="CyberMatrix" Click="OnSurfaceThemeClicked"/>
+                                                <RadioButton x:Name="SurfAmethystBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Royal Amethyst" Tag="RoyalAmethyst" Click="OnSurfaceThemeClicked"/>
+                                                <RadioButton x:Name="SurfCrimsonBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Crimson Obsidian" Tag="CrimsonObsidian" Click="OnSurfaceThemeClicked"/>
+                                            </UniformGrid>
+                                        </Border>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <TextBlock Text="Notch Corner Contour (Bentuk Lengkungan Sudut)"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="Sesuaikan siluet lengkungan telinga atas dan sudut bawah Dynamic Island"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="11"
+                                                   Margin="0,2,0,10"/>
+
+                                        <Border Background="#141418"
+                                                BorderBrush="#1AFFFFFF"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="2">
+                                            <UniformGrid Columns="3">
+                                                <RadioButton x:Name="CornerSquircleBtn" GroupName="CornerStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="Apple Squircle" Tag="Squircle" Click="OnCornerStyleClicked"/>
+                                                <RadioButton x:Name="CornerUltraPillBtn" GroupName="CornerStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="Ultra Pill Bulat" Tag="UltraPill" Click="OnCornerStyleClicked"/>
+                                                <RadioButton x:Name="CornerSharpBtn" GroupName="CornerStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="Sharp Modern" Tag="Sharp" Click="OnCornerStyleClicked"/>
+                                            </UniformGrid>
+                                        </Border>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <TextBlock Text="Island Surface Opacity (Transparansi Kaca)"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="Tingkat kepekatan latar belakang OLED / Glassmorphism pada pulau"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="11"
+                                                   Margin="0,2,0,10"/>
+
+                                        <Border Background="#141418"
+                                                BorderBrush="#1AFFFFFF"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="2">
+                                            <UniformGrid Columns="3">
+                                                <RadioButton x:Name="Opacity100Btn" GroupName="NotchOpacity" Style="{StaticResource AppleSegmentOptionStyle}" Content="100% Solid OLED" Tag="1.0" Click="OnNotchOpacityClicked"/>
+                                                <RadioButton x:Name="Opacity94Btn" GroupName="NotchOpacity" Style="{StaticResource AppleSegmentOptionStyle}" Content="94% Deep Glass" Tag="0.94" Click="OnNotchOpacityClicked"/>
+                                                <RadioButton x:Name="Opacity86Btn" GroupName="NotchOpacity" Style="{StaticResource AppleSegmentOptionStyle}" Content="86% Translucent" Tag="0.86" Click="OnNotchOpacityClicked"/>
+                                            </UniformGrid>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
                                 <TextBlock Text="Glassmorphism &amp; Accent"
                                            Foreground="#64748B"
                                            FontSize="11.5"
@@ -1098,7 +1233,7 @@
                                         CornerRadius="10"
                                         Padding="16,14">
                                     <StackPanel>
-                                        <TextBlock Text="Accent Theme"
+                                        <TextBlock Text="Accent Theme (Warna Aksen)"
                                                    Foreground="#F8FAFC"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"/>
@@ -1112,13 +1247,38 @@
                                                 BorderThickness="1"
                                                 CornerRadius="8"
                                                 Padding="2">
-                                            <UniformGrid Columns="6">
+                                            <UniformGrid Columns="4" Rows="2">
                                                 <RadioButton x:Name="ThemeAutoBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Auto" Tag="Auto" Click="OnAccentThemeClicked"/>
                                                 <RadioButton x:Name="ThemeCyanBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Cyan" Tag="Cyan" Click="OnAccentThemeClicked"/>
                                                 <RadioButton x:Name="ThemeGreenBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Emerald" Tag="Green" Click="OnAccentThemeClicked"/>
                                                 <RadioButton x:Name="ThemePurpleBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Purple" Tag="Purple" Click="OnAccentThemeClicked"/>
                                                 <RadioButton x:Name="ThemeOrangeBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Amber" Tag="Orange" Click="OnAccentThemeClicked"/>
                                                 <RadioButton x:Name="ThemeRoseBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Rose" Tag="Rose" Click="OnAccentThemeClicked"/>
+                                                <RadioButton x:Name="ThemeGoldBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Gold" Tag="Gold" Click="OnAccentThemeClicked"/>
+                                                <RadioButton x:Name="ThemeWhiteBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Pure White" Tag="White" Click="OnAccentThemeClicked"/>
+                                            </UniformGrid>
+                                        </Border>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <TextBlock Text="Contour Rim Style (Gaya Garis Tepi)"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="Tampilan garis kilau kaca atau neon di sekeliling kontur pulau"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="11"
+                                                   Margin="0,2,0,10"/>
+
+                                        <Border Background="#141418"
+                                                BorderBrush="#1AFFFFFF"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="2">
+                                            <UniformGrid Columns="3">
+                                                <RadioButton x:Name="RimSubtleBtn" GroupName="RimStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="Kaca Tipis (Default)" Tag="Subtle" Click="OnRimStyleClicked"/>
+                                                <RadioButton x:Name="RimNeonBtn" GroupName="RimStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="Neon Warna Aksen" Tag="AccentNeon" Click="OnRimStyleClicked"/>
+                                                <RadioButton x:Name="RimHiddenBtn" GroupName="RimStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="Tanpa Garis Tepi" Tag="Hidden" Click="OnRimStyleClicked"/>
                                             </UniformGrid>
                                         </Border>
 

@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private readonly HardwareTelemetryService _hardwareService = new();
     private readonly NotificationListenerService _notificationService = new();
     private readonly FileShelfService _fileShelfService = new();
+    private readonly AppShortcutService _shortcutService = new();
     private readonly PomodoroTimerService _pomodoroService = new();
     private readonly TodoAndWaterService _todoAndWaterService = new();
     private readonly UpdateCheckerService _updateService = new();
@@ -197,6 +198,7 @@ public partial class MainWindow : Window
         _pomodoroService.TimerTicked += () => Dispatcher.InvokeAsync(UpdatePomodoroAndClockUi);
         _pomodoroService.TimerCompleted += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
         _todoAndWaterService.DataChanged += () => Dispatcher.InvokeAsync(UpdateTodoAndWaterUi);
+        _shortcutService.ShortcutsChanged += () => Dispatcher.InvokeAsync(UpdateShortcutsUi);
         _updateService.UpdateStatusChanged += res => Dispatcher.InvokeAsync(() => UpdateSystemUpdateUi(res));
         _updateService.UpdateNotificationTriggered += res => Dispatcher.InvokeAsync(() =>
         {
@@ -284,6 +286,8 @@ public partial class MainWindow : Window
             _brightnessService.PollExternalChanges();
             ApplyAppSettings();
             UpdateHardwareUi();
+            UpdatePerformanceUi();
+            UpdateShortcutsUi();
             UpdateSlidersAndMuteUi();
             UpdatePomodoroAndClockUi();
             UpdateTodoAndWaterUi();
@@ -914,6 +918,8 @@ public partial class MainWindow : Window
         MediaTabGrid.Visibility = tab == IslandDashboardTab.MediaLyrics ? Visibility.Visible : Visibility.Collapsed;
         TodoAndWaterTabGrid.Visibility = tab == IslandDashboardTab.TodoAndWater ? Visibility.Visible : Visibility.Collapsed;
         PomodoroTabGrid.Visibility = tab == IslandDashboardTab.Pomodoro ? Visibility.Visible : Visibility.Collapsed;
+        ShortcutsTabGrid.Visibility = tab == IslandDashboardTab.AppShortcuts ? Visibility.Visible : Visibility.Collapsed;
+        PerformanceTabGrid.Visibility = tab == IslandDashboardTab.PerformanceMonitor ? Visibility.Visible : Visibility.Collapsed;
         ShelfTabGrid.Visibility = tab == IslandDashboardTab.FileShelf ? Visibility.Visible : Visibility.Collapsed;
         SystemTabGrid.Visibility = tab == IslandDashboardTab.SystemStatus ? Visibility.Visible : Visibility.Collapsed;
 
@@ -934,6 +940,14 @@ public partial class MainWindow : Window
             {
                 UpdatePomodoroAndClockUi();
             }
+            else if (tab == IslandDashboardTab.AppShortcuts)
+            {
+                UpdateShortcutsUi();
+            }
+            else if (tab == IslandDashboardTab.PerformanceMonitor)
+            {
+                UpdatePerformanceUi();
+            }
         }
         else
         {
@@ -952,8 +966,9 @@ public partial class MainWindow : Window
         {
             if (newTab == _previousActiveTab) return;
 
-            int prevIdx = (int)_previousActiveTab;
-            int nextIdx = (int)newTab;
+            var enabled = GetEnabledTabs();
+            int prevIdx = enabled.IndexOf(_previousActiveTab);
+            int nextIdx = enabled.IndexOf(newTab);
             int direction;
 
             if (_explicitSlideDirection != 0)
@@ -961,11 +976,15 @@ public partial class MainWindow : Window
                 direction = _explicitSlideDirection;
                 _explicitSlideDirection = 0;
             }
+            else if (prevIdx >= 0 && nextIdx >= 0 && enabled.Count > 1)
+            {
+                if (prevIdx == enabled.Count - 1 && nextIdx == 0) direction = 1;
+                else if (prevIdx == 0 && nextIdx == enabled.Count - 1) direction = -1;
+                else direction = nextIdx > prevIdx ? 1 : -1;
+            }
             else
             {
-                if (prevIdx == 4 && nextIdx == 0) direction = 1;
-                else if (prevIdx == 0 && nextIdx == 4) direction = -1;
-                else direction = nextIdx > prevIdx ? 1 : -1;
+                direction = (int)newTab > (int)_previousActiveTab ? 1 : -1;
             }
 
             _previousActiveTab = newTab;
@@ -1013,6 +1032,8 @@ public partial class MainWindow : Window
         SetTabVisual(TabMediaBtn, _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics);
         SetTabVisual(TabTodoBtn, _stateMachine.ActiveTab == IslandDashboardTab.TodoAndWater);
         SetTabVisual(TabPomodoroBtn, _stateMachine.ActiveTab == IslandDashboardTab.Pomodoro);
+        SetTabVisual(TabShortcutsBtn, _stateMachine.ActiveTab == IslandDashboardTab.AppShortcuts);
+        SetTabVisual(TabPerformanceBtn, _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor);
         SetTabVisual(TabShelfBtn, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
         SetTabVisual(TabSystemBtn, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
 
@@ -1387,6 +1408,11 @@ public partial class MainWindow : Window
 
             _hardwareService.RefreshFullTelemetry();
             UpdateHardwareUi();
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor)
+            {
+                UpdatePerformanceUi();
+            }
 
             if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
                 _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
@@ -1839,7 +1865,15 @@ public partial class MainWindow : Window
 
     private void ApplyDominantColor(Color c)
     {
-        AmbientGlowBrush.Color = c;
+        if (_settingsService.AccentTheme == "Auto")
+        {
+            AmbientGlowBrush.Color = c;
+            TuckedAccentBar.Background = new SolidColorBrush(c);
+            if (_settingsService.RimGlowStyle == "AccentNeon")
+            {
+                UnifiedNotchRimPath.Stroke = new SolidColorBrush(Color.FromArgb(145, c.R, c.G, c.B));
+            }
+        }
         LyricsStageOrbBrush.Color = c;
         ActiveLyricGlowEffect.Color = c;
         AlbumShadowEffect.Color = c;
@@ -1847,7 +1881,6 @@ public partial class MainWindow : Window
         var barBrush = new SolidColorBrush(c);
         TimelineFillBorder.Background = barBrush;
         LyricLineProgressFill.Background = barBrush;
-        TuckedAccentBar.Background = barBrush;
 
         foreach (var rect in _waveRectangles)
         {
@@ -2461,10 +2494,12 @@ public partial class MainWindow : Window
 
     private List<IslandDashboardTab> GetEnabledTabs()
     {
-        var list = new List<IslandDashboardTab>(4);
+        var list = new List<IslandDashboardTab>(6);
         if (_settingsService.ShowTabMedia) list.Add(IslandDashboardTab.MediaLyrics);
         if (_settingsService.ShowTabTodo) list.Add(IslandDashboardTab.TodoAndWater);
         if (_settingsService.ShowTabPomodoro) list.Add(IslandDashboardTab.Pomodoro);
+        if (_settingsService.ShowTabShortcuts) list.Add(IslandDashboardTab.AppShortcuts);
+        if (_settingsService.ShowTabPerformance) list.Add(IslandDashboardTab.PerformanceMonitor);
         if (_settingsService.ShowTabShelf) list.Add(IslandDashboardTab.FileShelf);
         if (list.Count == 0) list.Add(IslandDashboardTab.MediaLyrics);
         return list;
@@ -2491,6 +2526,8 @@ public partial class MainWindow : Window
         IslandDashboardTab.MediaLyrics => ("GeomMusic", "Musik"),
         IslandDashboardTab.TodoAndWater => ("GeomChecklist", "Tugas"),
         IslandDashboardTab.Pomodoro => ("GeomFocusTimer", "Fokus"),
+        IslandDashboardTab.AppShortcuts => ("GeomAppGrid", "Pintasan"),
+        IslandDashboardTab.PerformanceMonitor => ("GeomCpuPulse", "Performa"),
         IslandDashboardTab.FileShelf => ("GeomFolderTray", "Rak File"),
         IslandDashboardTab.SystemStatus => ("GeomSliders", "Sistem"),
         _ => ("GeomMusic", "Musik")
@@ -2564,7 +2601,14 @@ public partial class MainWindow : Window
         if (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormats.Bitmap))
         {
             e.Effects = DragDropEffects.Copy;
-            if (_settingsService.AutoOpenShelfOnDrag)
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                _stateMachine.ActiveTab == IslandDashboardTab.AppShortcuts)
+            {
+                // Keep on AppShortcuts tab so user can drop .exe / .lnk shortcuts directly onto Pintasan!
+                _collapseDebounceTimer.Stop();
+                _autoTuckTimer.Stop();
+            }
+            else if (_settingsService.AutoOpenShelfOnDrag)
             {
                 _collapseDebounceTimer.Stop();
                 _autoTuckTimer.Stop();
@@ -2591,6 +2635,27 @@ public partial class MainWindow : Window
 
     private void OnIslandDrop(object sender, DragEventArgs e)
     {
+        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+            _stateMachine.ActiveTab == IslandDashboardTab.AppShortcuts &&
+            e.Data.GetDataPresent(DataFormats.FileDrop) &&
+            e.Data.GetData(DataFormats.FileDrop) is string[] droppedPaths)
+        {
+            int addedShortcuts = 0;
+            foreach (string p in droppedPaths)
+            {
+                if (_shortcutService.AddShortcutFromPath(p))
+                {
+                    addedShortcuts++;
+                }
+            }
+            if (addedShortcuts > 0)
+            {
+                UpdateShortcutsUi();
+                e.Handled = true;
+                return;
+            }
+        }
+
         int addedCount = 0;
 
         if (e.Data.GetDataPresent(DataFormats.FileDrop) &&
@@ -2664,6 +2729,16 @@ public partial class MainWindow : Window
     private void OnTabMediaClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.MediaLyrics);
     private void OnTabTodoClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.TodoAndWater);
     private void OnTabPomodoroClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.Pomodoro);
+    private void OnTabShortcutsClick(object sender, RoutedEventArgs e)
+    {
+        SwitchToTab(IslandDashboardTab.AppShortcuts);
+        UpdateShortcutsUi();
+    }
+    private void OnTabPerformanceClick(object sender, RoutedEventArgs e)
+    {
+        SwitchToTab(IslandDashboardTab.PerformanceMonitor);
+        UpdatePerformanceUi();
+    }
     private void OnTabShelfClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.FileShelf);
     private void OnTabSystemClick(object sender, RoutedEventArgs e)
     {
@@ -2688,6 +2763,8 @@ public partial class MainWindow : Window
     private void OnDot0Click(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.MediaLyrics);
     private void OnDot1Click(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.TodoAndWater);
     private void OnDot2Click(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.Pomodoro);
+    private void OnDotShortcutsClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.AppShortcuts);
+    private void OnDotPerfClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.PerformanceMonitor);
     private void OnDot3Click(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.FileShelf);
     private void OnDot4Click(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.SystemStatus);
 
@@ -2701,12 +2778,16 @@ public partial class MainWindow : Window
             PageDot0.Visibility = _settingsService.ShowTabMedia ? Visibility.Visible : Visibility.Collapsed;
             PageDot1.Visibility = _settingsService.ShowTabTodo ? Visibility.Visible : Visibility.Collapsed;
             PageDot2.Visibility = _settingsService.ShowTabPomodoro ? Visibility.Visible : Visibility.Collapsed;
+            PageDotShortcuts.Visibility = _settingsService.ShowTabShortcuts ? Visibility.Visible : Visibility.Collapsed;
+            PageDotPerf.Visibility = _settingsService.ShowTabPerformance ? Visibility.Visible : Visibility.Collapsed;
             PageDot3.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
             PageDot4.Visibility = Visibility.Collapsed;
 
             SetDot(PageDot0, _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics);
             SetDot(PageDot1, _stateMachine.ActiveTab == IslandDashboardTab.TodoAndWater);
             SetDot(PageDot2, _stateMachine.ActiveTab == IslandDashboardTab.Pomodoro);
+            SetDot(PageDotShortcuts, _stateMachine.ActiveTab == IslandDashboardTab.AppShortcuts);
+            SetDot(PageDotPerf, _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor);
             SetDot(PageDot3, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
             SetDot(PageDot4, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
 
@@ -2715,6 +2796,192 @@ public partial class MainWindow : Window
                 dot.Width = isActive ? 16 : 4;
                 dot.Background = isActive ? activeDotBrush : inactiveDotBrush;
             }
+        }
+        catch { }
+    }
+
+    // --- APP SHORTCUTS LAUNCHER TAB HANDLERS ---
+
+    private void UpdateShortcutsUi()
+    {
+        try
+        {
+            var list = _shortcutService.Items.ToList();
+            ShortcutsItemsControl.ItemsSource = list;
+            ShortcutsCountBadgeText.Text = $"{list.Count} App";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("UpdateShortcutsUi", "Error updating Shortcuts UI", ex);
+        }
+    }
+
+    private void OnShortcutCardClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe)
+        {
+            var item = fe.Tag as AppShortcutItem ?? fe.DataContext as AppShortcutItem;
+            if (item != null)
+            {
+                bool ok = _shortcutService.LaunchShortcut(item);
+                if (ok)
+                {
+                    // Gently collapse after launching app so user can immediately interact with the opened app
+                    _stateMachine.SetHovered(false);
+                }
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnRemoveShortcutClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is FrameworkElement fe && fe.Tag is string id)
+        {
+            _shortcutService.RemoveShortcut(id);
+            UpdateShortcutsUi();
+        }
+    }
+
+    private void OnResetShortcutsClick(object sender, RoutedEventArgs e)
+    {
+        _shortcutService.ResetDefaults();
+        UpdateShortcutsUi();
+    }
+
+    private void OnAddShortcutClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _collapseDebounceTimer.Stop();
+            _autoTuckTimer.Stop();
+
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Pilih Aplikasi atau Pintasan untuk Ditambahkan ke Dynamic Island",
+                Filter = "Aplikasi & Pintasan (*.exe;*.lnk;*.bat;*.cmd;*.url)|*.exe;*.lnk;*.bat;*.cmd;*.url|Semua File (*.*)|*.*",
+                Multiselect = true,
+                DereferenceLinks = false
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                foreach (string file in dlg.FileNames)
+                {
+                    _shortcutService.AddShortcutFromPath(file);
+                }
+                UpdateShortcutsUi();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("OnAddShortcutClick", "Error adding shortcut via dialog", ex);
+        }
+    }
+
+    // --- PERFORMANCE MONITOR TAB HANDLERS ---
+
+    private void UpdatePerformanceUi()
+    {
+        try
+        {
+            var hw = _hardwareService.Current;
+
+            PerfCpuPercentText.Text = $"{hw.CpuUsagePercent}%";
+            PerfCpuModelText.Text = hw.CpuModelShort;
+            PerfCpuCoresText.Text = $"{hw.CpuCoresCount} Logical Cores";
+            UpdateRingGaugePath(PerfCpuRingPath, hw.CpuUsagePercent / 100.0);
+
+            var cpuColor = hw.CpuUsagePercent >= 85
+                ? Color.FromRgb(251, 113, 133)
+                : hw.CpuUsagePercent >= 60
+                    ? Color.FromRgb(251, 191, 36)
+                    : Color.FromRgb(56, 189, 248);
+            var cpuBrush = new SolidColorBrush(cpuColor);
+            PerfCpuRingPath.Stroke = cpuBrush;
+            PerfCpuPercentText.Foreground = cpuBrush;
+
+            PerfGpuPercentText.Text = $"{hw.GpuUsagePercent}%";
+            PerfGpuModelText.Text = hw.GpuModelShort;
+            UpdateRingGaugePath(PerfGpuRingPath, hw.GpuUsagePercent / 100.0);
+
+            var gpuColor = hw.GpuUsagePercent >= 85
+                ? Color.FromRgb(251, 113, 133)
+                : hw.GpuUsagePercent >= 65
+                    ? Color.FromRgb(251, 191, 36)
+                    : Color.FromRgb(168, 85, 247);
+            var gpuBrush = new SolidColorBrush(gpuColor);
+            PerfGpuRingPath.Stroke = gpuBrush;
+            PerfGpuPercentText.Foreground = gpuBrush;
+
+            PerfRamPercentText.Text = $"{hw.RamUsagePercent}%";
+            PerfRamDetailText.Text = $"{hw.RamUsedGb:0.0} / {hw.RamTotalGb:0.0} GB";
+            PerfAppRamText.Text = $"Island: {hw.AppMemoryMb:0.0} MB";
+            UpdateRingGaugePath(PerfRamRingPath, hw.RamUsagePercent / 100.0);
+
+            var ramColor = hw.RamUsagePercent >= 88
+                ? Color.FromRgb(251, 113, 133)
+                : hw.RamUsagePercent >= 75
+                    ? Color.FromRgb(251, 191, 36)
+                    : Color.FromRgb(34, 197, 94);
+            var ramBrush = new SolidColorBrush(ramColor);
+            PerfRamRingPath.Stroke = ramBrush;
+            PerfRamPercentText.Foreground = ramBrush;
+
+            PerfNetNameText.Text = hw.IsNetworkConnected ? hw.NetworkName : "Offline";
+            PerfNetDownText.Text = hw.NetDownloadSpeedText;
+            PerfNetUpText.Text = hw.NetUploadSpeedText;
+
+            PerfDiskLabelText.Text = $"Disk C: ({hw.DiskUsedGb:0}/{hw.DiskTotalGb:0} GB)";
+            PerfUptimeText.Text = hw.SystemUptimeText;
+            PerfDiskBarFill.Width = 148.0 * Math.Clamp(hw.DiskUsagePercent / 100.0, 0.04, 1.0);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("UpdatePerformanceUi", "Error updating performance UI", ex);
+        }
+    }
+
+    private static void UpdateRingGaugePath(Path ringPath, double ratio)
+    {
+        try
+        {
+            double radius = 23.75;
+            double cx = 27.0;
+            double cy = 27.0;
+
+            double clamped = Math.Clamp(ratio, 0.02, 0.999);
+            double angleDeg = clamped * 360.0;
+            double angleRad = (angleDeg - 90.0) * Math.PI / 180.0;
+
+            double startX = cx;
+            double startY = cy - radius;
+            double endX = cx + radius * Math.Cos(angleRad);
+            double endY = cy + radius * Math.Sin(angleRad);
+            bool isLargeArc = angleDeg > 180.0;
+
+            var geom = new StreamGeometry();
+            using (var ctx = geom.Open())
+            {
+                ctx.BeginFigure(new Point(startX, startY), isFilled: false, isClosed: false);
+                ctx.ArcTo(new Point(endX, endY), new Size(radius, radius), 0, isLargeArc, SweepDirection.Clockwise, isStroked: true, isSmoothJoin: true);
+            }
+            geom.Freeze();
+            ringPath.Data = geom;
+        }
+        catch { }
+    }
+
+    private void OnOpenTaskManagerClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "taskmgr.exe",
+                UseShellExecute = true
+            });
         }
         catch { }
     }
@@ -3045,31 +3312,62 @@ public partial class MainWindow : Window
                 NotchMasterScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
             }
 
-            // 2. Contour Rim & Accent Theme
-            UnifiedNotchRimPath.Visibility = _settingsService.ShowContourRim ? Visibility.Visible : Visibility.Collapsed;
+            // 2. Island Surface Theme, Opacity, Corner Style, Contour Rim & Accent Theme
+            _stateMachine.SetCornerStyle(_settingsService.NotchCornerStyle);
+
+            byte surfaceAlpha = (byte)Math.Clamp((int)Math.Round(_settingsService.NotchBackgroundOpacity * 255.0), 200, 255);
+            Color baseSurface = _settingsService.IslandSurfaceTheme switch
+            {
+                "MidnightCarbon" => Color.FromArgb(surfaceAlpha, 9, 13, 22),
+                "FrostedGraphite" => Color.FromArgb(surfaceAlpha, 18, 19, 24),
+                "CyberMatrix" => Color.FromArgb(surfaceAlpha, 4, 18, 14),
+                "RoyalAmethyst" => Color.FromArgb(surfaceAlpha, 15, 8, 26),
+                "CrimsonObsidian" => Color.FromArgb(surfaceAlpha, 22, 7, 12),
+                _ => Color.FromArgb(surfaceAlpha, 0, 0, 0)
+            };
+            UnifiedNotchPath.Fill = new SolidColorBrush(baseSurface);
+
+            Color themeColor = _settingsService.AccentTheme switch
+            {
+                "Green" => Color.FromRgb(34, 197, 94),
+                "Purple" => Color.FromRgb(168, 85, 247),
+                "Orange" => Color.FromRgb(249, 115, 22),
+                "Rose" => Color.FromRgb(244, 63, 94),
+                "Gold" => Color.FromRgb(251, 191, 36),
+                "White" => Color.FromRgb(248, 250, 252),
+                _ => Color.FromRgb(56, 189, 248)
+            };
 
             if (_settingsService.AccentTheme != "Auto")
             {
-                Color themeColor = _settingsService.AccentTheme switch
-                {
-                    "Green" => Color.FromRgb(34, 197, 94),
-                    "Purple" => Color.FromRgb(168, 85, 247),
-                    "Orange" => Color.FromRgb(249, 115, 22),
-                    "Rose" => Color.FromRgb(244, 63, 94),
-                    _ => Color.FromRgb(56, 189, 248)
-                };
                 AmbientGlowBrush.Color = themeColor;
                 TuckedAccentBar.Background = new SolidColorBrush(themeColor);
             }
             else if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
             {
-                ApplyDominantColor(_mediaService.CurrentTrack.DominantColor);
+                themeColor = _mediaService.CurrentTrack.DominantColor;
+                ApplyDominantColor(themeColor);
+            }
+
+            bool showRim = _settingsService.ShowContourRim && _settingsService.RimGlowStyle != "Hidden";
+            UnifiedNotchRimPath.Visibility = showRim ? Visibility.Visible : Visibility.Collapsed;
+            if (_settingsService.RimGlowStyle == "AccentNeon")
+            {
+                UnifiedNotchRimPath.Stroke = new SolidColorBrush(Color.FromArgb(145, themeColor.R, themeColor.G, themeColor.B));
+                UnifiedNotchRimPath.StrokeThickness = 1.35;
+            }
+            else
+            {
+                UnifiedNotchRimPath.Stroke = new SolidColorBrush(Color.FromArgb(34, 255, 255, 255));
+                UnifiedNotchRimPath.StrokeThickness = 1.0;
             }
 
             // 2b. Customizable Notch Tabs & DWM Capture Shield
             TabMediaBtn.Visibility = _settingsService.ShowTabMedia ? Visibility.Visible : Visibility.Collapsed;
             TabTodoBtn.Visibility = _settingsService.ShowTabTodo ? Visibility.Visible : Visibility.Collapsed;
             TabPomodoroBtn.Visibility = _settingsService.ShowTabPomodoro ? Visibility.Visible : Visibility.Collapsed;
+            TabShortcutsBtn.Visibility = _settingsService.ShowTabShortcuts ? Visibility.Visible : Visibility.Collapsed;
+            TabPerformanceBtn.Visibility = _settingsService.ShowTabPerformance ? Visibility.Visible : Visibility.Collapsed;
             TabShelfBtn.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
             TabSystemBtn.Visibility = Visibility.Collapsed;
 

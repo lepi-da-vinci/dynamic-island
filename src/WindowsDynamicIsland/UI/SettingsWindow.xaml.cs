@@ -104,6 +104,8 @@ public partial class SettingsWindow : Window
             ChkTabMedia.IsChecked = _settings.ShowTabMedia;
             ChkTabTodo.IsChecked = _settings.ShowTabTodo;
             ChkTabPomodoro.IsChecked = _settings.ShowTabPomodoro;
+            ChkTabShortcuts.IsChecked = _settings.ShowTabShortcuts;
+            ChkTabPerformance.IsChecked = _settings.ShowTabPerformance;
             ChkTabShelf.IsChecked = _settings.ShowTabShelf;
 
             switch (_settings.NotchSizePercent)
@@ -137,6 +139,28 @@ public partial class SettingsWindow : Window
 
             // Page 2: Appearance
             ChkShowContourRim.IsChecked = _settings.ShowContourRim;
+
+            switch (_settings.IslandSurfaceTheme)
+            {
+                case "MidnightCarbon": SurfCarbonBtn.IsChecked = true; break;
+                case "FrostedGraphite": SurfGraphiteBtn.IsChecked = true; break;
+                case "CyberMatrix": SurfMatrixBtn.IsChecked = true; break;
+                case "RoyalAmethyst": SurfAmethystBtn.IsChecked = true; break;
+                case "CrimsonObsidian": SurfCrimsonBtn.IsChecked = true; break;
+                default: SurfOledBtn.IsChecked = true; break;
+            }
+
+            switch (_settings.NotchCornerStyle)
+            {
+                case "UltraPill": CornerUltraPillBtn.IsChecked = true; break;
+                case "Sharp": CornerSharpBtn.IsChecked = true; break;
+                default: CornerSquircleBtn.IsChecked = true; break;
+            }
+
+            if (_settings.NotchBackgroundOpacity <= 0.89) Opacity86Btn.IsChecked = true;
+            else if (_settings.NotchBackgroundOpacity <= 0.96) Opacity94Btn.IsChecked = true;
+            else Opacity100Btn.IsChecked = true;
+
             switch (_settings.AccentTheme)
             {
                 case "Cyan": ThemeCyanBtn.IsChecked = true; break;
@@ -144,7 +168,16 @@ public partial class SettingsWindow : Window
                 case "Purple": ThemePurpleBtn.IsChecked = true; break;
                 case "Orange": ThemeOrangeBtn.IsChecked = true; break;
                 case "Rose": ThemeRoseBtn.IsChecked = true; break;
+                case "Gold": ThemeGoldBtn.IsChecked = true; break;
+                case "White": ThemeWhiteBtn.IsChecked = true; break;
                 default: ThemeAutoBtn.IsChecked = true; break;
+            }
+
+            switch (_settings.RimGlowStyle)
+            {
+                case "AccentNeon": RimNeonBtn.IsChecked = true; break;
+                case "Hidden": RimHiddenBtn.IsChecked = true; break;
+                default: RimSubtleBtn.IsChecked = true; break;
             }
 
             if (_settings.GlowIntensity <= 0.05) GlowOffBtn.IsChecked = true;
@@ -285,10 +318,12 @@ public partial class SettingsWindow : Window
         bool media = ChkTabMedia.IsChecked == true;
         bool todo = ChkTabTodo.IsChecked == true;
         bool pomo = ChkTabPomodoro.IsChecked == true;
+        bool shortcuts = ChkTabShortcuts.IsChecked == true;
+        bool perf = ChkTabPerformance.IsChecked == true;
         bool shelf = ChkTabShelf.IsChecked == true;
 
         // Ensure at least 1 tab stays enabled
-        if (!media && !todo && !pomo && !shelf)
+        if (!media && !todo && !pomo && !shortcuts && !perf && !shelf)
         {
             if (sender is CheckBox cb)
             {
@@ -300,6 +335,8 @@ public partial class SettingsWindow : Window
         _settings.ShowTabMedia = media;
         _settings.ShowTabTodo = todo;
         _settings.ShowTabPomodoro = pomo;
+        _settings.ShowTabShortcuts = shortcuts;
+        _settings.ShowTabPerformance = perf;
         _settings.ShowTabShelf = shelf;
     }
 
@@ -368,7 +405,7 @@ public partial class SettingsWindow : Window
                 SettingsSysPrivacyIcon.Fill = safeBrush;
             }
 
-            SettingsSysMemoryText.Text = $"RAM: {hw.AppMemoryMb:F1} MB • 0% CPU Idle";
+            SettingsSysMemoryText.Text = $"RAM: {hw.AppMemoryMb:F1} MB • CPU {hw.CpuUsagePercent}%";
 
             // Quick Action Buttons
             SettingsMuteBtnIcon.Data = soundMuted
@@ -527,10 +564,47 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void OnSurfaceThemeClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string surf) return;
+        _settings.IslandSurfaceTheme = surf;
+    }
+
+    private void OnCornerStyleClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string corner) return;
+        _settings.NotchCornerStyle = corner;
+    }
+
+    private void OnNotchOpacityClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string tagStr) return;
+        if (double.TryParse(tagStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double op))
+        {
+            _settings.NotchBackgroundOpacity = op;
+        }
+    }
+
     private void OnAccentThemeClicked(object sender, RoutedEventArgs e)
     {
         if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string theme) return;
         _settings.AccentTheme = theme;
+    }
+
+    private void OnRimStyleClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string rim) return;
+        _settings.RimGlowStyle = rim;
+        if (rim == "Hidden")
+        {
+            ChkShowContourRim.IsChecked = false;
+            _settings.ShowContourRim = false;
+        }
+        else if (!_settings.ShowContourRim)
+        {
+            ChkShowContourRim.IsChecked = true;
+            _settings.ShowContourRim = true;
+        }
     }
 
     private void OnGlowIntensityClicked(object sender, RoutedEventArgs e)
