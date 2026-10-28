@@ -444,3 +444,4 @@ public partial class SettingsWindow : Window
         Close();
     }
 }
+
