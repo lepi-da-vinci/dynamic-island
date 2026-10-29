@@ -5,6 +5,7 @@ public enum IslandVisualState
     Hidden,
     TuckedTopEdge,
     IdlePill,
+    PinnedPerformancePill,
     CompactMedia,
     ToastNotification,
     ExpandedDashboard
@@ -47,6 +48,7 @@ public sealed class IslandStateMachine
 
     public bool IsHovered { get; private set; }
     public bool IsPinnedExpanded { get; private set; }
+    public bool IsPerformancePinned { get; private set; }
     public bool IsMediaActive { get; private set; }
     public bool IsFullScreenHidden { get; private set; }
     public bool IsScreenshotMode { get; private set; }
@@ -88,6 +90,7 @@ public sealed class IslandStateMachine
         var (w, h, bRad, eRad, glow) = CurrentState switch
         {
             IslandVisualState.IdlePill => (DynamicIdleWidth, 37.0, 17.0, 13.0, 0.18),
+            IslandVisualState.PinnedPerformancePill => (268.0, 37.0, 17.0, 13.0, 0.22),
             IslandVisualState.CompactMedia => (DynamicCompactWidth, 40.0, 18.0, 14.0, 0.35),
             IslandVisualState.ToastNotification => (388.0, 52.0, 22.0, 15.0, 0.48),
             IslandVisualState.ExpandedDashboard => (540.0, 260.0, 26.0, 18.0, 0.48),
@@ -236,6 +239,20 @@ public sealed class IslandStateMachine
         RecalculateState();
     }
 
+    public void SetPerformancePinned(bool pinned)
+    {
+        if (IsPerformancePinned == pinned) return;
+        IsPerformancePinned = pinned;
+        if (pinned)
+        {
+            IsTuckedMode = false;
+            IsAutoTucked = false;
+        }
+        RecalculateState();
+    }
+
+    public void TogglePerformancePinned() => SetPerformancePinned(!IsPerformancePinned);
+
     public void SetActiveTab(IslandDashboardTab tab)
     {
         ActiveTab = tab;
@@ -295,6 +312,12 @@ public sealed class IslandStateMachine
         else if (IsHovered || IsPinnedExpanded)
         {
             next = IslandVisualState.ExpandedDashboard;
+        }
+        else if (IsPerformancePinned)
+        {
+            // When performance monitor is pinned ("fitur pin jadi performanya bisa stay"),
+            // stay in the compact IdlePill-sized performance view without auto-tucking!
+            next = IslandVisualState.PinnedPerformancePill;
         }
         else if (IsMediaActive)
         {

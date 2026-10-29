@@ -901,9 +901,15 @@ public partial class MainWindow : Window
         }
 
         IdlePillPanel.Visibility = state == IslandVisualState.IdlePill ? Visibility.Visible : Visibility.Collapsed;
+        PinnedPerfPillPanel.Visibility = state == IslandVisualState.PinnedPerformancePill ? Visibility.Visible : Visibility.Collapsed;
         CompactMediaPanel.Visibility = state == IslandVisualState.CompactMedia ? Visibility.Visible : Visibility.Collapsed;
         ToastPanel.Visibility = state == IslandVisualState.ToastNotification ? Visibility.Visible : Visibility.Collapsed;
         ExpandedDashboardPanel.Visibility = state == IslandVisualState.ExpandedDashboard ? Visibility.Visible : Visibility.Collapsed;
+
+        if (state == IslandVisualState.PinnedPerformancePill)
+        {
+            UpdatePerformanceUi();
+        }
 
         double visibleOpacity = state == IslandVisualState.Hidden ? 0.0 : 1.0;
         IslandBorder.Opacity = visibleOpacity;
@@ -1408,8 +1414,9 @@ public partial class MainWindow : Window
 
             _hardwareService.RefreshFullTelemetry();
             UpdateHardwareUi();
-            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
-                _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor)
+            if (_stateMachine.CurrentState == IslandVisualState.PinnedPerformancePill ||
+                (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                 _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor))
             {
                 UpdatePerformanceUi();
             }
@@ -2565,7 +2572,7 @@ public partial class MainWindow : Window
 
     private void OnIslandMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (_stateMachine.CurrentState is IslandVisualState.CompactMedia or IslandVisualState.IdlePill)
+        if (_stateMachine.CurrentState is IslandVisualState.CompactMedia or IslandVisualState.IdlePill or IslandVisualState.PinnedPerformancePill)
         {
             _autoTuckTimer.Stop();
             _stateMachine.SetTuckedMode(true);
@@ -2933,13 +2940,55 @@ public partial class MainWindow : Window
             PerfNetDownText.Text = hw.NetDownloadSpeedText;
             PerfNetUpText.Text = hw.NetUploadSpeedText;
 
-            PerfDiskLabelText.Text = $"Disk C: ({hw.DiskUsedGb:0}/{hw.DiskTotalGb:0} GB)";
-            PerfUptimeText.Text = hw.SystemUptimeText;
-            PerfDiskBarFill.Width = 148.0 * Math.Clamp(hw.DiskUsagePercent / 100.0, 0.04, 1.0);
+            PerfDiskLabelText.Text = "Disk C:";
+            PerfUptimeText.Text = $"{hw.DiskUsagePercent}%";
+            PerfDiskBarFill.Width = 105.0 * Math.Clamp(hw.DiskUsagePercent / 100.0, 0.04, 1.0);
+
+            // Update Pinned Compact Performance Pill (same size as IdlePill)
+            PinPerfCpuText.Text = $"{hw.CpuUsagePercent}%";
+            PinPerfCpuText.Foreground = cpuBrush;
+            PinPerfGpuText.Text = $"{hw.GpuUsagePercent}%";
+            PinPerfGpuText.Foreground = gpuBrush;
+            PinPerfRamText.Text = $"{hw.RamUsagePercent}%";
+            PinPerfRamText.Foreground = ramBrush;
+            PinPerfNetText.Text = hw.NetDownloadSpeedText;
+
+            bool isPinned = _stateMachine.IsPerformancePinned;
+            var pinAccent = isPinned ? Color.FromRgb(56, 189, 248) : Color.FromRgb(148, 163, 184);
+            var pinBrush = new SolidColorBrush(pinAccent);
+            PinPerfToggleIcon.Fill = pinBrush;
+            PinPerfToggleText.Text = isPinned ? "Pin Stay: ON" : "Pin Stay: OFF";
+            PinPerfToggleText.Foreground = isPinned ? pinBrush : new SolidColorBrush(Color.FromRgb(226, 232, 240));
+            PinPerfToggleBtn.Background = new SolidColorBrush(
+                isPinned ? Color.FromArgb(40, 56, 189, 248) : Color.FromArgb(24, 255, 255, 255));
+            PinPerfToggleBtn.BorderBrush = new SolidColorBrush(
+                isPinned ? Color.FromArgb(90, 56, 189, 248) : Color.FromArgb(40, 255, 255, 255));
         }
         catch (Exception ex)
         {
             AppLogger.LogError("UpdatePerformanceUi", "Error updating performance UI", ex);
+        }
+    }
+
+    private void OnTogglePinPerformanceClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        _stateMachine.TogglePerformancePinned();
+        UpdatePerformanceUi();
+
+        if (_stateMachine.IsPerformancePinned)
+        {
+            // Collapse expanded dashboard into the compact IdlePill-sized Performance Pill so it stays on top!
+            _collapseDebounceTimer.Stop();
+            _autoTuckTimer.Stop();
+            _stateMachine.SetHovered(false);
+        }
+        else if (!_stateMachine.IsHovered && _settingsService.AutoTuckEnabled)
+        {
+            _stateMachine.SetAutoTucked(false);
+            _autoTuckTimer.Stop();
+            _autoTuckTimer.Interval = TimeSpan.FromSeconds(_settingsService.IdleCycleSeconds);
+            _autoTuckTimer.Start();
         }
     }
 
@@ -3243,19 +3292,19 @@ public partial class MainWindow : Window
         OpenSettingsWindow();
     }
 
-    private void OnBluetoothQuickClick(object sender, RoutedEventArgs e)
+    private async void OnBluetoothQuickClick(object sender, RoutedEventArgs e)
     {
-        HardwareTelemetryService.OpenWindowsBluetoothSettings();
-    }
-
-    private async void OnBluetoothQuickRightClick(object sender, MouseButtonEventArgs e)
-    {
-        e.Handled = true;
         await _hardwareService.ToggleBluetoothRadioAsync();
         _hardwareService.RefreshFullTelemetry(emitToasts: false);
         UpdateSlidersAndMuteUi();
         UpdateHardwareUi();
         _settingsWindow?.RefreshBluetoothCard();
+    }
+
+    private void OnBluetoothQuickRightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        HardwareTelemetryService.OpenWindowsBluetoothSettings();
     }
 
     private void OpenSettingsWindow(int categoryIndex = 0)

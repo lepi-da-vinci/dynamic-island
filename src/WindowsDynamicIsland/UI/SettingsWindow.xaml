@@ -577,8 +577,8 @@
                                             <Button Style="{StaticResource IslandIconButtonStyle}"
                                                     Padding="10,6"
                                                     Margin="0,0,6,0"
-                                                    ToolTip="Klik: Buka Pengaturan Pair Bluetooth • Klik Kanan: Matikan/Nyalakan Radio Bluetooth"
-                                                    Click="OnOpenBluetoothSettingsClick"
+                                                    ToolTip="Klik: Nyalakan / Matikan Radio Bluetooth • Klik Kanan: Buka Pengaturan Pair Bluetooth"
+                                                    Click="OnSettingsToggleBluetoothClick"
                                                     MouseRightButtonUp="OnSettingsBluetoothRightClick">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Path x:Name="SettingsBtBtnIcon"
@@ -589,7 +589,7 @@
                                                           Margin="0,0,5,0"
                                                           VerticalAlignment="Center"/>
                                                     <TextBlock x:Name="SettingsBtBtnText"
-                                                               Text="Bluetooth"
+                                                               Text="Bluetooth: ON"
                                                                FontSize="11"
                                                                FontWeight="SemiBold"
                                                                VerticalAlignment="Center"/>

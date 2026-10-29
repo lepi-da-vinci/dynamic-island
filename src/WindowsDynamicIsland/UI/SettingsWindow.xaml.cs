@@ -436,7 +436,7 @@ public partial class SettingsWindow : Window
                 ? (TryFindResource("GeomBluetooth") as Geometry ?? Geometry.Empty)
                 : (TryFindResource("GeomBluetoothOff") as Geometry ?? Geometry.Empty);
             SettingsBtBtnIcon.Fill = btBrush;
-            SettingsBtBtnText.Text = !btOn ? "BT: OFF" : (btConnected ? "BT: Aktif" : "Bluetooth");
+            SettingsBtBtnText.Text = !btOn ? "Bluetooth: OFF" : (btConnected ? "Bluetooth: Aktif" : "Bluetooth: ON");
             SettingsBtBtnText.Foreground = btBrush;
         }
         catch { }
@@ -518,13 +518,18 @@ public partial class SettingsWindow : Window
         RefreshSystemControlCenterCard();
     }
 
-    private async void OnSettingsBluetoothRightClick(object sender, MouseButtonEventArgs e)
+    private async void OnSettingsToggleBluetoothClick(object sender, RoutedEventArgs e)
     {
-        e.Handled = true;
         await _hardwareService.ToggleBluetoothRadioAsync();
         _hardwareService.RefreshFullTelemetry(emitToasts: false);
         RefreshSystemControlCenterCard();
         RefreshBluetoothCard();
+    }
+
+    private void OnSettingsBluetoothRightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        HardwareTelemetryService.OpenWindowsBluetoothSettings();
     }
 
     private void OnSettingsTuckIslandClick(object sender, RoutedEventArgs e)

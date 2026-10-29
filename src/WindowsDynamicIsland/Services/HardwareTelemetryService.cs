@@ -52,6 +52,8 @@ public sealed class HardwareStatusSnapshot
 public sealed class HardwareTelemetryService : IDisposable
 {
     private readonly Dictionary<string, string> _connectedBtDevices = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _missingBtPollCounts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTime> _lastBtToastTimeUtc = new(StringComparer.OrdinalIgnoreCase);
     private bool _btBaselineCaptured;
     private bool _isScanningBt;
     private string _lastAudioRenderDeviceId = string.Empty;
@@ -248,8 +250,8 @@ public sealed class HardwareTelemetryService : IDisposable
     }
 
     /// <summary>
-    /// Fast, non-blocking poll of currently connected Classic Bluetooth & BLE devices.
-    /// Queries only connected endpoints from OS cache (< 5ms) so connecting/disconnecting any BT device is caught reliably.
+    /// Fast, non-blocking poll of currently connected AND explicitly paired Bluetooth Audio & Peripheral devices.
+    /// Strictly filters out unpaired devices, raw BLE GATT background pings ("Perangkat BLE"), and phone RFCOMM probes ("S24 F").
     /// </summary>
     private async Task PollConnectedBluetoothDevicesAsync(bool emitToasts)
     {
@@ -260,67 +262,114 @@ public sealed class HardwareTelemetryService : IDisposable
         {
             var currentConnected = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            // 1. Classic Bluetooth connected devices (Headphones, Speakers, Controllers, Mice)
             string classicSelector = BluetoothDevice.GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus.Connected);
             var classicDevices = await DeviceInformation.FindAllAsync(classicSelector);
             foreach (var dev in classicDevices)
             {
-                string name = string.IsNullOrWhiteSpace(dev.Name) ? "Perangkat Bluetooth" : dev.Name.Trim();
-                currentConnected[dev.Id] = name;
-            }
+                string name = dev.Name?.Trim() ?? string.Empty;
+                if (!IsValidPairedBluetoothName(name)) continue;
 
-            // 2. Bluetooth LE connected devices (Modern TWS, BLE Mice/Keyboards)
-            string bleSelector = BluetoothLEDevice.GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus.Connected);
-            var bleDevices = await DeviceInformation.FindAllAsync(bleSelector);
-            foreach (var dev in bleDevices)
-            {
-                string name = string.IsNullOrWhiteSpace(dev.Name) ? "Perangkat BLE" : dev.Name.Trim();
-                // Avoid duplicate toast if the same device is already listed by name
-                if (!currentConnected.Values.Any(v => string.Equals(v, name, StringComparison.OrdinalIgnoreCase)))
+                try
                 {
-                    currentConnected[dev.Id] = name;
+                    using var btDev = await BluetoothDevice.FromIdAsync(dev.Id);
+                    if (btDev == null) continue;
+
+                    // 1. Must be explicitly paired by the user on this PC
+                    bool isPaired = (dev.Pairing?.IsPaired == true) ||
+                                    (btDev.DeviceInformation?.Pairing?.IsPaired == true);
+                    if (!isPaired) continue;
+
+                    // 2. Must still be genuinely connected
+                    if (btDev.ConnectionStatus != BluetoothConnectionStatus.Connected) continue;
+
+                    // 3. Only track true user peripherals (Audio/Video headphones/TWS/speakers & Peripheral mice/keyboards/controllers).
+                    // Ignore Phone (e.g. "S24 F" background Phone Link / Quick Share sockets) and Computer/Network probes.
+                    var majorClass = btDev.ClassOfDevice?.MajorClass ?? BluetoothMajorClass.Miscellaneous;
+                    if (majorClass is not (BluetoothMajorClass.AudioVideo or BluetoothMajorClass.Peripheral or BluetoothMajorClass.Wearable))
+                    {
+                        continue;
+                    }
+
+                    currentConnected[name] = name;
+                }
+                catch
+                {
+                    // Skip inaccessible or transient endpoint
                 }
             }
+
+            DateTime nowUtc = DateTime.UtcNow;
 
             if (_btBaselineCaptured && emitToasts)
             {
-                // Check newly connected devices
+                // Check newly connected paired audio/peripheral devices
                 foreach (var kvp in currentConnected)
                 {
-                    if (!_connectedBtDevices.ContainsKey(kvp.Key) &&
-                        !_connectedBtDevices.Values.Any(v => string.Equals(v, kvp.Value, StringComparison.OrdinalIgnoreCase)))
+                    _missingBtPollCounts.Remove(kvp.Key);
+
+                    if (!_connectedBtDevices.ContainsKey(kvp.Key))
                     {
-                        HardwareToastTriggered?.Invoke(new ToastPayload(
-                            Icon: "BLUETOOTH",
-                            Title: "Bluetooth Terhubung",
-                            Subtitle: kvp.Value,
-                            AccentHex: "#38BDF8",
-                            Duration: TimeSpan.FromSeconds(3.2)));
+                        if (!_lastBtToastTimeUtc.TryGetValue($"CONN:{kvp.Key}", out DateTime lastToast) ||
+                            (nowUtc - lastToast).TotalSeconds >= 15.0)
+                        {
+                            _lastBtToastTimeUtc[$"CONN:{kvp.Key}"] = nowUtc;
+                            HardwareToastTriggered?.Invoke(new ToastPayload(
+                                Icon: "BLUETOOTH",
+                                Title: "Bluetooth Terhubung",
+                                Subtitle: kvp.Value,
+                                AccentHex: "#38BDF8",
+                                Duration: TimeSpan.FromSeconds(3.0)));
+                        }
                     }
                 }
 
-                // Check disconnected devices
+                // Check disconnected paired devices (require 3 consecutive polls ~6s to ignore brief micro-drops)
+                var disconnectedKeys = new List<string>();
                 foreach (var oldKvp in _connectedBtDevices)
                 {
-                    if (!currentConnected.ContainsKey(oldKvp.Key) &&
-                        !currentConnected.Values.Any(v => string.Equals(v, oldKvp.Value, StringComparison.OrdinalIgnoreCase)))
+                    if (!currentConnected.ContainsKey(oldKvp.Key))
                     {
-                        HardwareToastTriggered?.Invoke(new ToastPayload(
-                            Icon: "BLUETOOTH_OFF",
-                            Title: "Bluetooth Terputus",
-                            Subtitle: oldKvp.Value,
-                            AccentHex: "#94A3B8",
-                            Duration: TimeSpan.FromSeconds(2.6)));
+                        int misses = _missingBtPollCounts.TryGetValue(oldKvp.Key, out int prevMisses) ? prevMisses + 1 : 1;
+                        _missingBtPollCounts[oldKvp.Key] = misses;
+
+                        if (misses >= 3)
+                        {
+                            disconnectedKeys.Add(oldKvp.Key);
+                            _missingBtPollCounts.Remove(oldKvp.Key);
+
+                            if (!_lastBtToastTimeUtc.TryGetValue($"DISC:{oldKvp.Key}", out DateTime lastToast) ||
+                                (nowUtc - lastToast).TotalSeconds >= 15.0)
+                            {
+                                _lastBtToastTimeUtc[$"DISC:{oldKvp.Key}"] = nowUtc;
+                                HardwareToastTriggered?.Invoke(new ToastPayload(
+                                    Icon: "BLUETOOTH_OFF",
+                                    Title: "Bluetooth Terputus",
+                                    Subtitle: oldKvp.Value,
+                                    AccentHex: "#94A3B8",
+                                    Duration: TimeSpan.FromSeconds(2.6)));
+                            }
+                        }
                     }
                 }
-            }
 
-            _connectedBtDevices.Clear();
-            foreach (var kvp in currentConnected)
-            {
-                _connectedBtDevices[kvp.Key] = kvp.Value;
+                foreach (var key in currentConnected.Keys)
+                {
+                    _connectedBtDevices[key] = currentConnected[key];
+                }
+                foreach (var discKey in disconnectedKeys)
+                {
+                    _connectedBtDevices.Remove(discKey);
+                }
             }
-            _btBaselineCaptured = true;
+            else
+            {
+                _connectedBtDevices.Clear();
+                foreach (var kvp in currentConnected)
+                {
+                    _connectedBtDevices[kvp.Key] = kvp.Value;
+                }
+                _btBaselineCaptured = true;
+            }
 
             try
             {
@@ -343,33 +392,58 @@ public sealed class HardwareTelemetryService : IDisposable
         }
     }
 
+    private static bool IsValidPairedBluetoothName(string? rawName)
+    {
+        if (string.IsNullOrWhiteSpace(rawName)) return false;
+        string name = rawName.Trim();
+        if (name.Length < 2) return false;
+
+        if (name.Equals("Perangkat BLE", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("Perangkat Bluetooth", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("Unknown", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("Generic ", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("Bluetooth ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     public async Task<bool> SetBluetoothRadioStateAsync(bool turnOn)
     {
         try
         {
-            var access = await Radio.RequestAccessAsync();
-            if (access == RadioAccessStatus.Allowed)
+            var radios = await Radio.GetRadiosAsync();
+            var btRadio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
+            if (btRadio == null)
             {
-                var radios = await Radio.GetRadiosAsync();
-                var btRadio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
-                if (btRadio != null)
+                var access = await Radio.RequestAccessAsync();
+                if (access == RadioAccessStatus.Allowed)
                 {
-                    var result = await btRadio.SetStateAsync(turnOn ? RadioState.On : RadioState.Off);
-                    if (result == RadioAccessStatus.Allowed)
+                    radios = await Radio.GetRadiosAsync();
+                    btRadio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
+                }
+            }
+
+            if (btRadio != null)
+            {
+                var result = await btRadio.SetStateAsync(turnOn ? RadioState.On : RadioState.Off);
+                if (result == RadioAccessStatus.Allowed)
+                {
+                    _isBtRadioOn = turnOn;
+                    if (!turnOn)
                     {
-                        _isBtRadioOn = turnOn;
-                        if (!turnOn)
-                        {
-                            _connectedBtDevices.Clear();
-                        }
-                        HardwareToastTriggered?.Invoke(new ToastPayload(
-                            Icon: turnOn ? "BLUETOOTH" : "BLUETOOTH_OFF",
-                            Title: turnOn ? "Bluetooth: ON (Aktif)" : "Bluetooth: OFF (Nonaktif)",
-                            Subtitle: turnOn ? "Siap menghubungkan perangkat" : "Radio Bluetooth dimatikan",
-                            AccentHex: turnOn ? "#38BDF8" : "#94A3B8",
-                            Duration: TimeSpan.FromSeconds(2.5)));
-                        return true;
+                        _connectedBtDevices.Clear();
+                        _missingBtPollCounts.Clear();
                     }
+                    HardwareToastTriggered?.Invoke(new ToastPayload(
+                        Icon: turnOn ? "BLUETOOTH" : "BLUETOOTH_OFF",
+                        Title: turnOn ? "Bluetooth: ON (Aktif)" : "Bluetooth: OFF (Nonaktif)",
+                        Subtitle: turnOn ? "Radio Bluetooth diaktifkan" : "Radio Bluetooth dimatikan",
+                        AccentHex: turnOn ? "#38BDF8" : "#94A3B8",
+                        Duration: TimeSpan.FromSeconds(2.5)));
+                    return true;
                 }
             }
         }
@@ -378,11 +452,24 @@ public sealed class HardwareTelemetryService : IDisposable
             AppLogger.LogError("BluetoothControl", "Failed to toggle Bluetooth radio directly", ex);
         }
 
-        OpenWindowsBluetoothSettings();
         return false;
     }
 
-    public Task<bool> ToggleBluetoothRadioAsync() => SetBluetoothRadioStateAsync(!_isBtRadioOn);
+    public async Task<bool> ToggleBluetoothRadioAsync()
+    {
+        try
+        {
+            var radios = await Radio.GetRadiosAsync();
+            var btRadio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
+            if (btRadio != null)
+            {
+                _isBtRadioOn = btRadio.State == RadioState.On;
+            }
+        }
+        catch { }
+
+        return await SetBluetoothRadioStateAsync(!_isBtRadioOn);
+    }
 
     public static void OpenWindowsBluetoothSettings()
     {

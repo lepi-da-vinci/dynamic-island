@@ -401,6 +401,115 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- STATE 1B: PINNED PERFORMANCE PILL (Same compact size as IdlePill, simplified CPU • GPU • RAM • Net stay-on-top bar) -->
+                    <Grid x:Name="PinnedPerfPillPanel"
+                          Margin="14,0,12,2"
+                          Visibility="Collapsed"
+                          ToolTip="Monitor Performa (Pinned Stay) • Hover untuk buka • Klik ikon Pin untuk lepas pin">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                            <!-- CPU % -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomCpuPulse}"
+                                      Width="11" Height="11"
+                                      Stretch="Uniform"
+                                      Fill="#38BDF8"
+                                      Margin="0,0,4,0"
+                                      VerticalAlignment="Center"/>
+                                <TextBlock x:Name="PinPerfCpuText"
+                                           Text="12%"
+                                           Foreground="#F8FAFC"
+                                           FontSize="11.5"
+                                           FontWeight="Bold"
+                                           FontFamily="Segoe UI Variable Display, Segoe UI"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <Ellipse Width="3" Height="3" Fill="#40FFFFFF" Margin="8,0,8,0" VerticalAlignment="Center"/>
+
+                            <!-- GPU % -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomGpuChip}"
+                                      Width="11" Height="11"
+                                      Stretch="Uniform"
+                                      Fill="#C084FC"
+                                      Margin="0,0,4,0"
+                                      VerticalAlignment="Center"/>
+                                <TextBlock x:Name="PinPerfGpuText"
+                                           Text="6%"
+                                           Foreground="#F8FAFC"
+                                           FontSize="11.5"
+                                           FontWeight="Bold"
+                                           FontFamily="Segoe UI Variable Display, Segoe UI"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <Ellipse Width="3" Height="3" Fill="#40FFFFFF" Margin="8,0,8,0" VerticalAlignment="Center"/>
+
+                            <!-- RAM % -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomRamMemory}"
+                                      Width="11" Height="11"
+                                      Stretch="Uniform"
+                                      Fill="#34D399"
+                                      Margin="0,0,4,0"
+                                      VerticalAlignment="Center"/>
+                                <TextBlock x:Name="PinPerfRamText"
+                                           Text="48%"
+                                           Foreground="#F8FAFC"
+                                           FontSize="11.5"
+                                           FontWeight="Bold"
+                                           FontFamily="Segoe UI Variable Display, Segoe UI"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <Ellipse Width="3" Height="3" Fill="#40FFFFFF" Margin="8,0,8,0" VerticalAlignment="Center"/>
+
+                            <!-- Live Net Speed -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomArrowDown}"
+                                      Width="8.5" Height="8.5"
+                                      Stretch="Uniform"
+                                      Fill="#22C55E"
+                                      Margin="0,0,3,0"
+                                      VerticalAlignment="Center"/>
+                                <TextBlock x:Name="PinPerfNetText"
+                                           Text="0 KB/s"
+                                           Foreground="#CBD5E1"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Unpin Quick Button -->
+                        <Button Grid.Column="1"
+                                Style="{StaticResource IslandIconButtonStyle}"
+                                Background="#2438BDF8"
+                                BorderBrush="#4538BDF8"
+                                BorderThickness="1"
+                                Width="20" Height="20"
+                                Padding="0"
+                                Margin="6,0,0,0"
+                                VerticalAlignment="Center"
+                                ToolTip="Lepas Pin Performa (Kembali ke mode normal)"
+                                Click="OnTogglePinPerformanceClick">
+                            <Path Data="{StaticResource GeomPin}"
+                                  Width="9.5" Height="9.5"
+                                  Stretch="Uniform"
+                                  Fill="#38BDF8"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Button>
+                    </Grid>
+
                     <!-- STATE 2: COMPACT MEDIA PILL (Album Thumbnail + Smooth Lyric-Synced Pan + 5-Bar True Audio Spectrum) -->
                     <Grid x:Name="CompactMediaPanel"
                           Margin="14,0,14,2"
@@ -1568,37 +1677,94 @@
                             </Border>
                         </Grid>
 
-                        <!-- TAB 3B: REAL-TIME PERFORMANCE MONITOR (Apple Activity Monitor / iStat Menus Bento) -->
+                        <!-- TAB 3B: REAL-TIME PERFORMANCE MONITOR (Simplified, High-Clarity Bento + Pin to Stay Feature) -->
                         <Grid x:Name="PerformanceTabGrid" Grid.Row="1" Visibility="Collapsed">
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <!-- Top Row: 3 Circular Ring Gauges (CPU, GPU, RAM) -->
-                            <Grid Grid.Row="0" Margin="0,0,0,7">
+                            <!-- Header Row: Minimal Title + Pin Stay Button + Task Mgr Button -->
+                            <Grid Grid.Row="0" Margin="0,0,0,6">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="20" Height="20" CornerRadius="6" Background="#2038BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,7,0" VerticalAlignment="Center">
+                                        <Path Data="{StaticResource GeomCpuPulse}"
+                                              Width="11" Height="11"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Text="Performa Sistem"
+                                               Foreground="#F8FAFC"
+                                               FontSize="12"
+                                               FontWeight="Bold"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Button x:Name="PinPerfToggleBtn"
+                                            Style="{StaticResource IslandIconButtonStyle}"
+                                            Background="#18FFFFFF"
+                                            BorderBrush="#28FFFFFF"
+                                            BorderThickness="1"
+                                            Padding="9,3.5"
+                                            Margin="0,0,5,0"
+                                            ToolTip="Pin Performa agar tetap tampil (Stay) seukuran pil kecil di atas layar tanpa ketutup otomatis"
+                                            Click="OnTogglePinPerformanceClick">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path x:Name="PinPerfToggleIcon"
+                                                  Data="{StaticResource GeomPin}"
+                                                  Width="10" Height="10"
+                                                  Stretch="Uniform"
+                                                  Fill="#94A3B8"
+                                                  Margin="0,0,4.5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="PinPerfToggleText"
+                                                       Text="Pin Stay: OFF"
+                                                       Foreground="#E2E8F0"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Style="{StaticResource IslandIconButtonStyle}"
+                                            Background="#14FFFFFF"
+                                            BorderBrush="#22FFFFFF"
+                                            BorderThickness="1"
+                                            Padding="8,3.5"
+                                            ToolTip="Buka Windows Task Manager"
+                                            Click="OnOpenTaskManagerClick">
+                                        <TextBlock Text="Task Mgr" Foreground="#38BDF8" FontSize="10" FontWeight="SemiBold"/>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Middle Row: 3 Simplified Circular Ring Gauges (CPU, GPU, RAM) -->
+                            <Grid Grid.Row="1" Margin="0,0,0,6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Card 1: CPU Usage -->
+                                <!-- Card 1: CPU -->
                                 <Border Grid.Column="0"
                                         Background="#0EFFFFFF"
                                         BorderBrush="#1EFFFFFF"
                                         BorderThickness="1"
-                                        CornerRadius="14"
-                                        Padding="10,8"
+                                        CornerRadius="13"
+                                        Padding="10,6"
                                         Margin="0,0,4,0">
-                                    <Grid>
+                                    <Grid VerticalAlignment="Center">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Circular Gauge CPU -->
-                                        <Grid Grid.Column="0" Width="54" Height="54" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <Grid Grid.Column="0" Width="54" Height="54" VerticalAlignment="Center" Margin="0,0,9,0">
                                             <Ellipse Width="52" Height="52" Stroke="#20FFFFFF" StrokeThickness="4.5"/>
                                             <Path x:Name="PerfCpuRingPath"
                                                   Stroke="#38BDF8"
@@ -1608,48 +1774,42 @@
                                             <TextBlock x:Name="PerfCpuPercentText"
                                                        Text="12%"
                                                        Foreground="#38BDF8"
-                                                       FontSize="12"
+                                                       FontSize="12.5"
                                                        FontWeight="Bold"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"/>
                                         </Grid>
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                                                <Path Data="{StaticResource GeomCpuPulse}" Width="10" Height="10" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="CPU LOAD" Foreground="#94A3B8" FontSize="9.5" FontWeight="Bold"/>
-                                            </StackPanel>
+                                            <TextBlock Text="CPU" Foreground="#F8FAFC" FontSize="12" FontWeight="Bold"/>
                                             <TextBlock x:Name="PerfCpuModelText"
-                                                       Text="Intel Core"
-                                                       Foreground="#F8FAFC"
-                                                       FontSize="10.5"
-                                                       FontWeight="SemiBold"
+                                                       Text="Processor"
+                                                       Foreground="#94A3B8"
+                                                       FontSize="10"
+                                                       Margin="0,2,0,0"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <TextBlock x:Name="PerfCpuCoresText"
-                                                       Text="12 Logical Cores"
-                                                       Foreground="#64748B"
-                                                       FontSize="9.5"
-                                                       Margin="0,1,0,0"/>
+                                                       Text=""
+                                                       Visibility="Collapsed"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
 
-                                <!-- Card 2: GPU Usage -->
+                                <!-- Card 2: GPU -->
                                 <Border Grid.Column="1"
                                         Background="#0EFFFFFF"
                                         BorderBrush="#1EFFFFFF"
                                         BorderThickness="1"
-                                        CornerRadius="14"
-                                        Padding="10,8"
+                                        CornerRadius="13"
+                                        Padding="10,6"
                                         Margin="2,0,2,0">
-                                    <Grid>
+                                    <Grid VerticalAlignment="Center">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Circular Gauge GPU -->
-                                        <Grid Grid.Column="0" Width="54" Height="54" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <Grid Grid.Column="0" Width="54" Height="54" VerticalAlignment="Center" Margin="0,0,9,0">
                                             <Ellipse Width="52" Height="52" Stroke="#20FFFFFF" StrokeThickness="4.5"/>
                                             <Path x:Name="PerfGpuRingPath"
                                                   Stroke="#A855F7"
@@ -1659,47 +1819,39 @@
                                             <TextBlock x:Name="PerfGpuPercentText"
                                                        Text="6%"
                                                        Foreground="#C084FC"
-                                                       FontSize="12"
+                                                       FontSize="12.5"
                                                        FontWeight="Bold"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"/>
                                         </Grid>
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                                                <Path Data="{StaticResource GeomGpuChip}" Width="10" Height="10" Stretch="Uniform" Fill="#C084FC" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="GPU ENGINE" Foreground="#94A3B8" FontSize="9.5" FontWeight="Bold"/>
-                                            </StackPanel>
+                                            <TextBlock Text="GPU" Foreground="#F8FAFC" FontSize="12" FontWeight="Bold"/>
                                             <TextBlock x:Name="PerfGpuModelText"
                                                        Text="Graphics"
-                                                       Foreground="#F8FAFC"
-                                                       FontSize="10.5"
-                                                       FontWeight="SemiBold"
+                                                       Foreground="#94A3B8"
+                                                       FontSize="10"
+                                                       Margin="0,2,0,0"
                                                        TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="3D / DWM Engine"
-                                                       Foreground="#64748B"
-                                                       FontSize="9.5"
-                                                       Margin="0,1,0,0"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
 
-                                <!-- Card 3: Physical RAM -->
+                                <!-- Card 3: RAM -->
                                 <Border Grid.Column="2"
                                         Background="#0EFFFFFF"
                                         BorderBrush="#1EFFFFFF"
                                         BorderThickness="1"
-                                        CornerRadius="14"
-                                        Padding="10,8"
+                                        CornerRadius="13"
+                                        Padding="10,6"
                                         Margin="4,0,0,0">
-                                    <Grid>
+                                    <Grid VerticalAlignment="Center">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Circular Gauge RAM -->
-                                        <Grid Grid.Column="0" Width="54" Height="54" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <Grid Grid.Column="0" Width="54" Height="54" VerticalAlignment="Center" Margin="0,0,9,0">
                                             <Ellipse Width="52" Height="52" Stroke="#20FFFFFF" StrokeThickness="4.5"/>
                                             <Path x:Name="PerfRamRingPath"
                                                   Stroke="#22C55E"
@@ -1709,147 +1861,117 @@
                                             <TextBlock x:Name="PerfRamPercentText"
                                                        Text="48%"
                                                        Foreground="#34D399"
-                                                       FontSize="12"
+                                                       FontSize="12.5"
                                                        FontWeight="Bold"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"/>
                                         </Grid>
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                                                <Path Data="{StaticResource GeomRamMemory}" Width="10" Height="10" Stretch="Uniform" Fill="#34D399" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="MEMORI RAM" Foreground="#94A3B8" FontSize="9.5" FontWeight="Bold"/>
-                                            </StackPanel>
+                                            <TextBlock Text="RAM" Foreground="#F8FAFC" FontSize="12" FontWeight="Bold"/>
                                             <TextBlock x:Name="PerfRamDetailText"
-                                                       Text="7.8 / 16.0 GB"
-                                                       Foreground="#F8FAFC"
-                                                       FontSize="10.5"
-                                                       FontWeight="SemiBold"
+                                                       Text="7.8 / 16 GB"
+                                                       Foreground="#94A3B8"
+                                                       FontSize="10"
+                                                       Margin="0,2,0,0"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <TextBlock x:Name="PerfAppRamText"
-                                                       Text="Island: 24 MB"
-                                                       Foreground="#64748B"
-                                                       FontSize="9.5"
-                                                       Margin="0,1,0,0"/>
+                                                       Text=""
+                                                       Visibility="Collapsed"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
                             </Grid>
 
-                            <!-- Bottom Row: Live Network Traffic & Storage Disk + Task Manager Button -->
-                            <Grid Grid.Row="1">
+                            <!-- Bottom Row: Simplified Network Speed & Disk C: Bar -->
+                            <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.05*"/>
-                                    <ColumnDefinition Width="1.25*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Network Throughput Card -->
+                                <!-- Network Throughput Pill -->
                                 <Border Grid.Column="0"
                                         Background="#0EFFFFFF"
                                         BorderBrush="#1EFFFFFF"
                                         BorderThickness="1"
-                                        CornerRadius="13"
-                                        Padding="11,7.5"
+                                        CornerRadius="11"
+                                        Padding="12,6"
                                         Margin="0,0,4,0">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
+                                    <Grid VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="PerfNetNameText" Visibility="Collapsed"/>
 
-                                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
-                                            <Path Data="{StaticResource GeomWifi}" Width="10.5" Height="10.5" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="PerfNetNameText"
-                                                       Text="Wi-Fi Terhubung"
-                                                       Foreground="#CBD5E1"
-                                                       FontSize="10"
-                                                       FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomArrowDown}" Width="9.5" Height="9.5" Stretch="Uniform" Fill="#22C55E" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="PerfNetDownText"
+                                                       Text="0 KB/s"
+                                                       Foreground="#F8FAFC"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"/>
                                         </StackPanel>
 
-                                        <Grid Grid.Row="1">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Path Data="{StaticResource GeomArrowDown}" Width="9" Height="9" Stretch="Uniform" Fill="#22C55E" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                                <TextBlock x:Name="PerfNetDownText"
-                                                           Text="0 KB/s"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="11"
-                                                           FontWeight="Bold"/>
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Path Data="{StaticResource GeomArrowUp}" Width="9" Height="9" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                                <TextBlock x:Name="PerfNetUpText"
-                                                           Text="0 KB/s"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="11"
-                                                           FontWeight="Bold"/>
-                                            </StackPanel>
-                                        </Grid>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomArrowUp}" Width="9.5" Height="9.5" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="PerfNetUpText"
+                                                       Text="0 KB/s"
+                                                       Foreground="#F8FAFC"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"/>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
 
-                                <!-- Storage Disk C: + Uptime + Quick Task Manager Button -->
+                                <!-- Storage Disk C: Bar -->
                                 <Border Grid.Column="1"
                                         Background="#0EFFFFFF"
                                         BorderBrush="#1EFFFFFF"
                                         BorderThickness="1"
-                                        CornerRadius="13"
-                                        Padding="11,7.5"
+                                        CornerRadius="11"
+                                        Padding="12,6"
                                         Margin="4,0,0,0">
-                                    <Grid>
+                                    <Grid VerticalAlignment="Center">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
-                                            <Grid Margin="0,0,0,4">
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                                    <Path Data="{StaticResource GeomDiskStorage}" Width="10" Height="10" Stretch="Uniform" Fill="#FBBF24" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                                    <TextBlock x:Name="PerfDiskLabelText"
-                                                               Text="Disk C: 120 / 256 GB"
-                                                               Foreground="#F8FAFC"
-                                                               FontSize="10"
-                                                               FontWeight="SemiBold"/>
-                                                </StackPanel>
-                                                <TextBlock x:Name="PerfUptimeText"
-                                                           Text="Up: 2j 15m"
-                                                           Foreground="#94A3B8"
-                                                           FontSize="9.5"
-                                                           HorizontalAlignment="Right"/>
-                                            </Grid>
-
-                                            <Border x:Name="PerfDiskBarTrack"
-                                                    Height="5.5"
-                                                    CornerRadius="2.8"
-                                                    Background="#24FFFFFF"
-                                                    ClipToBounds="True">
-                                                <Border x:Name="PerfDiskBarFill"
-                                                        HorizontalAlignment="Left"
-                                                        Width="80"
-                                                        Height="5.5"
-                                                        CornerRadius="2.8"
-                                                        Background="#FBBF24"/>
-                                            </Border>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                                            <Path Data="{StaticResource GeomDiskStorage}" Width="10" Height="10" Stretch="Uniform" Fill="#FBBF24" Margin="0,0,4.5,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="PerfDiskLabelText"
+                                                       Text="Disk C:"
+                                                       Foreground="#F8FAFC"
+                                                       FontSize="10.5"
+                                                       FontWeight="SemiBold"/>
                                         </StackPanel>
 
-                                        <Button Grid.Column="1"
-                                                Style="{StaticResource IslandIconButtonStyle}"
-                                                Background="#18FFFFFF"
-                                                BorderBrush="#28FFFFFF"
-                                                BorderThickness="1"
-                                                Padding="8,5"
+                                        <Border Grid.Column="1"
+                                                x:Name="PerfDiskBarTrack"
+                                                Height="5.5"
+                                                CornerRadius="2.8"
+                                                Background="#24FFFFFF"
                                                 VerticalAlignment="Center"
-                                                ToolTip="Buka Windows Task Manager"
-                                                Click="OnOpenTaskManagerClick">
-                                            <TextBlock Text="Task Mgr" Foreground="#38BDF8" FontSize="10" FontWeight="SemiBold"/>
-                                        </Button>
+                                                ClipToBounds="True">
+                                            <Border x:Name="PerfDiskBarFill"
+                                                    HorizontalAlignment="Left"
+                                                    Width="65"
+                                                    Height="5.5"
+                                                    CornerRadius="2.8"
+                                                    Background="#FBBF24"/>
+                                        </Border>
+
+                                        <TextBlock Grid.Column="2"
+                                                   x:Name="PerfUptimeText"
+                                                   Text="50%"
+                                                   Foreground="#FBBF24"
+                                                   FontSize="10.5"
+                                                   FontWeight="Bold"
+                                                   Margin="8,0,0,0"
+                                                   VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                             </Grid>
