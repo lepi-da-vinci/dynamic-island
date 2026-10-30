@@ -15,7 +15,8 @@
 
     <Grid Margin="16">
         <!-- Main macOS System Settings Window Frame -->
-        <Border Background="#16161A"
+        <Border x:Name="SettingsOuterFrame"
+                Background="#16161A"
                 BorderBrush="#26FFFFFF"
                 BorderThickness="1"
                 CornerRadius="14"
@@ -34,7 +35,8 @@
                 <!-- ========================================================= -->
                 <!-- LEFT SIDEBAR (macOS Ventura / Sequoia Style Navigation)   -->
                 <!-- ========================================================= -->
-                <Border Grid.Column="0"
+                <Border x:Name="SettingsSidebarBorder"
+                        Grid.Column="0"
                         Background="#111114"
                         CornerRadius="14,0,0,14"
                         MouseLeftButtonDown="OnTitleBarDragMove">
@@ -61,19 +63,19 @@
                                         <Border x:Name="CloseDot"
                                                 Width="12" Height="12"
                                                 CornerRadius="6"
-                                                Background="#FF5F56"
+                                                Background="{DynamicResource SettingsTrafficCloseBgBrush}"
                                                 BorderBrush="#30000000"
                                                 BorderThickness="0.5"/>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="CloseDot" Property="Background" Value="#FF3B30"/>
+                                                <Setter TargetName="CloseDot" Property="Background" Value="{DynamicResource SettingsTrafficCloseHoverBrush}"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Button.Template>
                             </Button>
 
-                            <!-- Minimize Button (Amber) -->
+                            <!-- Minimize Button (Amber / Graphite) -->
                             <Button Width="12" Height="12"
                                     Cursor="Hand"
                                     ToolTip="Minimize"
@@ -84,12 +86,12 @@
                                         <Border x:Name="MinDot"
                                                 Width="12" Height="12"
                                                 CornerRadius="6"
-                                                Background="#FFBD2E"
+                                                Background="{DynamicResource SettingsTrafficMinBgBrush}"
                                                 BorderBrush="#30000000"
                                                 BorderThickness="0.5"/>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="MinDot" Property="Background" Value="#F59E0B"/>
+                                                <Setter TargetName="MinDot" Property="Background" Value="{DynamicResource SettingsTrafficMinHoverBrush}"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -111,7 +113,7 @@
                                              Tag="0"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#64748B" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge0" Width="22" Height="22" CornerRadius="6" Background="#64748B" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomSettingsGear}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="General" FontSize="12.5" VerticalAlignment="Center"/>
@@ -125,7 +127,7 @@
                                              Tag="1"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#8B5CF6" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge1" Width="22" Height="22" CornerRadius="6" Background="#8B5CF6" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomDisplayMonitor}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="Display" FontSize="12.5" VerticalAlignment="Center"/>
@@ -139,7 +141,7 @@
                                              Tag="2"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#475569" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge2" Width="22" Height="22" CornerRadius="6" Background="#475569" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomAppearanceSparkle}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="Appearance" FontSize="12.5" VerticalAlignment="Center"/>
@@ -153,7 +155,7 @@
                                              Tag="3"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#F43F5E" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge3" Width="22" Height="22" CornerRadius="6" Background="#F43F5E" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomMusic}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="Music and lyrics" FontSize="12.5" VerticalAlignment="Center"/>
@@ -167,7 +169,7 @@
                                              Tag="4"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#22C55E" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge4" Width="22" Height="22" CornerRadius="6" Background="#22C55E" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomChecklist}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="To-do" FontSize="12.5" VerticalAlignment="Center"/>
@@ -181,7 +183,7 @@
                                              Tag="5"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#EF4444" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge5" Width="22" Height="22" CornerRadius="6" Background="#EF4444" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomCalendar}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="Calendar" FontSize="12.5" VerticalAlignment="Center"/>
@@ -195,7 +197,7 @@
                                              Tag="6"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#F97316" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge6" Width="22" Height="22" CornerRadius="6" Background="#F97316" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomFocusTimer}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="Pomodoro" FontSize="12.5" VerticalAlignment="Center"/>
@@ -209,7 +211,7 @@
                                              Tag="7"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#3B82F6" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge7" Width="22" Height="22" CornerRadius="6" Background="#3B82F6" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomWaterDrop}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="Water" FontSize="12.5" VerticalAlignment="Center"/>
@@ -223,7 +225,7 @@
                                              Tag="8"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#F59E0B" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge8" Width="22" Height="22" CornerRadius="6" Background="#F59E0B" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomFolderTray}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="Shelf" FontSize="12.5" VerticalAlignment="Center"/>
@@ -237,7 +239,7 @@
                                              Tag="9"
                                              Checked="OnNavCategoryChecked">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="6" Background="#0EA5E9" Margin="0,0,10,0">
+                                        <Border x:Name="NavBadge9" Width="22" Height="22" CornerRadius="6" Background="#0EA5E9" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomHudLayers}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="HUD &amp; popups" FontSize="12.5" VerticalAlignment="Center"/>
@@ -266,12 +268,12 @@
                 </Border>
 
                 <!-- Vertical Hairline Divider -->
-                <Border Grid.Column="1" Background="#1EFFFFFF"/>
+                <Border x:Name="SettingsDividerBorder" Grid.Column="1" Background="#1EFFFFFF"/>
 
                 <!-- ========================================================= -->
                 <!-- RIGHT CONTENT PANE                                        -->
                 <!-- ========================================================= -->
-                <Grid Grid.Column="2" Background="#16161A">
+                <Grid x:Name="SettingsContentPaneGrid" Grid.Column="2" Background="#16161A">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="54"/>
                         <RowDefinition Height="*"/>
@@ -305,7 +307,7 @@
                                   Style="{StaticResource AppleScrollViewerStyle}"
                                   VerticalScrollBarVisibility="Auto"
                                   Padding="26,2,26,24">
-                        <Grid>
+                        <Grid x:Name="SettingsPagesHostGrid">
                             <!-- ===================================================== -->
                             <!-- PAGE 0: GENERAL & SYSTEM CONTROL CENTER               -->
                             <!-- ===================================================== -->
@@ -410,7 +412,8 @@
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <Path Grid.Column="0"
+                                                        <Path x:Name="SettingsBrtIconPath"
+                                                              Grid.Column="0"
                                                               Data="{StaticResource GeomBrightnessSun}"
                                                               Width="11.5" Height="11.5"
                                                               Stretch="Uniform"
@@ -474,7 +477,8 @@
                                                     Margin="0,0,5,0">
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Path Data="{StaticResource GeomBolt}"
+                                                        <Path x:Name="SettingsSysBoltIcon"
+                                                              Data="{StaticResource GeomBolt}"
                                                               Width="10" Height="11"
                                                               Stretch="Uniform"
                                                               Fill="#22C55E"
@@ -620,13 +624,15 @@
                                                     ToolTip="Tutup aplikasi Windows Dynamic Island"
                                                     Click="OnSettingsExitAppClick">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <Path Data="{StaticResource GeomClosePower}"
+                                                    <Path x:Name="SettingsExitBtnIcon"
+                                                          Data="{StaticResource GeomClosePower}"
                                                           Width="10" Height="10"
                                                           Stretch="Uniform"
                                                           Fill="#F87171"
                                                           Margin="0,0,4.5,0"
                                                           VerticalAlignment="Center"/>
-                                                    <TextBlock Text="Keluar"
+                                                    <TextBlock x:Name="SettingsExitBtnText"
+                                                               Text="Keluar"
                                                                Foreground="#F87171"
                                                                FontSize="11"
                                                                FontWeight="SemiBold"
@@ -730,31 +736,6 @@
                                                            Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkMinimalNotch"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource AppleToggleSwitchStyle}"
-                                                      VerticalAlignment="Center"
-                                                      Click="OnSettingToggleClicked"/>
-                                        </Grid>
-
-                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
-
-                                        <!-- Island mascot -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Island mascot"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="13"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Text="A little friend that lives in the notch"
-                                                           Foreground="#94A3B8"
-                                                           FontSize="11"
-                                                           Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <CheckBox x:Name="ChkMascot"
                                                       Grid.Column="1"
                                                       Style="{StaticResource AppleToggleSwitchStyle}"
                                                       VerticalAlignment="Center"
@@ -1136,7 +1117,7 @@
                             <!-- PAGE 2: APPEARANCE                                    -->
                             <!-- ===================================================== -->
                             <StackPanel x:Name="PageAppearance" Visibility="Collapsed">
-                                <TextBlock Text="Tema Permukaan &amp; Material Dynamic Island"
+                                <TextBlock Text="Model Kontur, Tema Permukaan &amp; Material"
                                            Foreground="#64748B"
                                            FontSize="11.5"
                                            FontWeight="SemiBold"
@@ -1149,11 +1130,11 @@
                                         Padding="16,14"
                                         Margin="0,0,0,18">
                                     <StackPanel>
-                                        <TextBlock Text="Island Surface Theme (Tema Desain Pulau)"
+                                        <TextBlock Text="Island Form Factor (Gaya Kontur Desain)"
                                                    Foreground="#F8FAFC"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"/>
-                                        <TextBlock Text="Pilih material latar belakang dan nuansa permukaan kontur Dynamic Island"
+                                        <TextBlock Text="Pilih antara Notch yang menyatu di tepi atas layar atau Punch-Hole kapsul melayang ala iPhone Dynamic Island"
                                                    Foreground="#94A3B8"
                                                    FontSize="11"
                                                    Margin="0,2,0,10"/>
@@ -1163,8 +1144,31 @@
                                                 BorderThickness="1"
                                                 CornerRadius="8"
                                                 Padding="2">
-                                            <UniformGrid Columns="3" Rows="2">
-                                                <RadioButton x:Name="SurfOledBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="OLED Pitch Black" Tag="OledBlack" Click="OnSurfaceThemeClicked"/>
+                                            <UniformGrid Columns="2">
+                                                <RadioButton x:Name="ModeNotchBtn" GroupName="PlacementStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="Notch Menempel Atas" Tag="Notch" Click="OnPlacementStyleClicked"/>
+                                                <RadioButton x:Name="ModePunchHoleBtn" GroupName="PlacementStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="Punch-Hole Melayang" Tag="PunchHole" Click="OnPlacementStyleClicked"/>
+                                            </UniformGrid>
+                                        </Border>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <TextBlock Text="Island &amp; Settings Surface Theme (Tema Desain Menyatu)"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="Pilih material latar belakang yang diterapkan selaras ke Dynamic Island dan jendela Pengaturan ini"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="11"
+                                                   Margin="0,2,0,10"/>
+
+                                        <Border Background="#141418"
+                                                BorderBrush="#1AFFFFFF"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="2">
+                                            <UniformGrid Columns="4" Rows="2">
+                                                <RadioButton x:Name="SurfOledBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="OLED Black" Tag="OledBlack" Click="OnSurfaceThemeClicked"/>
+                                                <RadioButton x:Name="SurfMonochromeBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Monochrome" Tag="Monochrome" Click="OnSurfaceThemeClicked"/>
                                                 <RadioButton x:Name="SurfCarbonBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Midnight Carbon" Tag="MidnightCarbon" Click="OnSurfaceThemeClicked"/>
                                                 <RadioButton x:Name="SurfGraphiteBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Frosted Graphite" Tag="FrostedGraphite" Click="OnSurfaceThemeClicked"/>
                                                 <RadioButton x:Name="SurfMatrixBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Cyber Matrix" Tag="CyberMatrix" Click="OnSurfaceThemeClicked"/>
@@ -1233,11 +1237,11 @@
                                         CornerRadius="10"
                                         Padding="16,14">
                                     <StackPanel>
-                                        <TextBlock Text="Accent Theme (Warna Aksen)"
+                                        <TextBlock Text="Accent Theme (Warna Aksen Pulau &amp; Pengaturan)"
                                                    Foreground="#F8FAFC"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"/>
-                                        <TextBlock Text="Warna aksen utama untuk cahaya ambient, garis simpan, dan indikator"
+                                        <TextBlock Text="Warna aksen utama untuk cahaya ambient, kontrol pengaturan, dan indikator"
                                                    Foreground="#94A3B8"
                                                    FontSize="11"
                                                    Margin="0,2,0,10"/>
@@ -1247,8 +1251,9 @@
                                                 BorderThickness="1"
                                                 CornerRadius="8"
                                                 Padding="2">
-                                            <UniformGrid Columns="4" Rows="2">
+                                            <UniformGrid Columns="3" Rows="3">
                                                 <RadioButton x:Name="ThemeAutoBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Auto" Tag="Auto" Click="OnAccentThemeClicked"/>
+                                                <RadioButton x:Name="ThemeMonochromeBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Monochrome" Tag="Monochrome" Click="OnAccentThemeClicked"/>
                                                 <RadioButton x:Name="ThemeCyanBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Cyan" Tag="Cyan" Click="OnAccentThemeClicked"/>
                                                 <RadioButton x:Name="ThemeGreenBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Emerald" Tag="Green" Click="OnAccentThemeClicked"/>
                                                 <RadioButton x:Name="ThemePurpleBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Purple" Tag="Purple" Click="OnAccentThemeClicked"/>

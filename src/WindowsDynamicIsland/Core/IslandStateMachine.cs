@@ -63,6 +63,7 @@ public sealed class IslandStateMachine
     public int ShelfItemCount { get; private set; }
 
     public string CornerStyle { get; private set; } = "Squircle";
+    public string PlacementStyle { get; private set; } = "Notch";
 
     public event Action<IslandVisualState, IslandDashboardTab>? StateChanged;
 
@@ -74,15 +75,30 @@ public sealed class IslandStateMachine
         StateChanged?.Invoke(CurrentState, ActiveTab);
     }
 
+    public void SetPlacementStyle(string style)
+    {
+        string normalized = style == "PunchHole" ? "PunchHole" : "Notch";
+        if (PlacementStyle == normalized) return;
+        PlacementStyle = normalized;
+        StateChanged?.Invoke(CurrentState, ActiveTab);
+    }
+
     public (double BodyWidth, double Height, double BottomCornerRadius, double TopEarRadius, double GlowOpacity) GetTargetDimensions()
     {
+        bool isPunchHole = PlacementStyle == "PunchHole";
+
         if (CurrentState == IslandVisualState.Hidden)
         {
-            return (90, 2, 2, 4, 0.0);
+            return (90, 2, 2, isPunchHole ? 0 : 4, 0.0);
         }
 
         if (CurrentState == IslandVisualState.TuckedTopEdge)
         {
+            if (isPunchHole)
+            {
+                // Sleek floating punch-hole micro-pill dot when tucked
+                return (76, 6, 3, 0, 0.0);
+            }
             // Ultra-slim 5px flush lip at Y = 0 with zero glow so Chrome tabs at Y >= 6px are completely clear
             return (118, 5, 4, 4, 0.0);
         }
@@ -93,9 +109,23 @@ public sealed class IslandStateMachine
             IslandVisualState.PinnedPerformancePill => (268.0, 37.0, 17.0, 13.0, 0.22),
             IslandVisualState.CompactMedia => (DynamicCompactWidth, 40.0, 18.0, 14.0, 0.35),
             IslandVisualState.ToastNotification => (388.0, 52.0, 22.0, 15.0, 0.48),
-            IslandVisualState.ExpandedDashboard => (540.0, 260.0, 26.0, 18.0, 0.48),
+            IslandVisualState.ExpandedDashboard => (540.0, 268.0, 26.0, 18.0, 0.48),
             _ => (268.0, 37.0, 17.0, 13.0, 0.16)
         };
+
+        if (isPunchHole)
+        {
+            eRad = 0.0;
+            if (CurrentState == IslandVisualState.ExpandedDashboard)
+            {
+                bRad = CornerStyle == "Sharp" ? 14.0 : (CornerStyle == "UltraPill" ? 30.0 : 24.0);
+            }
+            else
+            {
+                bRad = CornerStyle == "Sharp" ? 11.0 : (h * 0.5);
+            }
+            return (w, h, bRad, eRad, glow);
+        }
 
         if (CornerStyle == "UltraPill")
         {

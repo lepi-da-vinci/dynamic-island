@@ -537,11 +537,19 @@ public sealed class HardwareTelemetryService : IDisposable
 
     private void EmitBatteryChargingToast(bool isCharging, int batteryPct)
     {
+        string accentHex = isCharging
+            ? "#22C55E"
+            : batteryPct <= 20
+                ? "#EF4444"
+                : batteryPct <= 65
+                    ? "#F97316"
+                    : "#22C55E";
+
         HardwareToastTriggered?.Invoke(new ToastPayload(
             Icon: "BATTERY",
             Title: isCharging ? $"Charging • {batteryPct}%" : $"Baterai • {batteryPct}%",
             Subtitle: isCharging ? "Adaptor Daya AC Terhubung" : "Adaptor Dilepas (Mode Baterai)",
-            AccentHex: isCharging ? "#22C55E" : "#F59E0B",
+            AccentHex: accentHex,
             ProgressRatio: batteryPct / 100.0,
             Duration: TimeSpan.FromSeconds(2.8),
             SliderKind: ToastSliderKind.Battery,

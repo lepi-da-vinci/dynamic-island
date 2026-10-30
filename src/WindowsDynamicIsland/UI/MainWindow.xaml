@@ -27,7 +27,7 @@
               HorizontalAlignment="Center"
               VerticalAlignment="Top"
               Width="760"
-              Height="310"
+              Height="330"
               RenderTransformOrigin="0.5,0">
             <Grid.RenderTransform>
                 <ScaleTransform x:Name="NotchMasterScale" ScaleX="1.0" ScaleY="1.0"/>
@@ -285,24 +285,6 @@
                                 </Grid>
                             </Border>
 
-                            <!-- Island Mascot Companion ("A little friend that lives in the notch") -->
-                            <Border x:Name="IdleMascotBorder"
-                                    Background="#2038BDF8"
-                                    BorderBrush="#4038BDF8"
-                                    BorderThickness="1"
-                                    CornerRadius="7"
-                                    Padding="4.5,1.5"
-                                    Margin="5,0,0,0"
-                                    VerticalAlignment="Center"
-                                    Visibility="Collapsed"
-                                    ToolTip="Island Mascot Aktif">
-                                <Path Data="{StaticResource GeomMascotCat}"
-                                      Width="12.5" Height="12.5"
-                                      Stretch="Uniform"
-                                      Fill="#38BDF8"
-                                      VerticalAlignment="Center"/>
-                            </Border>
-
                             <!-- Live Task Progress Micro-Pill (Shown when tasks exist) -->
                             <Border x:Name="IdleTodoMiniPill"
                                     Background="#1C22C55E"
@@ -362,22 +344,28 @@
                                        VerticalAlignment="Center"/>
 
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <!-- Sleek iOS 18 Battery Body -->
+                                <!-- Sleek iOS 18 Battery Body (Resolution & DPI Independent Star-Grid Fill) -->
                                 <Border x:Name="IdleBatteryBodyBorder"
                                         Width="24" Height="12"
                                         CornerRadius="3.8"
                                         BorderThickness="1.2"
-                                        BorderBrush="#68FFFFFF"
-                                        Background="#16FFFFFF"
+                                        BorderBrush="#72FFFFFF"
+                                        Background="#18FFFFFF"
                                         Padding="1.4"
                                         VerticalAlignment="Center">
                                     <Grid ClipToBounds="True">
-                                        <Border x:Name="IdleBatteryFillBar"
-                                                HorizontalAlignment="Left"
-                                                Width="18.5"
-                                                Height="6.8"
-                                                CornerRadius="2"
-                                                Background="#34D399"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition x:Name="IdleBatteryFillCol" Width="100*"/>
+                                                <ColumnDefinition x:Name="IdleBatteryEmptyCol" Width="0*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border x:Name="IdleBatteryFillBar"
+                                                    Grid.Column="0"
+                                                    HorizontalAlignment="Stretch"
+                                                    VerticalAlignment="Stretch"
+                                                    CornerRadius="1.8"
+                                                    Background="#22C55E"/>
+                                        </Grid>
                                         <Path x:Name="IdleBatteryBoltPath"
                                               Data="{StaticResource GeomBolt}"
                                               Width="6.5" Height="8"
@@ -394,7 +382,7 @@
                                 <!-- Battery Positive Terminal Cap -->
                                 <Border Width="2" Height="4.5"
                                         CornerRadius="0,1.2,1.2,0"
-                                        Background="#68FFFFFF"
+                                        Background="#72FFFFFF"
                                         Margin="1,0,0,0"
                                         VerticalAlignment="Center"/>
                             </StackPanel>
@@ -647,7 +635,7 @@
                             </Border>
                         </Grid>
 
-                        <!-- Dedicated Vector Battery Graphic for Charger Plug/Unplug Toast -->
+                        <!-- Dedicated Vector Battery Graphic for Charger Plug/Unplug Toast (DPI-Fit Star Grid) -->
                         <StackPanel x:Name="ToastBatteryContainer"
                                     Grid.Column="2"
                                     Orientation="Horizontal"
@@ -663,12 +651,18 @@
                                     Padding="2.2"
                                     VerticalAlignment="Center">
                                 <Grid ClipToBounds="True">
-                                    <Border x:Name="ToastBatteryFill"
-                                            HorizontalAlignment="Left"
-                                            Width="40"
-                                            Height="16.5"
-                                            CornerRadius="4"
-                                            Background="#22C55E"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition x:Name="ToastBatteryFillCol" Width="100*"/>
+                                            <ColumnDefinition x:Name="ToastBatteryEmptyCol" Width="0*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="ToastBatteryFill"
+                                                Grid.Column="0"
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                CornerRadius="3.8"
+                                                Background="#22C55E"/>
+                                    </Grid>
 
                                     <Path x:Name="ToastBatteryBoltPath"
                                           Data="{StaticResource GeomBolt}"
@@ -708,182 +702,167 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Top Switcher Bar (Segmented Pill Control with Vector SVG Icons) -->
-                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                        <!-- Top Status Header Bar (Clock, Date, Wi-Fi, Bluetooth, DPI-Fit Battery, Settings & Simpan) -->
+                        <Grid Grid.Row="0" Margin="0,0,0,9">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
+                            <!-- Left: Clock & Date Pill -->
                             <Border Grid.Column="0"
-                                    Background="#14FFFFFF"
-                                    BorderBrush="#22FFFFFF"
+                                    Background="#12FFFFFF"
+                                    BorderBrush="#1EFFFFFF"
                                     BorderThickness="1"
-                                    CornerRadius="12"
-                                    Padding="2.5"
+                                    CornerRadius="9"
+                                    Padding="9,4"
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="TabMediaBtn"
-                                            Style="{StaticResource TabPillButtonStyle}"
-                                            Click="OnTabMediaClick">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource GeomMusic}"
-                                                  Width="11" Height="11"
-                                                  Stretch="Uniform"
-                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,5,0"
-                                                  VerticalAlignment="Center"/>
-                                            <TextBlock Text="Musik" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-
-                                    <Button x:Name="TabTodoBtn"
-                                            Style="{StaticResource TabPillButtonStyle}"
-                                            Click="OnTabTodoClick">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource GeomChecklist}"
-                                                  Width="11" Height="11"
-                                                  Stretch="Uniform"
-                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,5,0"
-                                                  VerticalAlignment="Center"/>
-                                            <TextBlock Text="Tugas" VerticalAlignment="Center"/>
-                                            <Border x:Name="TabTodoCountBadge"
-                                                    Background="#2822C55E"
-                                                    BorderBrush="#4022C55E"
-                                                    BorderThickness="1"
-                                                    CornerRadius="6"
-                                                    Padding="4,0.5"
-                                                    Margin="4.5,0,0,0"
-                                                    VerticalAlignment="Center"
-                                                    Visibility="Collapsed">
-                                                <TextBlock x:Name="TabTodoCountText"
-                                                           Text="0"
-                                                           Foreground="#34D399"
-                                                           FontSize="9"
-                                                           FontWeight="Bold"/>
-                                            </Border>
-                                        </StackPanel>
-                                    </Button>
-
-                                    <Button x:Name="TabPomodoroBtn"
-                                            Style="{StaticResource TabPillButtonStyle}"
-                                            Click="OnTabPomodoroClick">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource GeomFocusTimer}"
-                                                  Width="10.5" Height="10.5"
-                                                  Stretch="Uniform"
-                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,4,0"
-                                                  VerticalAlignment="Center"/>
-                                            <TextBlock Text="Fokus" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-
-                                    <Button x:Name="TabShortcutsBtn"
-                                            Style="{StaticResource TabPillButtonStyle}"
-                                            Click="OnTabShortcutsClick">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource GeomAppGrid}"
-                                                  Width="10.5" Height="10.5"
-                                                  Stretch="Uniform"
-                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,4,0"
-                                                  VerticalAlignment="Center"/>
-                                            <TextBlock Text="Pintasan" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-
-                                    <Button x:Name="TabPerformanceBtn"
-                                            Style="{StaticResource TabPillButtonStyle}"
-                                            Click="OnTabPerformanceClick">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource GeomCpuPulse}"
-                                                  Width="10.5" Height="10.5"
-                                                  Stretch="Uniform"
-                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,4,0"
-                                                  VerticalAlignment="Center"/>
-                                            <TextBlock Text="Performa" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-
-                                    <Button x:Name="TabShelfBtn"
-                                            Style="{StaticResource TabPillButtonStyle}"
-                                            Click="OnTabShelfClick">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource GeomFolderTray}"
-                                                  Width="10.5" Height="10.5"
-                                                  Stretch="Uniform"
-                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,4,0"
-                                                  VerticalAlignment="Center"/>
-                                            <TextBlock Text="Rak" VerticalAlignment="Center"/>
-                                            <Border x:Name="TabShelfCountBadge"
-                                                    Background="#2838BDF8"
-                                                    BorderBrush="#4038BDF8"
-                                                    BorderThickness="1"
-                                                    CornerRadius="6"
-                                                    Padding="4,0.5"
-                                                    Margin="4,0,0,0"
-                                                    VerticalAlignment="Center"
-                                                    Visibility="Collapsed">
-                                                <TextBlock x:Name="TabShelfCountText"
-                                                           Text="0"
-                                                           Foreground="#38BDF8"
-                                                           FontSize="9"
-                                                           FontWeight="Bold"/>
-                                            </Border>
-                                        </StackPanel>
-                                    </Button>
-
-                                    <Button x:Name="TabSystemBtn"
-                                            Visibility="Collapsed"
-                                            Style="{StaticResource TabPillButtonStyle}"
-                                            Click="OnTabSystemClick">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource GeomSliders}"
-                                                  Width="11" Height="11"
-                                                  Stretch="Uniform"
-                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Margin="0,0,5,0"
-                                                  VerticalAlignment="Center"/>
-                                            <TextBlock Text="Sistem" VerticalAlignment="Center"/>
-                                            <Ellipse x:Name="TabSystemUpdateBadge"
-                                                     Width="5.5" Height="5.5"
-                                                     Fill="#22C55E"
-                                                     Margin="4.5,0,0,0"
-                                                     VerticalAlignment="Center"
-                                                     Visibility="Collapsed"/>
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
-                            </Border>
-
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
-                                <Border Background="#10FFFFFF"
-                                        BorderBrush="#1AFFFFFF"
-                                        BorderThickness="1"
-                                        CornerRadius="7"
-                                        Padding="6,2.5"
-                                        Margin="0,0,5,0"
-                                        VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock x:Name="ExpandedClockBadge"
                                                Text="14:25"
+                                               Foreground="#F8FAFC"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                                               VerticalAlignment="Center"/>
+                                    <Ellipse Width="3" Height="3"
+                                             Fill="#475569"
+                                             Margin="6,0"
+                                             VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="ExpandedDateBadge"
+                                               Text="Jum, 30 Okt"
                                                Foreground="#94A3B8"
                                                FontSize="10.5"
                                                FontWeight="SemiBold"
-                                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                                               FontFamily="Segoe UI Variable Text, Segoe UI"
                                                VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Right: Wi-Fi, Bluetooth, Battery, Settings & Simpan -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                                <!-- Wi-Fi Status Pill -->
+                                <Border x:Name="HeaderWifiBadge"
+                                        Background="#12FFFFFF"
+                                        BorderBrush="#1EFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="9"
+                                        Padding="7.5,4"
+                                        Margin="0,0,5,0"
+                                        VerticalAlignment="Center"
+                                        ToolTip="Status Jaringan Wi-Fi">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path x:Name="HeaderWifiIconPath"
+                                              Data="{StaticResource GeomWifi}"
+                                              Width="11" Height="11"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              Margin="0,0,4.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="HeaderWifiText"
+                                                   Text="Wi-Fi"
+                                                   MaxWidth="82"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="#CBD5E1"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </Border>
+
+                                <!-- Bluetooth Status Button (Left-Click Toggle ON/OFF, Right-Click Windows Settings) -->
+                                <Button x:Name="HeaderBluetoothBtn"
+                                        Style="{StaticResource IslandIconButtonStyle}"
+                                        Padding="7.5,4"
+                                        Margin="0,0,5,0"
+                                        ToolTip="Klik Kiri: ON/OFF Bluetooth | Klik Kanan: Pengaturan Bluetooth Windows"
+                                        Click="OnBluetoothQuickClick"
+                                        MouseRightButtonUp="OnBluetoothQuickRightClick">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path x:Name="HeaderBluetoothIconPath"
+                                              Data="{StaticResource GeomBluetooth}"
+                                              Width="11" Height="11"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              Margin="0,0,3.5,0"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="HeaderBluetoothText"
+                                                   Text="BT"
+                                                   MaxWidth="64"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="#CBD5E1"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Battery Status Pill (3-Tier Color + Proportional DPI-Fit Bar) -->
+                                <Border x:Name="HeaderBatteryBadge"
+                                        Background="#12FFFFFF"
+                                        BorderBrush="#1EFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="9"
+                                        Padding="7.5,4"
+                                        Margin="0,0,5,0"
+                                        VerticalAlignment="Center"
+                                        ToolTip="Status Baterai">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path x:Name="HeaderBatteryBoltPath"
+                                              Data="{StaticResource GeomBolt}"
+                                              Width="9.5" Height="9.5"
+                                              Stretch="Uniform"
+                                              Fill="#22C55E"
+                                              Margin="0,0,3,0"
+                                              VerticalAlignment="Center"
+                                              Visibility="Collapsed"/>
+                                        <TextBlock x:Name="HeaderBatteryPercentText"
+                                                   Text="100%"
+                                                   Foreground="#E2E8F0"
+                                                   FontSize="10"
+                                                   FontWeight="Bold"
+                                                   Margin="0,0,4.5,0"
+                                                   VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" SnapsToDevicePixels="True" UseLayoutRounding="True">
+                                            <Border x:Name="HeaderBatteryBodyBorder"
+                                                    Width="22" Height="11"
+                                                    CornerRadius="3"
+                                                    BorderBrush="#90FFFFFF"
+                                                    BorderThickness="1"
+                                                    Background="#22FFFFFF"
+                                                    Padding="1.3">
+                                                <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition x:Name="HeaderBatteryFillCol" Width="100*"/>
+                                                        <ColumnDefinition x:Name="HeaderBatteryEmptyCol" Width="0*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border x:Name="HeaderBatteryFillBar"
+                                                            Grid.Column="0"
+                                                            HorizontalAlignment="Stretch"
+                                                            VerticalAlignment="Stretch"
+                                                            CornerRadius="1.5"
+                                                            Background="#22C55E"/>
+                                                </Grid>
+                                            </Border>
+                                            <Border Width="2" Height="4.5"
+                                                    CornerRadius="0,1.2,1.2,0"
+                                                    Background="#85FFFFFF"
+                                                    Margin="1,0,0,0"
+                                                    VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Settings Button -->
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="8,4"
+                                        Padding="7.5,4"
                                         Margin="0,0,5,0"
                                         ToolTip="Buka Pengaturan &amp; Kontrol Sistem (System Settings)"
                                         Click="OnOpenSettingsClick">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Data="{StaticResource GeomSettingsGear}"
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path x:Name="HeaderSettingsGearIcon"
+                                              Data="{StaticResource GeomSettingsGear}"
                                               Width="11.5" Height="11.5"
                                               Stretch="Uniform"
                                               Fill="#38BDF8"
@@ -896,18 +875,20 @@
                                                  Visibility="Collapsed"/>
                                     </StackPanel>
                                 </Button>
+
+                                <!-- Simpan Button -->
                                 <Button Style="{StaticResource IslandIconButtonStyle}"
-                                        Padding="8.5,4"
+                                        Padding="8,4"
                                         ToolTip="Lipat ke bibir atas layar agar tab/tombol aplikasi di belakangnya bisa diklik"
                                         Click="OnManualTuckClick">
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Path Data="{StaticResource GeomChevronUp}"
                                               Width="10" Height="10"
                                               Stretch="Uniform"
                                               Fill="#CBD5E1"
-                                              Margin="0,0,4,0"
+                                              Margin="0,0,3.5,0"
                                               VerticalAlignment="Center"/>
-                                        <TextBlock Text="Simpan" FontSize="10.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Simpan" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -1120,30 +1101,22 @@
                                            VerticalAlignment="Center"/>
                             </Grid>
 
-                            <!-- ANIMATED 3-LINE LIVE LYRICS STAGE -->
+                            <!-- ANIMATED 3-LINE LIVE LYRICS STAGE (Clean Zero-Glow Typography + Bottom Lyric Duration Bar) -->
                             <Border Grid.Row="2"
                                     Background="#0EFFFFFF"
                                     BorderBrush="#1CFFFFFF"
                                     BorderThickness="1"
                                     CornerRadius="14"
-                                    Padding="14,5"
+                                    Padding="14,5,14,5"
                                     ClipToBounds="True">
                                 <Grid>
-                                    <Ellipse x:Name="LyricsStageGlowOrb"
-                                             Width="220" Height="50"
-                                             HorizontalAlignment="Center"
-                                             VerticalAlignment="Center"
-                                             Opacity="0.16"
-                                             IsHitTestVisible="False">
-                                        <Ellipse.Fill>
-                                            <SolidColorBrush x:Name="LyricsStageOrbBrush" Color="#38BDF8"/>
-                                        </Ellipse.Fill>
-                                        <Ellipse.Effect>
-                                            <BlurEffect Radius="28"/>
-                                        </Ellipse.Effect>
-                                    </Ellipse>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
                                     <StackPanel x:Name="LyricsStageStack"
+                                                Grid.Row="0"
                                                 VerticalAlignment="Center"
                                                 RenderTransformOrigin="0.5,0.5">
                                         <StackPanel.RenderTransform>
@@ -1157,7 +1130,7 @@
                                                    FontWeight="Medium"
                                                    TextAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"
-                                                   Margin="0,0,0,1.5"/>
+                                                   Margin="0,0,0,2"/>
 
                                         <TextBlock x:Name="CurrentLyricLineText"
                                                    Text="Lirik otomatis muncul saat lagu diputar"
@@ -1166,42 +1139,38 @@
                                                    FontWeight="Bold"
                                                    TextAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"
+                                                   Margin="0,0,0,2.5"
                                                    RenderTransformOrigin="0.5,0.5">
                                             <TextBlock.RenderTransform>
                                                 <ScaleTransform x:Name="ActiveLyricScale" ScaleX="1.0" ScaleY="1.0"/>
                                             </TextBlock.RenderTransform>
-                                            <TextBlock.Effect>
-                                                <DropShadowEffect x:Name="ActiveLyricGlowEffect"
-                                                                  Color="#38BDF8"
-                                                                  BlurRadius="12"
-                                                                  ShadowDepth="0"
-                                                                  Opacity="0.55"/>
-                                            </TextBlock.Effect>
                                         </TextBlock>
 
-                                        <Border x:Name="LyricLineProgressTrack"
-                                                Width="120"
-                                                Height="2.5"
-                                                CornerRadius="1.25"
-                                                Background="#22FFFFFF"
-                                                HorizontalAlignment="Center"
-                                                Margin="0,4.5,0,2.5">
-                                            <Border x:Name="LyricLineProgressFill"
-                                                    HorizontalAlignment="Left"
-                                                    Width="0"
-                                                    Height="2.5"
-                                                    CornerRadius="1.25"
-                                                    Background="#38BDF8"/>
-                                        </Border>
-
                                         <TextBlock x:Name="NextLyricLineText"
-                                                   Text="Sinkronisasi multi-sumber otomatis (LRCLIB / Musixmatch / NetEase)"
+                                                   Text="Sinkronisasi lirik terverifikasi otomatis"
                                                    Foreground="#99CBD5E1"
                                                    FontSize="11"
                                                    FontWeight="Medium"
                                                    TextAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
+
+                                    <!-- Lyric Line Duration Bar Anchored Cleanly at the Very Bottom -->
+                                    <Border x:Name="LyricLineProgressTrack"
+                                            Grid.Row="1"
+                                            Width="160"
+                                            Height="2.5"
+                                            CornerRadius="1.25"
+                                            Background="#22FFFFFF"
+                                            HorizontalAlignment="Center"
+                                            Margin="0,4,0,1">
+                                        <Border x:Name="LyricLineProgressFill"
+                                                HorizontalAlignment="Left"
+                                                Width="0"
+                                                Height="2.5"
+                                                CornerRadius="1.25"
+                                                Background="#38BDF8"/>
+                                    </Border>
                                 </Grid>
                             </Border>
                         </Grid>
@@ -1440,7 +1409,7 @@
                                                                     <Path Data="{StaticResource GeomCheckTick}"
                                                                           Width="9.5" Height="9.5"
                                                                           Stretch="Uniform"
-                                                                          Fill="#34D399"
+                                                                          Fill="{Binding CheckTickBrush}"
                                                                           Visibility="{Binding DoneCheckmarkVisibility}"
                                                                           HorizontalAlignment="Center"
                                                                           VerticalAlignment="Center"/>
@@ -1455,8 +1424,8 @@
                                                                          FontWeight="Medium"
                                                                          Background="Transparent"
                                                                          BorderThickness="0"
-                                                                         CaretBrush="#38BDF8"
-                                                                         SelectionBrush="#4038BDF8"
+                                                                         CaretBrush="{DynamicResource AppAccentBrush}"
+                                                                         SelectionBrush="#40FFFFFF"
                                                                          Focusable="True"
                                                                          VerticalAlignment="Center"
                                                                          Padding="0,1"
@@ -1627,7 +1596,7 @@
                                                                     <Path Data="{StaticResource GeomAppGrid}"
                                                                           Width="14" Height="14"
                                                                           Stretch="Uniform"
-                                                                          Fill="#38BDF8"
+                                                                          Fill="{DynamicResource AppAccentBrush}"
                                                                           HorizontalAlignment="Center"
                                                                           VerticalAlignment="Center"/>
                                                                     <Image Source="{Binding IconImage}"
@@ -2082,7 +2051,7 @@
                                                                     Cursor="Hand"
                                                                     MouseMove="OnShelfItemMouseMove">
                                                                 <Border.ToolTip>
-                                                                    <ToolTip Background="#0F172A" BorderBrush="#334155" Padding="8">
+                                                                    <ToolTip Background="#121215" BorderBrush="#3F3F46" Padding="8">
                                                                         <StackPanel>
                                                                             <Image Source="{Binding PreviewImage}"
                                                                                    MaxWidth="180"
@@ -2091,14 +2060,14 @@
                                                                                    Margin="0,0,0,6"
                                                                                    Visibility="{Binding PreviewImageVisibility}"/>
                                                                             <TextBlock Text="{Binding FileName}" Foreground="#F8FAFC" FontWeight="Bold" FontSize="11.5"/>
-                                                                            <TextBlock Text="Tarik (Drag) keluar untuk mengirim file ini" Foreground="#94A3B8" FontSize="10"/>
+                                                                            <TextBlock Text="Tarik (Drag) keluar untuk mengirim file ini" Foreground="#A1A1AA" FontSize="10"/>
                                                                         </StackPanel>
                                                                     </ToolTip>
                                                                 </Border.ToolTip>
                                                                 <StackPanel Orientation="Horizontal">
                                                                     <Border Width="38" Height="38"
                                                                             CornerRadius="8"
-                                                                            Background="#1E293B"
+                                                                            Background="#18181B"
                                                                             BorderBrush="#30FFFFFF"
                                                                             BorderThickness="1"
                                                                             Margin="0,0,8,0"
@@ -2107,7 +2076,7 @@
                                                                             <TextBlock Text="{Binding IconGlyph}"
                                                                                        FontSize="10"
                                                                                        FontWeight="Bold"
-                                                                                       Foreground="#38BDF8"
+                                                                                       Foreground="{DynamicResource AppAccentBrush}"
                                                                                        HorizontalAlignment="Center"
                                                                                        VerticalAlignment="Center"
                                                                                        Visibility="{Binding IconGlyphVisibility}"/>
@@ -2803,21 +2772,170 @@
                         </Grid>
                         </Grid>
 
-                        <!-- BOTTOM PAGINATION DOTS (Sesuai Referensi Gambar 3 & 4) -->
-                        <StackPanel x:Name="DotsPaginationPanel"
-                                    Grid.Row="2"
-                                    Orientation="Horizontal"
+                        <!-- BOTTOM MORPHING TAB DOCK (Pagination Dots by default -> Morphs into Tab Vector Logos on Hover) -->
+                        <Grid x:Name="BottomDockHostGrid"
+                              Grid.Row="2"
+                              Height="26"
+                              Margin="0,4,0,0"
+                              Background="Transparent"
+                              MouseEnter="OnBottomDockMouseEnter"
+                              MouseLeave="OnBottomDockMouseLeave">
+
+                            <!-- Layer 1: Default Minimalist Pagination Dots -->
+                            <StackPanel x:Name="DotsPaginationPanel"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        RenderTransformOrigin="0.5,0.5">
+                                <StackPanel.RenderTransform>
+                                    <ScaleTransform x:Name="DotsPanelScale" ScaleX="1.0" ScaleY="1.0"/>
+                                </StackPanel.RenderTransform>
+                                <Border x:Name="PageDot0" Width="16" Height="3.5" CornerRadius="2" Background="#38BDF8" Margin="3,0" Cursor="Hand" ToolTip="Musik" MouseLeftButtonUp="OnDot0Click"/>
+                                <Border x:Name="PageDot1" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Tugas" MouseLeftButtonUp="OnDot1Click"/>
+                                <Border x:Name="PageDot2" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Fokus" MouseLeftButtonUp="OnDot2Click"/>
+                                <Border x:Name="PageDotShortcuts" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Pintasan Aplikasi" MouseLeftButtonUp="OnDotShortcutsClick"/>
+                                <Border x:Name="PageDotPerf" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Monitor Performa" MouseLeftButtonUp="OnDotPerfClick"/>
+                                <Border x:Name="PageDot3" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Rak File" MouseLeftButtonUp="OnDot3Click"/>
+                                <Border x:Name="PageDot4" Visibility="Collapsed" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Sistem" MouseLeftButtonUp="OnDot4Click"/>
+                            </StackPanel>
+
+                            <!-- Layer 2: Morphed Tab Logo Dock Pill (Revealed smoothly when cursor approaches dots) -->
+                            <Border x:Name="BottomTabDockBorder"
+                                    Background="#18FFFFFF"
+                                    BorderBrush="#2CFFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="5,1.5"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    Margin="0,8,0,0">
-                            <Border x:Name="PageDot0" Width="16" Height="3.5" CornerRadius="2" Background="#38BDF8" Margin="3,0" Cursor="Hand" ToolTip="Musik" MouseLeftButtonUp="OnDot0Click"/>
-                            <Border x:Name="PageDot1" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Tugas" MouseLeftButtonUp="OnDot1Click"/>
-                            <Border x:Name="PageDot2" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Fokus" MouseLeftButtonUp="OnDot2Click"/>
-                            <Border x:Name="PageDotShortcuts" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Pintasan Aplikasi" MouseLeftButtonUp="OnDotShortcutsClick"/>
-                            <Border x:Name="PageDotPerf" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Monitor Performa" MouseLeftButtonUp="OnDotPerfClick"/>
-                            <Border x:Name="PageDot3" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Rak File" MouseLeftButtonUp="OnDot3Click"/>
-                            <Border x:Name="PageDot4" Visibility="Collapsed" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Sistem" MouseLeftButtonUp="OnDot4Click"/>
-                        </StackPanel>
+                                    Opacity="0.0"
+                                    IsHitTestVisible="False"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform x:Name="BottomDockScale" ScaleX="0.86" ScaleY="0.86"/>
+                                </Border.RenderTransform>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button x:Name="TabMediaBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Musik &amp; Lirik"
+                                            Click="OnTabMediaClick">
+                                        <Path Data="{StaticResource GeomMusic}"
+                                              Width="12.5" Height="12.5"
+                                              Stretch="Uniform"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              VerticalAlignment="Center"/>
+                                    </Button>
+
+                                    <Button x:Name="TabTodoBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Tugas Harian (To-do)"
+                                            Click="OnTabTodoClick">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomChecklist}"
+                                                  Width="12.5" Height="12.5"
+                                                  Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  VerticalAlignment="Center"/>
+                                            <Border x:Name="TabTodoCountBadge"
+                                                    Background="#2822C55E"
+                                                    BorderBrush="#4022C55E"
+                                                    BorderThickness="1"
+                                                    CornerRadius="5"
+                                                    Padding="3.5,0"
+                                                    Margin="4,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="Collapsed">
+                                                <TextBlock x:Name="TabTodoCountText"
+                                                           Text="0"
+                                                           Foreground="#34D399"
+                                                           FontSize="8.5"
+                                                           FontWeight="Bold"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="TabPomodoroBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Timer Fokus &amp; Hidrasi"
+                                            Click="OnTabPomodoroClick">
+                                        <Path Data="{StaticResource GeomFocusTimer}"
+                                              Width="12.5" Height="12.5"
+                                              Stretch="Uniform"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              VerticalAlignment="Center"/>
+                                    </Button>
+
+                                    <Button x:Name="TabShortcutsBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Pintasan Aplikasi (Launchpad)"
+                                            Click="OnTabShortcutsClick">
+                                        <Path Data="{StaticResource GeomAppGrid}"
+                                              Width="12.5" Height="12.5"
+                                              Stretch="Uniform"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              VerticalAlignment="Center"/>
+                                    </Button>
+
+                                    <Button x:Name="TabPerformanceBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Monitor Performa (CPU / GPU / RAM)"
+                                            Click="OnTabPerformanceClick">
+                                        <Path Data="{StaticResource GeomCpuPulse}"
+                                              Width="12.5" Height="12.5"
+                                              Stretch="Uniform"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              VerticalAlignment="Center"/>
+                                    </Button>
+
+                                    <Button x:Name="TabShelfBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Rak File Sementara (Shelf)"
+                                            Click="OnTabShelfClick">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomFolderTray}"
+                                                  Width="12.5" Height="12.5"
+                                                  Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  VerticalAlignment="Center"/>
+                                            <Border x:Name="TabShelfCountBadge"
+                                                    Background="#2838BDF8"
+                                                    BorderBrush="#4038BDF8"
+                                                    BorderThickness="1"
+                                                    CornerRadius="5"
+                                                    Padding="3.5,0"
+                                                    Margin="4,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="Collapsed">
+                                                <TextBlock x:Name="TabShelfCountText"
+                                                           Text="0"
+                                                           Foreground="#38BDF8"
+                                                           FontSize="8.5"
+                                                           FontWeight="Bold"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="TabSystemBtn"
+                                            Visibility="Collapsed"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            Click="OnTabSystemClick">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomSliders}"
+                                                  Width="12.5" Height="12.5"
+                                                  Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  VerticalAlignment="Center"/>
+                                            <Ellipse x:Name="TabSystemUpdateBadge"
+                                                     Width="5" Height="5"
+                                                     Fill="#22C55E"
+                                                     Margin="3.5,0,0,0"
+                                                     VerticalAlignment="Center"
+                                                     Visibility="Collapsed"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </Grid>
                 </Grid>
             </Border>

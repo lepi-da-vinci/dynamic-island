@@ -12,7 +12,6 @@ public sealed class AppSettingsData
     // General - Notch
     public int NotchSizePercent { get; set; } = 0; // 0 = Auto (100%), 100, 115, 130, 150
     public bool MinimalNotchEnabled { get; set; } = false;
-    public bool MascotEnabled { get; set; } = false;
     public bool AutoTuckEnabled { get; set; } = true;
     public int IdleCycleSeconds { get; set; } = 10;
 
@@ -32,8 +31,9 @@ public sealed class AppSettingsData
     public int TopEdgeHoverSensitivityMs { get; set; } = 60;
 
     // Appearance & Design Themes
-    public string IslandSurfaceTheme { get; set; } = "OledBlack"; // OledBlack, MidnightCarbon, FrostedGraphite, CyberMatrix, RoyalAmethyst, CrimsonObsidian
-    public string AccentTheme { get; set; } = "Auto"; // Auto, Cyan, Green, Purple, Orange, Rose, Gold, White
+    public string IslandPlacementStyle { get; set; } = "Notch"; // Notch (Top-Attached), PunchHole (Floating Capsule)
+    public string IslandSurfaceTheme { get; set; } = "OledBlack"; // OledBlack, MidnightCarbon, FrostedGraphite, CyberMatrix, RoyalAmethyst, CrimsonObsidian, Monochrome
+    public string AccentTheme { get; set; } = "Auto"; // Auto, Cyan, Green, Purple, Orange, Rose, Gold, White, Monochrome
     public string NotchCornerStyle { get; set; } = "Squircle"; // Squircle, UltraPill, Sharp
     public string RimGlowStyle { get; set; } = "Subtle"; // Subtle, AccentNeon, Hidden
     public double NotchBackgroundOpacity { get; set; } = 1.0; // 1.0, 0.94, 0.86
@@ -127,18 +127,6 @@ public sealed class AppSettingsService
         {
             if (_data.MinimalNotchEnabled == value) return;
             _data.MinimalNotchEnabled = value;
-            Save();
-            SettingsChanged?.Invoke();
-        }
-    }
-
-    public bool MascotEnabled
-    {
-        get => _data.MascotEnabled;
-        set
-        {
-            if (_data.MascotEnabled == value) return;
-            _data.MascotEnabled = value;
             Save();
             SettingsChanged?.Invoke();
         }
@@ -315,6 +303,19 @@ public sealed class AppSettingsService
         {
             if (_data.TopEdgeHoverSensitivityMs == value) return;
             _data.TopEdgeHoverSensitivityMs = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public string IslandPlacementStyle
+    {
+        get => string.IsNullOrWhiteSpace(_data.IslandPlacementStyle) ? "Notch" : _data.IslandPlacementStyle;
+        set
+        {
+            string normalized = value == "PunchHole" ? "PunchHole" : "Notch";
+            if (_data.IslandPlacementStyle == normalized) return;
+            _data.IslandPlacementStyle = normalized;
             Save();
             SettingsChanged?.Invoke();
         }

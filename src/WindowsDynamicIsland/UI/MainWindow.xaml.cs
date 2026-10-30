@@ -78,14 +78,28 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _repositionCts;
     private bool _isWindowActivatable;
 
-    // Interactive satellite side-wing switcher state (Zero drift, anchor rock-solid at center)
+    // Interactive satellite side-wing switcher & bottom morphing dock state
     private double _leftWingWidth;
     private double _targetLeftWingWidth;
     private double _rightWingWidth;
     private double _targetRightWingWidth;
     private int _hoveredSideZone; // -1 = Left, 0 = None, 1 = Right
+    private bool _isBottomDockMorphed;
+    private double _currentPlacementTopDip;
+    private Color _currentThemeAccentColor = Color.FromRgb(56, 189, 248);
     private IslandDashboardTab _previousActiveTab = IslandDashboardTab.MediaLyrics;
     private int _explicitSlideDirection;
+
+    private static readonly HashSet<string> MonochromeExcludedNames =
+    [
+        "UnifiedNotchPath",
+        "UnifiedNotchRimPath",
+        "AmbientGlowBorder"
+    ];
+
+    private bool IsMonochromeTheme =>
+        _settingsService.IslandSurfaceTheme == "Monochrome" ||
+        _settingsService.AccentTheme == "Monochrome";
 
     public MainWindow()
     {
@@ -185,6 +199,7 @@ public partial class MainWindow : Window
 
         _stateMachine.StateChanged += OnIslandStateChanged;
         _mediaService.TrackChanged += OnMediaTrackChanged;
+        _mediaService.TrackDurationRefined += OnMediaTrackDurationRefined;
         _mediaService.PlaybackStateChanged += OnMediaPlaybackStateChanged;
         _lyricsService.LyricsUpdated += () => Dispatcher.InvokeAsync(UpdateMediaAndLyricsUi);
         _hardwareService.HardwareToastTriggered += toast => Dispatcher.InvokeAsync(() => TriggerToast(toast));
@@ -693,14 +708,15 @@ public partial class MainWindow : Window
 
         double bodyWidth = Math.Max(48, _morph.Width.Current);
         double bodyHeight = Math.Max(4, _morph.Height.Current);
+        double yTop = _currentPlacementTopDip;
 
-        // In TuckedTopEdge ("Mode Simpan"), restrict clickable zone to top 0..6px
-        // so Chrome tabs right below (Y >= 7px) are 100% clickable!
+        // In TuckedTopEdge ("Mode Simpan"), restrict clickable zone to the micro handle
+        // so browser tabs right below are 100% clickable!
         if (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge)
         {
-            bodyHeight = Math.Min(bodyHeight, 6.0);
+            double maxTuckY = yTop + Math.Min(bodyHeight, 7.0);
             double tuckedLeft = (MasterGridWidth - bodyWidth) / 2.0;
-            return dipX >= (tuckedLeft - 10) && dipX <= (tuckedLeft + bodyWidth + 10) && dipY >= 0 && dipY <= bodyHeight;
+            return dipX >= (tuckedLeft - 10) && dipX <= (tuckedLeft + bodyWidth + 10) && dipY >= 0 && dipY <= maxTuckY;
         }
 
         // Generous margin tolerance around the notch so swift cursor moves never flicker
@@ -708,7 +724,7 @@ public partial class MainWindow : Window
         double centerX = MasterGridWidth / 2.0;
         double leftEdge = centerX - (bodyWidth / 2.0) - _leftWingWidth - marginTolerance;
         double rightEdge = centerX + (bodyWidth / 2.0) + _rightWingWidth + marginTolerance;
-        double bottomEdge = bodyHeight + marginTolerance;
+        double bottomEdge = yTop + bodyHeight + marginTolerance;
 
         return dipX >= leftEdge && dipX <= rightEdge && dipY >= -5 && dipY <= bottomEdge;
     }
@@ -882,7 +898,11 @@ public partial class MainWindow : Window
         TuckedHandlePanel.Visibility = state == IslandVisualState.TuckedTopEdge ? Visibility.Visible : Visibility.Collapsed;
         if (state == IslandVisualState.TuckedTopEdge)
         {
-            if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
+            if (IsMonochromeTheme)
+            {
+                TuckedAccentBar.Background = new SolidColorBrush(Color.FromRgb(228, 228, 231));
+            }
+            else if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
             {
                 TuckedAccentBar.Background = new SolidColorBrush(_mediaService.CurrentTrack.DominantColor);
             }
@@ -896,7 +916,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                TuckedAccentBar.Background = new SolidColorBrush(Color.FromRgb(56, 189, 248));
+                TuckedAccentBar.Background = new SolidColorBrush(_currentThemeAccentColor);
             }
         }
 
@@ -957,6 +977,7 @@ public partial class MainWindow : Window
         }
         else
         {
+            SetBottomDockMorphed(false);
             SetWindowActivatable(false);
             Keyboard.ClearFocus();
         }
@@ -1030,7 +1051,9 @@ public partial class MainWindow : Window
 
     private void UpdateTabHighlight()
     {
-        var activeBrush = new SolidColorBrush(Color.FromArgb(46, 255, 255, 255));
+        Color accent = _currentThemeAccentColor;
+        var activeBrush = new SolidColorBrush(Color.FromArgb(52, accent.R, accent.G, accent.B));
+        var activeBorder = new SolidColorBrush(Color.FromArgb(115, accent.R, accent.G, accent.B));
         var inactiveBrush = Brushes.Transparent;
         var activeFg = Brushes.White;
         var inactiveFg = new SolidColorBrush(Color.FromRgb(148, 163, 184));
@@ -1049,6 +1072,7 @@ public partial class MainWindow : Window
         void SetTabVisual(Button btn, bool isSelected)
         {
             btn.Background = isSelected ? activeBrush : inactiveBrush;
+            btn.BorderBrush = isSelected ? activeBorder : inactiveBrush;
             btn.Foreground = isSelected ? activeFg : inactiveFg;
         }
     }
@@ -1116,26 +1140,51 @@ public partial class MainWindow : Window
                 RightWingContainer.IsHitTestVisible = false;
             }
 
+            double targetYTop = _settingsService.IslandPlacementStyle == "PunchHole"
+                ? (_stateMachine.CurrentState == IslandVisualState.TuckedTopEdge ? 4.0 : 8.0)
+                : 0.0;
+
+            if (_stateMachine.IsScreenshotMode)
+            {
+                _currentPlacementTopDip = targetYTop;
+            }
+            else
+            {
+                _currentPlacementTopDip += (targetYTop - _currentPlacementTopDip) * Math.Clamp(dt * 15.0, 0.08, 0.45);
+                if (Math.Abs(targetYTop - _currentPlacementTopDip) < 0.05)
+                {
+                    _currentPlacementTopDip = targetYTop;
+                }
+            }
+
+            double yTop = _currentPlacementTopDip;
+            bool isPunchHole = _settingsService.IslandPlacementStyle == "PunchHole" || yTop > 0.4;
+
             double bodyWidth = Math.Max(48, _morph.Width.Current);
             double height = Math.Max(4, _morph.Height.Current);
             double bottomRadius = Math.Clamp(_morph.BottomCornerRadius.Current, 2, height * 0.65);
-            double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 2, height * 0.55);
+            double topEarRadius = Math.Clamp(_morph.TopEarRadius.Current, 0, height * 0.55);
 
             double contentLeft = (MasterGridWidth - bodyWidth) / 2.0;
-            IslandBorder.Margin = new Thickness(contentLeft, 0, 0, 0);
+            IslandBorder.Margin = new Thickness(contentLeft, yTop, 0, 0);
             IslandBorder.Width = bodyWidth;
             IslandBorder.Height = height;
+
+            LeftWingContainer.Margin = new Thickness(34, 52 + yTop, 0, 0);
+            RightWingContainer.Margin = new Thickness(650, 52 + yTop, 0, 0);
 
             double xLeftBody = contentLeft - _leftWingWidth;
             double xRightBody = contentLeft + bodyWidth + _rightWingWidth;
 
-            AmbientGlowBorder.Margin = new Thickness(xLeftBody, 0, 0, 0);
+            AmbientGlowBorder.Margin = new Thickness(xLeftBody, yTop, 0, 0);
             AmbientGlowBorder.Width = Math.Max(10, xRightBody - xLeftBody);
             AmbientGlowBorder.Height = height;
-            AmbientGlowBorder.CornerRadius = new CornerRadius(0, 0, bottomRadius, bottomRadius);
+            AmbientGlowBorder.CornerRadius = isPunchHole
+                ? new CornerRadius(bottomRadius)
+                : new CornerRadius(0, 0, bottomRadius, bottomRadius);
             AmbientGlowBorder.Opacity = Math.Clamp(_morph.GlowOpacity.Current * _settingsService.GlowIntensity, 0.0, 1.0);
 
-            UpdateUnifiedNotchGeometry(xLeftBody, xRightBody, height, bottomRadius, topEarRadius);
+            UpdateUnifiedNotchGeometry(xLeftBody, xRightBody, yTop, height, bottomRadius, topEarRadius, isPunchHole);
             UpdateWindowClickThroughState();
 
             bool isCompactMedia =
@@ -1165,7 +1214,7 @@ public partial class MainWindow : Window
             }
             else if (isExpandedMedia)
             {
-                // Drive real-time WASAPI Loopback 5-band waveform in Expanded Music Player too!
+                // Drive real-time WASAPI Loopback 5-band waveform in Expanded Music Player
                 if (_settingsService.AudioVisualizerEnabled)
                 {
                     _audioService.UpdateSpectrumBars(_spectrumHeights, _mediaService.CurrentTrack.IsPlaying, maxBarHeight: 15.0);
@@ -1174,18 +1223,15 @@ public partial class MainWindow : Window
                         _expWaveRectangles[i].Height = _spectrumHeights[i];
                     }
                 }
-
-                float peak = _audioService.GetCurrentPeakLevel(_mediaService.CurrentTrack.IsPlaying);
-                LyricsStageGlowOrb.Opacity = 0.14 + Math.Clamp(peak * 0.45, 0.0, 0.35);
-                LyricsStageGlowOrb.Width = 180 + peak * 95;
             }
 
             bool wingsActive = Math.Abs(_targetLeftWingWidth - _leftWingWidth) > 0.05 ||
                                Math.Abs(_targetRightWingWidth - _rightWingWidth) > 0.05 ||
                                _leftWingWidth > 0.05 ||
                                _rightWingWidth > 0.05;
+            bool placementAnimating = Math.Abs(targetYTop - _currentPlacementTopDip) > 0.05;
 
-            if (!morphActive && !wingsActive && !isCompactMedia && !isExpandedMedia)
+            if (!morphActive && !wingsActive && !placementAnimating && !isCompactMedia && !isExpandedMedia)
             {
                 StopRenderLoop();
             }
@@ -1196,8 +1242,31 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateUnifiedNotchGeometry(double xLeftBody, double xRightBody, double height, double bottomRadius, double topEarRadius)
+    private void UpdateUnifiedNotchGeometry(
+        double xLeftBody,
+        double xRightBody,
+        double yTop,
+        double height,
+        double bottomRadius,
+        double topEarRadius,
+        bool isPunchHole)
     {
+        if (isPunchHole)
+        {
+            double capsuleWidth = Math.Max(4.0, xRightBody - xLeftBody);
+            double capsuleRadius = Math.Min(bottomRadius, Math.Min(capsuleWidth * 0.5, height * 0.5));
+            var capsuleGeom = new RectangleGeometry(
+                new Rect(xLeftBody, yTop, capsuleWidth, height),
+                capsuleRadius,
+                capsuleRadius);
+            capsuleGeom.Freeze();
+
+            UnifiedNotchPath.Data = capsuleGeom;
+            UnifiedNotchRimPath.Data = capsuleGeom;
+            return;
+        }
+
+        topEarRadius = Math.Max(2.0, topEarRadius);
         if (topEarRadius + bottomRadius > height)
         {
             double scale = height / Math.Max(1.0, topEarRadius + bottomRadius);
@@ -1327,13 +1396,15 @@ public partial class MainWindow : Window
                 _stateMachine.CurrentState == IslandVisualState.TuckedTopEdge &&
                 Win32Interop.GetCursorPos(out var pt))
             {
-                int centerPx = (int)(SystemParameters.PrimaryScreenWidth / 2);
-                if (pt.Y <= 2 && Math.Abs(pt.X - centerPx) <= 85)
+                var (dipX, dipY) = ScreenCursorToMasterGridDip(pt);
+                if (dipY >= 0 && dipY <= (_currentPlacementTopDip + 4.0) && Math.Abs(dipX - (MasterGridWidth / 2.0)) <= 85)
                 {
                     _topBezelHoldTicks++;
                     if (_topBezelHoldTicks >= 3)
                     {
                         _topBezelHoldTicks = 0;
+                        _stateMachine.SetTuckedMode(false);
+                        _stateMachine.SetAutoTucked(false);
                         _stateMachine.SetHovered(true);
                     }
                 }
@@ -1547,12 +1618,15 @@ public partial class MainWindow : Window
         bool isHeadphones = _audioService.IsHeadphoneOrTws;
         int brt = _brightnessService.GetBrightnessPercent();
 
+        bool isMono = IsMonochromeTheme;
         SysVolumePercentText.Text = soundMuted ? "MUTED" : $"{vol}%";
-        var volColor = soundMuted
-            ? Color.FromRgb(248, 113, 113)
-            : isHeadphones
-                ? Color.FromRgb(192, 132, 252)
-                : Color.FromRgb(56, 189, 248);
+        var volColor = isMono
+            ? (soundMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
+            : (soundMuted
+                ? Color.FromRgb(248, 113, 113)
+                : isHeadphones
+                    ? Color.FromRgb(192, 132, 252)
+                    : Color.FromRgb(56, 189, 248));
 
         var volBrush = new SolidColorBrush(volColor);
         SysVolumePercentText.Foreground = volBrush;
@@ -1573,6 +1647,8 @@ public partial class MainWindow : Window
         SysVolumeFillBorder.Background = volBrush;
 
         SysBrightnessPercentText.Text = $"{brt}%";
+        SysBrightnessPercentText.Foreground = isMono ? new SolidColorBrush(Color.FromRgb(228, 228, 231)) : (Brush)FindResource("AppAccentBrush");
+        SysBrightnessFillBorder.Background = isMono ? new SolidColorBrush(Color.FromRgb(228, 228, 231)) : (Brush)FindResource("AppAccentBrush");
         double brtTrackW = SysBrightnessTrackBorder.ActualWidth > 10 ? SysBrightnessTrackBorder.ActualWidth : 185.0;
         double brtFillPx = brtTrackW * Math.Clamp(brt / 100.0, 0.0, 1.0);
         SysBrightnessFillBorder.Width = brtFillPx;
@@ -1581,23 +1657,29 @@ public partial class MainWindow : Window
             ? GetVectorGeometry("GeomSpeakerMuted")
             : GetVectorGeometry("GeomSpeakerOn");
         var soundBtnBrush = new SolidColorBrush(
-            soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248));
+            isMono
+                ? (soundMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
+                : (soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248)));
         ToggleMuteIconPath.Fill = soundBtnBrush;
         ToggleMuteText.Text = soundMuted ? "Sound: MUTED" : "Sound: ON";
-        ToggleMuteText.Foreground = new SolidColorBrush(
+        ToggleMuteText.Foreground = isMono ? soundBtnBrush : new SolidColorBrush(
             soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(248, 250, 252));
 
         ToggleMicIconPath.Data = micMuted
             ? GetVectorGeometry("GeomMicMuted")
             : GetVectorGeometry("GeomMicOn");
         var micBtnBrush = new SolidColorBrush(
-            micMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(34, 197, 94));
+            isMono
+                ? (micMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
+                : (micMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(34, 197, 94)));
         ToggleMicIconPath.Fill = micBtnBrush;
         ToggleMicText.Text = micMuted ? "Mic: MUTED" : "Mic: ON";
         ToggleMicText.Foreground = micBtnBrush;
 
         bool autoTuck = _settingsService.AutoTuckEnabled;
-        var autoTuckColor = autoTuck ? Color.FromRgb(34, 197, 94) : Color.FromRgb(148, 163, 184);
+        var autoTuckColor = isMono
+            ? (autoTuck ? Color.FromRgb(228, 228, 231) : Color.FromRgb(113, 113, 122))
+            : (autoTuck ? Color.FromRgb(34, 197, 94) : Color.FromRgb(148, 163, 184));
         var autoTuckBrush = new SolidColorBrush(autoTuckColor);
         ToggleAutoTuckIconPath.Fill = autoTuckBrush;
         ToggleAutoTuckText.Text = autoTuck ? $"Auto-Simpan ({_settingsService.IdleCycleSeconds}s): ON" : "Auto-Simpan: OFF";
@@ -1607,11 +1689,13 @@ public partial class MainWindow : Window
         var hw = _hardwareService.Current;
         bool btOn = hw.IsBluetoothRadioOn;
         bool btConnected = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName);
-        var btColor = !btOn
-            ? Color.FromRgb(148, 163, 184)
-            : btConnected
-                ? Color.FromRgb(34, 197, 94)
-                : Color.FromRgb(56, 189, 248);
+        var btColor = isMono
+            ? (!btOn ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
+            : (!btOn
+                ? Color.FromRgb(148, 163, 184)
+                : btConnected
+                    ? Color.FromRgb(34, 197, 94)
+                    : Color.FromRgb(56, 189, 248));
         var btBrush = new SolidColorBrush(btColor);
         SysBluetoothIconPath.Data = btOn ? GetVectorGeometry("GeomBluetooth") : GetVectorGeometry("GeomBluetoothOff");
         SysBluetoothIconPath.Fill = btBrush;
@@ -1628,7 +1712,9 @@ public partial class MainWindow : Window
         string nowStr = DateTime.Now.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
         ExpandedClockBadge.Text = DateTime.Now.ToString(_settingsService.Use24HourClock ? "HH:mm" : "h:mm tt", System.Globalization.CultureInfo.InvariantCulture);
 
-        string idDate = DateTime.Now.ToString("d MMM", new System.Globalization.CultureInfo("id-ID"));
+        var idCulture = new System.Globalization.CultureInfo("id-ID");
+        string idDate = DateTime.Now.ToString("d MMM", idCulture);
+        ExpandedDateBadge.Text = DateTime.Now.ToString("ddd, d MMM", idCulture);
         IdleDateText.Text = idDate;
         IdleDateText.Visibility = (_settingsService.ShowDateOnIdle && !_settingsService.MinimalNotchEnabled)
             ? Visibility.Visible
@@ -1638,7 +1724,9 @@ public partial class MainWindow : Window
         {
             IdlePomodoroCountdownBadge.Visibility = Visibility.Visible;
             IdlePomodoroCountdownText.Text = _pomodoroService.FormattedRemaining;
-            var pomoColor = _pomodoroService.IsBreakMode ? Color.FromRgb(56, 189, 248) : Color.FromRgb(34, 197, 94);
+            var pomoColor = IsMonochromeTheme
+                ? Color.FromRgb(228, 228, 231)
+                : (_pomodoroService.IsBreakMode ? Color.FromRgb(56, 189, 248) : Color.FromRgb(34, 197, 94));
             var pomoBrush = new SolidColorBrush(pomoColor);
             IdlePomodoroCountdownBadge.Background = new SolidColorBrush(Color.FromArgb(32, pomoColor.R, pomoColor.G, pomoColor.B));
             IdlePomodoroCountdownBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(64, pomoColor.R, pomoColor.G, pomoColor.B));
@@ -1659,14 +1747,16 @@ public partial class MainWindow : Window
         PomodoroTimeText.Text = _pomodoroService.FormattedRemaining;
         PomodoroModeLabel.Text = _pomodoroService.IsBreakMode ? "Istirahat" : "Sesi Fokus";
         PomodoroModeLabel.Foreground = new SolidColorBrush(
-            _pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(248, 250, 252));
+            IsMonochromeTheme
+                ? Color.FromRgb(228, 228, 231)
+                : (_pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(248, 250, 252)));
 
-        PomodoroModeBadge.Background = new SolidColorBrush(
-            _pomodoroService.IsBreakMode ? Color.FromArgb(34, 34, 197, 94) : Color.FromArgb(34, 239, 68, 68));
-        PomodoroModeBadge.BorderBrush = new SolidColorBrush(
-            _pomodoroService.IsBreakMode ? Color.FromArgb(64, 34, 197, 94) : Color.FromArgb(64, 239, 68, 68));
-        PomodoroModeDot.Fill = new SolidColorBrush(
-            _pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(239, 68, 68));
+        var pomoModeColor = IsMonochromeTheme
+            ? Color.FromRgb(228, 228, 231)
+            : (_pomodoroService.IsBreakMode ? Color.FromRgb(34, 197, 94) : Color.FromRgb(239, 68, 68));
+        PomodoroModeBadge.Background = new SolidColorBrush(Color.FromArgb(34, pomoModeColor.R, pomoModeColor.G, pomoModeColor.B));
+        PomodoroModeBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(64, pomoModeColor.R, pomoModeColor.G, pomoModeColor.B));
+        PomodoroModeDot.Fill = new SolidColorBrush(pomoModeColor);
 
         int pomoPct = (int)Math.Round(_pomodoroService.ProgressRatio * 100);
         PomodoroPercentText.Text = $"{pomoPct}%";
@@ -1741,42 +1831,137 @@ public partial class MainWindow : Window
         catch { }
     }
 
+    private static Color GetBatteryStatusColor(int batteryPercent, bool isCharging, bool isMonochrome = false)
+    {
+        if (isMonochrome)
+        {
+            if (isCharging || batteryPercent > 65)
+                return Color.FromRgb(244, 244, 245); // Zinc-100
+            if (batteryPercent <= 20)
+                return Color.FromRgb(113, 113, 122); // Zinc-500
+            return Color.FromRgb(161, 161, 170); // Zinc-400
+        }
+
+        // Always green when charging, even if battery is 20% or below
+        if (isCharging)
+            return Color.FromRgb(34, 197, 94); // #22C55E
+        if (batteryPercent <= 20)
+            return Color.FromRgb(239, 68, 68); // #EF4444 (Red at <=20%)
+        if (batteryPercent <= 65)
+            return Color.FromRgb(249, 115, 22); // #F97316 (Orange around half)
+        return Color.FromRgb(34, 197, 94); // #22C55E (Green when full)
+    }
+
+    private static void SetProportionalBatteryBar(
+        ColumnDefinition fillCol,
+        ColumnDefinition emptyCol,
+        Border fillBar,
+        int batteryPercent,
+        Color fillColor)
+    {
+        double clampedPct = Math.Clamp(batteryPercent, 0, 100);
+        double starFill = clampedPct <= 0 ? 0.0 : Math.Max(8.0, clampedPct);
+        fillCol.Width = new GridLength(starFill, GridUnitType.Star);
+        emptyCol.Width = new GridLength(Math.Max(0.0, 100.0 - starFill), GridUnitType.Star);
+        fillBar.Background = new SolidColorBrush(fillColor);
+    }
+
     private void UpdateHardwareUi()
     {
         var hw = _hardwareService.Current;
 
-        IdleBatteryPercentText.Text = $"{hw.BatteryPercent}%";
-        double idleBatRatio = Math.Clamp(hw.BatteryPercent / 100.0, 0.08, 1.0);
-        IdleBatteryFillBar.Width = 18.5 * idleBatRatio;
+        int batPct = hw.HasBattery ? Math.Clamp(hw.BatteryPercent, 0, 100) : 100;
+        bool isCharging = hw.HasBattery && hw.IsCharging;
+        bool isMono = IsMonochromeTheme;
+        Color batColor = GetBatteryStatusColor(batPct, isCharging, isMono);
 
-        Color batColor = hw.IsCharging
-            ? Color.FromRgb(34, 197, 94)
-            : hw.BatteryPercent <= 20
-                ? Color.FromRgb(239, 68, 68)
-                : Color.FromRgb(245, 158, 11);
-
-        IdleBatteryFillBar.Background = new SolidColorBrush(batColor);
+        // 1. Idle Pill Battery & Wi-Fi
+        IdleBatteryPercentText.Text = $"{batPct}%";
+        SetProportionalBatteryBar(IdleBatteryFillCol, IdleBatteryEmptyCol, IdleBatteryFillBar, batPct, batColor);
         IdleBatteryBoltPath.Fill = new SolidColorBrush(
-            hw.IsCharging ? Color.FromRgb(254, 240, 138) : Color.FromRgb(248, 250, 252));
-        IdleBatteryBoltPath.Visibility = hw.IsCharging ? Visibility.Visible : Visibility.Collapsed;
+            isMono
+                ? Color.FromRgb(244, 244, 245)
+                : (isCharging ? Color.FromRgb(254, 240, 138) : Color.FromRgb(248, 250, 252)));
+        IdleBatteryBoltPath.Visibility = isCharging ? Visibility.Visible : Visibility.Collapsed;
 
         IdleWifiIconPath.Data = hw.IsNetworkConnected
             ? GetVectorGeometry("GeomWifi")
             : GetVectorGeometry("GeomWifiOff");
         IdleWifiIconPath.Fill = new SolidColorBrush(
-            hw.IsNetworkConnected ? Color.FromRgb(148, 163, 184) : Color.FromRgb(239, 68, 68));
+            isMono
+                ? (hw.IsNetworkConnected ? Color.FromRgb(228, 228, 231) : Color.FromRgb(113, 113, 122))
+                : (hw.IsNetworkConnected ? Color.FromRgb(148, 163, 184) : Color.FromRgb(239, 68, 68)));
+
+        // 2. Expanded Dashboard Top Header: Wi-Fi, Bluetooth & DPI-Fit Battery
+        string wifiLabel = !hw.IsNetworkConnected
+            ? "Offline"
+            : (string.IsNullOrWhiteSpace(hw.NetworkName) || hw.NetworkName == "Terhubung" ? "Online" : hw.NetworkName);
+        if (wifiLabel.StartsWith("Wi-Fi: ", StringComparison.OrdinalIgnoreCase))
+        {
+            wifiLabel = wifiLabel[7..].Trim();
+        }
+        HeaderWifiIconPath.Data = hw.IsNetworkConnected
+            ? GetVectorGeometry("GeomWifi")
+            : GetVectorGeometry("GeomWifiOff");
+        HeaderWifiIconPath.Fill = new SolidColorBrush(
+            isMono
+                ? (hw.IsNetworkConnected ? Color.FromRgb(228, 228, 231) : Color.FromRgb(113, 113, 122))
+                : (hw.IsNetworkConnected ? _currentThemeAccentColor : Color.FromRgb(239, 68, 68)));
+        HeaderWifiText.Text = wifiLabel;
+        HeaderWifiText.Foreground = new SolidColorBrush(
+            isMono
+                ? (hw.IsNetworkConnected ? Color.FromRgb(228, 228, 231) : Color.FromRgb(113, 113, 122))
+                : (hw.IsNetworkConnected ? Color.FromRgb(226, 232, 240) : Color.FromRgb(248, 113, 113)));
+        HeaderWifiBadge.ToolTip = hw.IsNetworkConnected
+            ? $"Wi-Fi Terhubung: {hw.NetworkName}"
+            : "Tidak Terhubung ke Jaringan";
+
+        bool btOn = hw.IsBluetoothRadioOn;
+        bool btConnected = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName);
+        Color headerBtColor = isMono
+            ? (!btOn ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
+            : (!btOn
+                ? Color.FromRgb(148, 163, 184)
+                : btConnected
+                    ? Color.FromRgb(34, 197, 94)
+                    : _currentThemeAccentColor);
+        HeaderBluetoothIconPath.Data = btOn ? GetVectorGeometry("GeomBluetooth") : GetVectorGeometry("GeomBluetoothOff");
+        HeaderBluetoothIconPath.Fill = new SolidColorBrush(headerBtColor);
+        HeaderBluetoothText.Text = !btOn
+            ? "Off"
+            : (btConnected ? hw.ConnectedBluetoothName : "On");
+        HeaderBluetoothText.Foreground = new SolidColorBrush(
+            isMono
+                ? (!btOn ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
+                : (!btOn ? Color.FromRgb(148, 163, 184) : Color.FromRgb(226, 232, 240)));
+        HeaderBluetoothBtn.ToolTip = btConnected
+            ? $"Bluetooth: {hw.ConnectedBluetoothName} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)"
+            : $"Bluetooth {(btOn ? "Aktif" : "Mati")} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)";
+
+        HeaderBatteryPercentText.Text = $"{batPct}%";
+        HeaderBatteryPercentText.Foreground = new SolidColorBrush(
+            isMono
+                ? Color.FromRgb(228, 228, 231)
+                : (isCharging
+                    ? Color.FromRgb(134, 239, 172)
+                    : (batPct <= 20 ? Color.FromRgb(252, 165, 165) : Color.FromRgb(226, 232, 240))));
+        SetProportionalBatteryBar(HeaderBatteryFillCol, HeaderBatteryEmptyCol, HeaderBatteryFillBar, batPct, batColor);
+        HeaderBatteryBoltPath.Visibility = isCharging ? Visibility.Visible : Visibility.Collapsed;
+        HeaderBatteryBoltPath.Fill = new SolidColorBrush(
+            isMono ? Color.FromRgb(244, 244, 245) : Color.FromRgb(34, 197, 94));
+        HeaderBatteryBadge.ToolTip = hw.HasBattery
+            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%"
+            : "Daya Desktop AC (100%)";
 
         bool minimal = _settingsService.MinimalNotchEnabled;
         IdleWifiIconPath.Visibility = minimal ? Visibility.Collapsed : Visibility.Visible;
         IdleBatteryPercentText.Visibility = minimal ? Visibility.Collapsed : Visibility.Visible;
-        IdleMascotBorder.Visibility = _settingsService.MascotEnabled ? Visibility.Visible : Visibility.Collapsed;
 
         CameraPrivacyDot.Visibility = hw.IsCameraInUse ? Visibility.Visible : Visibility.Collapsed;
         MicPrivacyDot.Visibility = hw.IsMicrophoneInUse ? Visibility.Visible : Visibility.Collapsed;
 
         bool hasExtraIdle = hw.IsCameraInUse ||
                             hw.IsMicrophoneInUse ||
-                            _settingsService.MascotEnabled ||
                             (_pomodoroService.IsRunning && _settingsService.ShowPomodoroOnIdle) ||
                             (_settingsService.ShowTodoBadgeOnIdle && (_todoAndWaterService.TotalTodosCount - _todoAndWaterService.CompletedTodosCount > 0));
         _stateMachine.SetMinimalNotch(minimal, hasExtraIdle);
@@ -1795,14 +1980,16 @@ public partial class MainWindow : Window
             string activeDevices = (hw.IsCameraInUse && hw.IsMicrophoneInUse)
                 ? "Kamera & Mic Aktif"
                 : hw.IsCameraInUse ? "Kamera Aktif" : $"Mic Aktif ({hw.ActiveMicApp})";
-            var warnBrush = new SolidColorBrush(Color.FromRgb(249, 115, 22));
+            var warnColor = isMono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(249, 115, 22);
+            var warnBrush = new SolidColorBrush(warnColor);
             SysPrivacyDetailText.Text = activeDevices;
             SysPrivacyDetailText.Foreground = warnBrush;
             SysPrivacyIconPath.Fill = warnBrush;
         }
         else
         {
-            var safeBrush = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            var safeColor = isMono ? Color.FromRgb(161, 161, 170) : Color.FromRgb(34, 197, 94);
+            var safeBrush = new SolidColorBrush(safeColor);
             SysPrivacyDetailText.Text = "Kamera & Mic Aman (Idle)";
             SysPrivacyDetailText.Foreground = safeBrush;
             SysPrivacyIconPath.Fill = safeBrush;
@@ -1843,6 +2030,21 @@ public partial class MainWindow : Window
         });
     }
 
+    private void OnMediaTrackDurationRefined(MediaTrackInfo track)
+    {
+        Dispatcher.InvokeAsync(async () =>
+        {
+            if (track.HasActiveSession && track.Title != "Tidak Ada Media")
+            {
+                await _lyricsService.LoadLyricsForTrackAsync(
+                    track.Title,
+                    track.Artist,
+                    track.Album,
+                    track.Duration.TotalSeconds);
+            }
+        });
+    }
+
     private void OnMediaPlaybackStateChanged(MediaTrackInfo track)
     {
         Dispatcher.InvokeAsync(() =>
@@ -1872,20 +2074,23 @@ public partial class MainWindow : Window
 
     private void ApplyDominantColor(Color c)
     {
+        bool isMonochrome = _settingsService.IslandSurfaceTheme == "Monochrome" ||
+                            _settingsService.AccentTheme == "Monochrome";
+        Color effectiveMediaAccent = isMonochrome ? Color.FromRgb(226, 232, 240) : c;
+
         if (_settingsService.AccentTheme == "Auto")
         {
-            AmbientGlowBrush.Color = c;
-            TuckedAccentBar.Background = new SolidColorBrush(c);
+            AmbientGlowBrush.Color = effectiveMediaAccent;
+            TuckedAccentBar.Background = new SolidColorBrush(effectiveMediaAccent);
             if (_settingsService.RimGlowStyle == "AccentNeon")
             {
-                UnifiedNotchRimPath.Stroke = new SolidColorBrush(Color.FromArgb(145, c.R, c.G, c.B));
+                UnifiedNotchRimPath.Stroke = new SolidColorBrush(
+                    Color.FromArgb(145, effectiveMediaAccent.R, effectiveMediaAccent.G, effectiveMediaAccent.B));
             }
         }
-        LyricsStageOrbBrush.Color = c;
-        ActiveLyricGlowEffect.Color = c;
-        AlbumShadowEffect.Color = c;
+        AlbumShadowEffect.Color = isMonochrome ? Color.FromRgb(0, 0, 0) : c;
 
-        var barBrush = new SolidColorBrush(c);
+        var barBrush = new SolidColorBrush(effectiveMediaAccent);
         TimelineFillBorder.Background = barBrush;
         LyricLineProgressFill.Background = barBrush;
 
@@ -1920,18 +2125,22 @@ public partial class MainWindow : Window
             ? GetVectorGeometry("GeomHeadphones")
             : GetVectorGeometry("GeomSpeakerOn");
 
-        var badgeAccent = isHeadphones
-            ? Color.FromRgb(192, 132, 252)
-            : Color.FromRgb(56, 189, 248);
+        var badgeAccent = IsMonochromeTheme
+            ? Color.FromRgb(228, 228, 231)
+            : (isHeadphones ? Color.FromRgb(192, 132, 252) : Color.FromRgb(56, 189, 248));
         var badgeFgBrush = new SolidColorBrush(badgeAccent);
 
         AudioDeviceIconPath.Fill = badgeFgBrush;
         AudioDeviceBadgeText.Text = devName;
         AudioDeviceBadgeText.Foreground = badgeFgBrush;
         AudioDeviceBadge.Background = new SolidColorBrush(
-            isHeadphones ? Color.FromArgb(38, 168, 85, 247) : Color.FromArgb(34, 56, 189, 248));
+            IsMonochromeTheme
+                ? Color.FromArgb(28, 228, 228, 231)
+                : (isHeadphones ? Color.FromArgb(38, 168, 85, 247) : Color.FromArgb(34, 56, 189, 248)));
         AudioDeviceBadge.BorderBrush = new SolidColorBrush(
-            isHeadphones ? Color.FromArgb(65, 168, 85, 247) : Color.FromArgb(60, 56, 189, 248));
+            IsMonochromeTheme
+                ? Color.FromArgb(54, 228, 228, 231)
+                : (isHeadphones ? Color.FromArgb(65, 168, 85, 247) : Color.FromArgb(60, 56, 189, 248)));
 
         TimeSpan dur = track.Duration;
         TimeSpan pos = _isDraggingTimeline && dur.TotalSeconds > 0
@@ -1958,7 +2167,8 @@ public partial class MainWindow : Window
         var lyricSnap = _lyricsService.GetActiveLyrics(pos);
         _currentLyricLineProgress = lyricSnap.LineProgressRatio;
 
-        LyricLineProgressFill.Width = 120.0 * Math.Clamp(lyricSnap.LineProgressRatio, 0.0, 1.0);
+        LyricLineProgressTrack.Opacity = lyricSnap.IsSynced ? 1.0 : 0.35;
+        LyricLineProgressFill.Width = 160.0 * Math.Clamp(lyricSnap.LineProgressRatio, 0.0, 1.0);
 
         string compactTargetText;
         if (_settingsService.LyricsEnabled && lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "• • •")
@@ -2073,6 +2283,11 @@ public partial class MainWindow : Window
             accent = Color.FromRgb(56, 189, 248);
         }
 
+        if (IsMonochromeTheme)
+        {
+            accent = MonochromeThemeHelper.ToMonochromeColor(accent);
+        }
+
         var accentBrush = new SolidColorBrush(accent);
         ToastIconPath.Data = ResolveToastVectorGeometry(toast.Icon, toast.SliderKind);
         ToastIconPath.Fill = accentBrush;
@@ -2082,15 +2297,16 @@ public partial class MainWindow : Window
 
         if (toast.SliderKind == ToastSliderKind.Battery)
         {
-            // Render realistic Vector Battery Graphic with Lightning Bolt centered inside
+            // Render realistic Vector Battery Graphic with proportional DPI-fit fill & 3-tier color rule
             ToastProgressContainer.Visibility = Visibility.Collapsed;
             ToastBatteryContainer.Visibility = Visibility.Visible;
 
-            double batRatio = Math.Clamp(toast.ProgressRatio ?? 1.0, 0.08, 1.0);
-            ToastBatteryFill.Width = 46.5 * batRatio;
-            ToastBatteryFill.Background = accentBrush;
+            int toastBatPct = (int)Math.Round(Math.Clamp(toast.ProgressRatio ?? 1.0, 0.0, 1.0) * 100.0);
+            Color toastBatColor = GetBatteryStatusColor(toastBatPct, toast.IsBatteryCharging, IsMonochromeTheme);
+            SetProportionalBatteryBar(ToastBatteryFillCol, ToastBatteryEmptyCol, ToastBatteryFill, toastBatPct, toastBatColor);
+            ToastBatteryBoltPath.Visibility = toast.IsBatteryCharging ? Visibility.Visible : Visibility.Collapsed;
             ToastBatteryBoltPath.Fill = new SolidColorBrush(
-                toast.IsBatteryCharging ? Color.FromRgb(254, 240, 138) : Color.FromRgb(255, 255, 255));
+                IsMonochromeTheme ? Color.FromRgb(244, 244, 245) : Color.FromRgb(254, 240, 138));
         }
         else if (toast.ProgressRatio.HasValue)
         {
@@ -2343,11 +2559,12 @@ public partial class MainWindow : Window
 
     private void UpdateSideWingHover()
     {
-        if (_stateMachine.IsScreenshotMode || _stateMachine.CurrentState != IslandVisualState.ExpandedDashboard || GetEnabledTabs().Count <= 1)
+        if (_stateMachine.IsScreenshotMode || _stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
         {
             _targetLeftWingWidth = 0.0;
             _targetRightWingWidth = 0.0;
             _hoveredSideZone = 0;
+            SetBottomDockMorphed(false);
             return;
         }
 
@@ -2355,9 +2572,27 @@ public partial class MainWindow : Window
             return;
 
         var (dipX, dipY) = ScreenCursorToMasterGridDip(pt);
+        double yTop = _currentPlacementTopDip;
+        double curHeight = Math.Max(220.0, _morph.Height.Current);
+        double bottomEdgeY = yTop + curHeight;
+        double dxFromCenter = Math.Abs(dipX - (MasterGridWidth / 2.0));
 
-        // In 760px master grid, main notch is 540px centered: left edge = 110, right edge = 650. Height = 260.
-        bool withinY = dipY >= 0 && dipY <= 285;
+        // Morph bottom pagination dots <-> tab logo dock smoothly based on cursor proximity
+        bool shouldMorphBottomDock = _isBottomDockMorphed
+            ? (dipY >= (bottomEdgeY - 48.0) && dipY <= (bottomEdgeY + 18.0) && dxFromCenter <= 225.0)
+            : (dipY >= (bottomEdgeY - 38.0) && dipY <= (bottomEdgeY + 12.0) && dxFromCenter <= 165.0);
+        SetBottomDockMorphed(shouldMorphBottomDock);
+
+        if (GetEnabledTabs().Count <= 1)
+        {
+            _targetLeftWingWidth = 0.0;
+            _targetRightWingWidth = 0.0;
+            _hoveredSideZone = 0;
+            return;
+        }
+
+        // In 760px master grid, main notch is 540px centered: left edge = 110, right edge = 650.
+        bool withinY = dipY >= yTop && dipY <= (bottomEdgeY + 16.0);
 
         if (!withinY)
         {
@@ -2365,33 +2600,24 @@ public partial class MainWindow : Window
         }
         else
         {
-            // If cursor is at the very top (dipY <= 46), it is hovering over the top tab navigation bar (Musik, Tugas, Fokus, Rak, Sistem, Simpan).
-            // Avoid triggering wings here unless cursor is genuinely off to the sides (dipX < 110 or dipX > 650).
-            bool isTopBarArea = dipY <= 46;
+            // Avoid triggering side wings while cursor is over top status header or bottom morphing dock
+            bool isProtectedHeaderOrDock = dipY <= (yTop + 46.0) || shouldMorphBottomDock;
 
             if (_hoveredSideZone == -1)
             {
-                // Left wing is active: keep active until cursor moves well inside (dipX > 195) or too far left (dipX < 5)
                 if (dipX > 195 || dipX < 5) _hoveredSideZone = 0;
             }
             else if (_hoveredSideZone == 1)
             {
-                // Right wing is active: keep active until cursor moves well inside (dipX < 565) or too far right (dipX > 755)
                 if (dipX < 565 || dipX > 755) _hoveredSideZone = 0;
             }
             else
             {
-                // Trigger Left Wing:
-                // Either cursor is outside left edge (dipX < 110)
-                // OR cursor is on left margin of dashboard (dipX <= 165) and NOT clicking the top tab bar buttons
-                if (dipX >= 5 && (dipX < 110 || (!isTopBarArea && dipX <= 165)))
+                if (dipX >= 5 && (dipX < 110 || (!isProtectedHeaderOrDock && dipX <= 165)))
                 {
                     _hoveredSideZone = -1;
                 }
-                // Trigger Right Wing:
-                // Either cursor is outside right edge (dipX > 650)
-                // OR cursor is on right margin of dashboard (dipX >= 595) and NOT clicking the top Simpan button
-                else if (dipX <= 755 && (dipX > 650 || (!isTopBarArea && dipX >= 595)))
+                else if (dipX <= 755 && (dipX > 650 || (!isProtectedHeaderOrDock && dipX >= 595)))
                 {
                     _hoveredSideZone = 1;
                 }
@@ -2426,6 +2652,38 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnBottomDockMouseEnter(object sender, MouseEventArgs e)
+    {
+        if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard && !_stateMachine.IsScreenshotMode)
+        {
+            SetBottomDockMorphed(true);
+        }
+    }
+
+    private void OnBottomDockMouseLeave(object sender, MouseEventArgs e)
+    {
+        UpdateSideWingHover();
+    }
+
+    private void SetBottomDockMorphed(bool morphed)
+    {
+        if (_isBottomDockMorphed == morphed) return;
+        _isBottomDockMorphed = morphed;
+
+        BottomTabDockBorder.IsHitTestVisible = morphed;
+        DotsPaginationPanel.IsHitTestVisible = !morphed;
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        DotsPaginationPanel.BeginAnimation(OpacityProperty, new DoubleAnimation(morphed ? 0.0 : 1.0, TimeSpan.FromMilliseconds(150)) { EasingFunction = ease });
+        DotsPanelScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(morphed ? 0.82 : 1.0, TimeSpan.FromMilliseconds(170)) { EasingFunction = ease });
+        DotsPanelScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(morphed ? 0.82 : 1.0, TimeSpan.FromMilliseconds(170)) { EasingFunction = ease });
+
+        BottomTabDockBorder.BeginAnimation(OpacityProperty, new DoubleAnimation(morphed ? 1.0 : 0.0, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
+        BottomDockScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(morphed ? 1.0 : 0.86, TimeSpan.FromMilliseconds(210)) { EasingFunction = ease });
+        BottomDockScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(morphed ? 1.0 : 0.86, TimeSpan.FromMilliseconds(210)) { EasingFunction = ease });
+    }
+
     private void UpdateTuckedProximityHover()
     {
         if (_stateMachine.IsScreenshotMode)
@@ -2457,9 +2715,9 @@ public partial class MainWindow : Window
         double bodyWidth = Math.Max(48, _morph.Width.Current);
         double centerX = MasterGridWidth / 2.0;
         double halfWidth = (bodyWidth / 2.0) + 16.0;
+        double maxHoverY = _currentPlacementTopDip + 7.5;
 
-        // Tucked handle is located at top-center (Y <= 6.5 DIPs, X within handle bounds)
-        if (dipY >= 0 && dipY <= 6.5 && Math.Abs(dipX - centerX) <= halfWidth)
+        if (dipY >= 0 && dipY <= maxHoverY && Math.Abs(dipX - centerX) <= halfWidth)
         {
             _topHandleHoverTicks++;
             if (_topHandleHoverTicks >= 3) // ~60ms deliberate hover
@@ -2779,7 +3037,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var activeDotBrush = new SolidColorBrush(Color.FromRgb(56, 189, 248)); // #38BDF8
+            var activeDotBrush = new SolidColorBrush(_currentThemeAccentColor);
             var inactiveDotBrush = new SolidColorBrush(Color.FromArgb(48, 255, 255, 255)); // #30FFFFFF
 
             PageDot0.Visibility = _settingsService.ShowTabMedia ? Visibility.Visible : Visibility.Collapsed;
@@ -2900,11 +3158,13 @@ public partial class MainWindow : Window
             PerfCpuCoresText.Text = $"{hw.CpuCoresCount} Logical Cores";
             UpdateRingGaugePath(PerfCpuRingPath, hw.CpuUsagePercent / 100.0);
 
-            var cpuColor = hw.CpuUsagePercent >= 85
-                ? Color.FromRgb(251, 113, 133)
-                : hw.CpuUsagePercent >= 60
-                    ? Color.FromRgb(251, 191, 36)
-                    : Color.FromRgb(56, 189, 248);
+            var cpuColor = IsMonochromeTheme
+                ? (hw.CpuUsagePercent >= 85 ? Color.FromRgb(244, 244, 245) : (hw.CpuUsagePercent >= 60 ? Color.FromRgb(212, 212, 216) : Color.FromRgb(161, 161, 170)))
+                : (hw.CpuUsagePercent >= 85
+                    ? Color.FromRgb(251, 113, 133)
+                    : hw.CpuUsagePercent >= 60
+                        ? Color.FromRgb(251, 191, 36)
+                        : Color.FromRgb(56, 189, 248));
             var cpuBrush = new SolidColorBrush(cpuColor);
             PerfCpuRingPath.Stroke = cpuBrush;
             PerfCpuPercentText.Foreground = cpuBrush;
@@ -2913,11 +3173,13 @@ public partial class MainWindow : Window
             PerfGpuModelText.Text = hw.GpuModelShort;
             UpdateRingGaugePath(PerfGpuRingPath, hw.GpuUsagePercent / 100.0);
 
-            var gpuColor = hw.GpuUsagePercent >= 85
-                ? Color.FromRgb(251, 113, 133)
-                : hw.GpuUsagePercent >= 65
-                    ? Color.FromRgb(251, 191, 36)
-                    : Color.FromRgb(168, 85, 247);
+            var gpuColor = IsMonochromeTheme
+                ? (hw.GpuUsagePercent >= 85 ? Color.FromRgb(244, 244, 245) : (hw.GpuUsagePercent >= 65 ? Color.FromRgb(212, 212, 216) : Color.FromRgb(161, 161, 170)))
+                : (hw.GpuUsagePercent >= 85
+                    ? Color.FromRgb(251, 113, 133)
+                    : hw.GpuUsagePercent >= 65
+                        ? Color.FromRgb(251, 191, 36)
+                        : Color.FromRgb(168, 85, 247));
             var gpuBrush = new SolidColorBrush(gpuColor);
             PerfGpuRingPath.Stroke = gpuBrush;
             PerfGpuPercentText.Foreground = gpuBrush;
@@ -2927,11 +3189,13 @@ public partial class MainWindow : Window
             PerfAppRamText.Text = $"Island: {hw.AppMemoryMb:0.0} MB";
             UpdateRingGaugePath(PerfRamRingPath, hw.RamUsagePercent / 100.0);
 
-            var ramColor = hw.RamUsagePercent >= 88
-                ? Color.FromRgb(251, 113, 133)
-                : hw.RamUsagePercent >= 75
-                    ? Color.FromRgb(251, 191, 36)
-                    : Color.FromRgb(34, 197, 94);
+            var ramColor = IsMonochromeTheme
+                ? (hw.RamUsagePercent >= 88 ? Color.FromRgb(244, 244, 245) : (hw.RamUsagePercent >= 75 ? Color.FromRgb(212, 212, 216) : Color.FromRgb(161, 161, 170)))
+                : (hw.RamUsagePercent >= 88
+                    ? Color.FromRgb(251, 113, 133)
+                    : hw.RamUsagePercent >= 75
+                        ? Color.FromRgb(251, 191, 36)
+                        : Color.FromRgb(34, 197, 94));
             var ramBrush = new SolidColorBrush(ramColor);
             PerfRamRingPath.Stroke = ramBrush;
             PerfRamPercentText.Foreground = ramBrush;
@@ -2954,15 +3218,21 @@ public partial class MainWindow : Window
             PinPerfNetText.Text = hw.NetDownloadSpeedText;
 
             bool isPinned = _stateMachine.IsPerformancePinned;
-            var pinAccent = isPinned ? Color.FromRgb(56, 189, 248) : Color.FromRgb(148, 163, 184);
+            var pinAccent = IsMonochromeTheme
+                ? (isPinned ? Color.FromRgb(244, 244, 245) : Color.FromRgb(113, 113, 122))
+                : (isPinned ? Color.FromRgb(56, 189, 248) : Color.FromRgb(148, 163, 184));
             var pinBrush = new SolidColorBrush(pinAccent);
             PinPerfToggleIcon.Fill = pinBrush;
             PinPerfToggleText.Text = isPinned ? "Pin Stay: ON" : "Pin Stay: OFF";
             PinPerfToggleText.Foreground = isPinned ? pinBrush : new SolidColorBrush(Color.FromRgb(226, 232, 240));
             PinPerfToggleBtn.Background = new SolidColorBrush(
-                isPinned ? Color.FromArgb(40, 56, 189, 248) : Color.FromArgb(24, 255, 255, 255));
+                IsMonochromeTheme
+                    ? (isPinned ? Color.FromArgb(40, 244, 244, 245) : Color.FromArgb(24, 255, 255, 255))
+                    : (isPinned ? Color.FromArgb(40, 56, 189, 248) : Color.FromArgb(24, 255, 255, 255)));
             PinPerfToggleBtn.BorderBrush = new SolidColorBrush(
-                isPinned ? Color.FromArgb(90, 56, 189, 248) : Color.FromArgb(40, 255, 255, 255));
+                IsMonochromeTheme
+                    ? (isPinned ? Color.FromArgb(90, 244, 244, 245) : Color.FromArgb(40, 255, 255, 255))
+                    : (isPinned ? Color.FromArgb(90, 56, 189, 248) : Color.FromArgb(40, 255, 255, 255)));
         }
         catch (Exception ex)
         {
@@ -3044,7 +3314,8 @@ public partial class MainWindow : Window
                 {
                     Id = t.Id,
                     Title = t.Title,
-                    IsDone = t.IsDone
+                    IsDone = t.IsDone,
+                    IsMonochrome = IsMonochromeTheme
                 })
                 .ToList();
 
@@ -3097,7 +3368,7 @@ public partial class MainWindow : Window
         _collapseDebounceTimer.Stop();
         if (NewTodoInputBorder != null)
         {
-            NewTodoInputBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(56, 189, 248));
+            NewTodoInputBorder.BorderBrush = new SolidColorBrush(_currentThemeAccentColor);
         }
     }
 
@@ -3361,7 +3632,8 @@ public partial class MainWindow : Window
                 NotchMasterScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
             }
 
-            // 2. Island Surface Theme, Opacity, Corner Style, Contour Rim & Accent Theme
+            // 2. Placement Style (Notch vs PunchHole), Surface Theme, Opacity, Corner Style, Contour Rim & Accent Theme
+            _stateMachine.SetPlacementStyle(_settingsService.IslandPlacementStyle);
             _stateMachine.SetCornerStyle(_settingsService.NotchCornerStyle);
 
             byte surfaceAlpha = (byte)Math.Clamp((int)Math.Round(_settingsService.NotchBackgroundOpacity * 255.0), 200, 255);
@@ -3372,8 +3644,14 @@ public partial class MainWindow : Window
                 "CyberMatrix" => Color.FromArgb(surfaceAlpha, 4, 18, 14),
                 "RoyalAmethyst" => Color.FromArgb(surfaceAlpha, 15, 8, 26),
                 "CrimsonObsidian" => Color.FromArgb(surfaceAlpha, 22, 7, 12),
+                "Monochrome" => Color.FromArgb(surfaceAlpha, 14, 14, 16),
                 _ => Color.FromArgb(surfaceAlpha, 0, 0, 0)
             };
+
+            if (IsMonochromeTheme && _settingsService.IslandSurfaceTheme != "Monochrome")
+            {
+                baseSurface = MonochromeThemeHelper.ToMonochromeColor(baseSurface);
+            }
             UnifiedNotchPath.Fill = new SolidColorBrush(baseSurface);
 
             Color themeColor = _settingsService.AccentTheme switch
@@ -3384,19 +3662,32 @@ public partial class MainWindow : Window
                 "Rose" => Color.FromRgb(244, 63, 94),
                 "Gold" => Color.FromRgb(251, 191, 36),
                 "White" => Color.FromRgb(248, 250, 252),
-                _ => Color.FromRgb(56, 189, 248)
+                "Monochrome" => Color.FromRgb(226, 232, 240),
+                _ => _settingsService.IslandSurfaceTheme == "Monochrome"
+                    ? Color.FromRgb(226, 232, 240)
+                    : Color.FromRgb(56, 189, 248)
             };
 
-            if (_settingsService.AccentTheme != "Auto")
+            if (_settingsService.AccentTheme != "Auto" || _settingsService.IslandSurfaceTheme == "Monochrome")
             {
                 AmbientGlowBrush.Color = themeColor;
                 TuckedAccentBar.Background = new SolidColorBrush(themeColor);
+                if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
+                {
+                    ApplyDominantColor(_mediaService.CurrentTrack.DominantColor);
+                }
             }
             else if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
             {
                 themeColor = _mediaService.CurrentTrack.DominantColor;
                 ApplyDominantColor(themeColor);
             }
+
+            _currentThemeAccentColor = themeColor;
+            Application.Current.Resources["AppAccentBrush"] = new SolidColorBrush(themeColor);
+            HeaderSettingsGearIcon.Fill = new SolidColorBrush(themeColor);
+
+            MonochromeThemeHelper.ApplyToSubtree(UnifiedMasterGrid, IsMonochromeTheme, MonochromeExcludedNames);
 
             bool showRim = _settingsService.ShowContourRim && _settingsService.RimGlowStyle != "Hidden";
             UnifiedNotchRimPath.Visibility = showRim ? Visibility.Visible : Visibility.Collapsed;
@@ -3466,6 +3757,9 @@ public partial class MainWindow : Window
             UpdateTodoAndWaterUi();
             UpdateSlidersAndMuteUi();
             UpdateMediaAndLyricsUi();
+            UpdatePerformanceUi();
+            UpdateSystemUpdateUi(_updateService.LastResult);
+            _settingsWindow?.ApplyThemeToSettingsWindow();
             EnsureRenderLoopRunning();
         }
         catch (Exception ex)
@@ -3517,16 +3811,22 @@ public partial class MainWindow : Window
 
     private void UpdateSystemUpdateUi(UpdateCheckResult res)
     {
+        bool isMono = IsMonochromeTheme;
         if (res.IsUpdateAvailable)
         {
             TabSystemUpdateBadge.Visibility = Visibility.Visible;
             HeaderSettingsUpdateDot.Visibility = Visibility.Visible;
-            SysUpdateCardBorder.Background = new SolidColorBrush(Color.FromArgb(32, 34, 197, 94));
-            SysUpdateCardBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(80, 34, 197, 94));
+            HeaderSettingsUpdateDot.Fill = isMono ? new SolidColorBrush(Color.FromRgb(228, 228, 231)) : new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            SysUpdateCardBorder.Background = new SolidColorBrush(
+                isMono ? Color.FromArgb(32, 228, 228, 231) : Color.FromArgb(32, 34, 197, 94));
+            SysUpdateCardBorder.BorderBrush = new SolidColorBrush(
+                isMono ? Color.FromArgb(80, 228, 228, 231) : Color.FromArgb(80, 34, 197, 94));
             SysUpdateIconPath.Data = (Geometry)FindResource("GeomUpdate");
-            SysUpdateIconPath.Fill = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            SysUpdateIconPath.Fill = new SolidColorBrush(
+                isMono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(34, 197, 94));
             SysUpdateStatusText.Text = $"Update Baru: {res.LatestVersion} Tersedia!";
-            SysUpdateStatusText.Foreground = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            SysUpdateStatusText.Foreground = new SolidColorBrush(
+                isMono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(34, 197, 94));
             SysUpdateSubText.Text = !string.IsNullOrWhiteSpace(res.ReleaseTitle) && res.ReleaseTitle != res.LatestVersion
                 ? $"{res.ReleaseTitle} (Saat ini: {res.CurrentVersion})"
                 : $"Versi saat ini: {res.CurrentVersion}. Klik untuk memasang sekarang.";
@@ -3539,7 +3839,8 @@ public partial class MainWindow : Window
             SysUpdateCardBorder.Background = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255));
             SysUpdateCardBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(32, 255, 255, 255));
             SysUpdateIconPath.Data = (Geometry)FindResource("GeomCheckCircle");
-            SysUpdateIconPath.Fill = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+            SysUpdateIconPath.Fill = new SolidColorBrush(
+                isMono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(34, 197, 94));
             SysUpdateStatusText.Text = $"Windows Dynamic Island {res.CurrentVersion} (Terbaru)";
             SysUpdateStatusText.Foreground = Brushes.White;
             SysUpdateSubText.Text = res.HasError
@@ -3632,14 +3933,19 @@ public sealed class TodoItemViewModel
     public int Id { get; init; }
     public string Title { get; set; } = string.Empty;
     public bool IsDone { get; init; }
+    public bool IsMonochrome { get; init; }
 
     public Brush CheckBgBrush => IsDone
-        ? new SolidColorBrush(Color.FromArgb(50, 34, 197, 94))
+        ? (IsMonochrome ? new SolidColorBrush(Color.FromArgb(46, 228, 228, 231)) : new SolidColorBrush(Color.FromArgb(50, 34, 197, 94)))
         : new SolidColorBrush(Color.FromArgb(20, 255, 255, 255));
 
     public Brush CheckBorderBrush => IsDone
-        ? new SolidColorBrush(Color.FromArgb(160, 34, 197, 94))
+        ? (IsMonochrome ? new SolidColorBrush(Color.FromArgb(150, 228, 228, 231)) : new SolidColorBrush(Color.FromArgb(160, 34, 197, 94)))
         : new SolidColorBrush(Color.FromArgb(60, 255, 255, 255));
+
+    public Brush CheckTickBrush => IsMonochrome
+        ? new SolidColorBrush(Color.FromRgb(250, 250, 250))
+        : new SolidColorBrush(Color.FromRgb(52, 211, 153));
 
     public Visibility DoneCheckmarkVisibility => IsDone ? Visibility.Visible : Visibility.Collapsed;
 

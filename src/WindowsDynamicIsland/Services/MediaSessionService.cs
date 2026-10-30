@@ -14,7 +14,7 @@ public sealed class MediaTrackInfo
     public bool IsPlaying { get; init; }
     public bool HasActiveSession { get; init; }
     public TimeSpan Position { get; set; } = TimeSpan.Zero;
-    public TimeSpan Duration { get; init; } = TimeSpan.Zero;
+    public TimeSpan Duration { get; set; } = TimeSpan.Zero;
     public BitmapSource? Thumbnail { get; init; }
     public Color DominantColor { get; init; } = Color.FromRgb(56, 189, 248); // Sky blue default
 }
@@ -29,6 +29,7 @@ public sealed class MediaSessionService : IDisposable
     public MediaTrackInfo CurrentTrack { get; private set; } = new();
 
     public event Action<MediaTrackInfo>? TrackChanged;
+    public event Action<MediaTrackInfo>? TrackDurationRefined;
     public event Action<MediaTrackInfo>? PlaybackStateChanged;
 
     public async Task InitializeAsync()
@@ -39,7 +40,8 @@ public sealed class MediaSessionService : IDisposable
             if (_sessionManager != null)
             {
                 _sessionManager.CurrentSessionChanged += OnCurrentSessionChanged;
-                AttachToSession(_sessionManager.GetCurrentSession());
+                _sessionManager.SessionsChanged += OnSessionsChanged;
+                AttachToSession(SelectBestActiveSession(_sessionManager));
             }
         }
         catch
@@ -48,16 +50,57 @@ public sealed class MediaSessionService : IDisposable
         }
     }
 
+    private static GlobalSystemMediaTransportControlsSession? SelectBestActiveSession(GlobalSystemMediaTransportControlsSessionManager manager)
+    {
+        try
+        {
+            var sessions = manager.GetSessions();
+            if (sessions != null)
+            {
+                foreach (var s in sessions)
+                {
+                    if (s?.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+                    {
+                        return s;
+                    }
+                }
+            }
+        }
+        catch { }
+
+        try
+        {
+            return manager.GetCurrentSession();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private void OnCurrentSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender, CurrentSessionChangedEventArgs args)
     {
         try
         {
-            AttachToSession(sender.GetCurrentSession());
+            AttachToSession(SelectBestActiveSession(sender));
         }
         catch
         {
             // Ignore transient session detach errors
         }
+    }
+
+    private void OnSessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender, SessionsChangedEventArgs args)
+    {
+        try
+        {
+            var best = SelectBestActiveSession(sender);
+            if (!ReferenceEquals(best, _currentSession))
+            {
+                AttachToSession(best);
+            }
+        }
+        catch { }
     }
 
     private void AttachToSession(GlobalSystemMediaTransportControlsSession? session)
@@ -114,9 +157,30 @@ public sealed class MediaSessionService : IDisposable
         {
             var playback = _currentSession.GetPlaybackInfo();
             bool isPlaying = playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+
+            if (!isPlaying && _sessionManager != null)
+            {
+                var best = SelectBestActiveSession(_sessionManager);
+                if (best != null && !ReferenceEquals(best, _currentSession) &&
+                    best.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+                {
+                    AttachToSession(best);
+                    return;
+                }
+            }
+
             UpdateTimelineFromSession();
 
             if (string.IsNullOrWhiteSpace(CurrentTrack.Title) || CurrentTrack.Title == "Tidak Ada Media")
+            {
+                await RefreshAllMetadataAsync(notifyTrackChange: true);
+                return;
+            }
+
+            // Catch silent YouTube/Browser tab title changes when playback starts/resumes
+            var props = await _currentSession.TryGetMediaPropertiesAsync();
+            if (props != null && !string.IsNullOrWhiteSpace(props.Title) &&
+                !string.Equals(props.Title.Trim(), CurrentTrack.Title, StringComparison.Ordinal))
             {
                 await RefreshAllMetadataAsync(notifyTrackChange: true);
                 return;
@@ -212,6 +276,17 @@ public sealed class MediaSessionService : IDisposable
                 _basePosition = timeline.Position;
                 _lastTimelineSyncUtc = DateTime.UtcNow;
                 CurrentTrack.Position = _basePosition;
+
+                TimeSpan newEnd = timeline.EndTime;
+                if (newEnd > TimeSpan.FromSeconds(5) &&
+                    Math.Abs((newEnd - CurrentTrack.Duration).TotalSeconds) > 3.5)
+                {
+                    CurrentTrack.Duration = newEnd;
+                    if (CurrentTrack.HasActiveSession && CurrentTrack.Title != "Tidak Ada Media")
+                    {
+                        TrackDurationRefined?.Invoke(CurrentTrack);
+                    }
+                }
             }
         }
         catch

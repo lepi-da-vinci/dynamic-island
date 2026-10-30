@@ -46,7 +46,6 @@
         <Geometry x:Key="GeomBluetooth">M17.71,7.71L12,2H11V9.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L11,14.41V22H12L17.71,16.29L13.41,12L17.71,7.71M13,5.83L14.88,7.71L13,9.59V5.83M14.88,16.29L13,18.17V14.41L14.88,16.29Z</Geometry>
         <Geometry x:Key="GeomBluetoothOff">M13,5.83L14.88,7.71L13.28,9.31L14.69,10.72L17.71,7.7L12,2H11V7.03L13,9.03V5.83M5.41,4L4,5.41L10.59,12L5,17.59L6.41,19L11,14.41V22H12L16.29,17.71L18.59,20L20,18.59L5.41,4M13,18.17V14.41L14.88,16.29L13,18.17Z</Geometry>
         <Geometry x:Key="GeomHudLayers">M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z</Geometry>
-        <Geometry x:Key="GeomMascotCat">M12,8L10.67,8.09C9.81,7.07 7.4,4.5 5,4.5C5,4.5 4.03,7.46 4.96,11.41C4.41,12.24 4.07,12.67 4,13.66L2.07,13.95L2.28,14.93L4.04,14.67L4.18,15.38L2.61,16.32L3.08,17.21L4.53,16.32C5.68,18.76 8.59,20 12,20C15.41,20 18.32,18.76 19.47,16.32L20.92,17.21L21.39,16.32L19.82,15.38L19.96,14.67L21.72,14.93L21.93,13.95L20,13.66C19.93,12.67 19.59,12.24 19.04,11.41C19.97,7.46 19,4.5 19,4.5C16.6,4.5 14.19,7.07 13.33,8.09L12,8M9,11A1,1 0 0,1 10,12A1,1 0 0,1 9,13A1,1 0 0,1 8,12A1,1 0 0,1 9,11M15,11A1,1 0 0,1 16,12A1,1 0 0,1 15,13A1,1 0 0,1 14,12A1,1 0 0,1 15,11M11,14H13L12.3,15.39C12.5,16.03 13.06,16.5 13.75,16.5A1.5,1.5 0 0,0 15.25,15H15.75A2,2 0 0,1 13.75,17C13,17 12.35,16.59 12,16V16H12C11.65,16.59 11,17 10.25,17A2,2 0 0,1 8.25,15H8.75A1.5,1.5 0 0,0 10.25,16.5C10.94,16.5 11.5,16.03 11.7,15.39L11,14Z</Geometry>
         <Geometry x:Key="GeomAppGrid">M4,4H10V10H4V4M14,4H20V10H14V4M4,14H10V20H4V14M14,14H20V20H14V14Z</Geometry>
         <Geometry x:Key="GeomCpuPulse">M9,3V5H7A2,2 0 0,0 5,7V9H3V11H5V13H3V15H5V17A2,2 0 0,0 7,19H9V21H11V19H13V21H15V19H17A2,2 0 0,0 19,17V15H21V13H19V11H21V9H19V7A2,2 0 0,0 17,5H15V3H13V5H11V3H9M7,7H17V17H7V7M9,9V15H15V9H9Z</Geometry>
         <Geometry x:Key="GeomGpuChip">M2,6H4V18H2V6M5,6H20A2,2 0 0,1 22,8V16A2,2 0 0,1 20,18H5V6M7,8V16H19V8H7M10,10H16V14H10V10Z</Geometry>
@@ -80,7 +79,7 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="PeekBorder" Property="Background" Value="#35FFFFFF"/>
-                                <Setter TargetName="PeekBorder" Property="BorderBrush" Value="#6038BDF8"/>
+                                <Setter TargetName="PeekBorder" Property="BorderBrush" Value="#55FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="PeekBorder" Property="Background" Value="#45FFFFFF"/>
@@ -176,6 +175,41 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="TabBorder" Property="Background" Value="#22FFFFFF"/>
                                 <Setter Property="Foreground" Value="#F8FAFC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="BottomDockIconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="9,4.5"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="DockIconBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9.5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="DockIconBorder" Property="Background" Value="#28FFFFFF"/>
+                                <Setter TargetName="DockIconBorder" Property="BorderBrush" Value="#3EFFFFFF"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="DockIconBorder" Property="Background" Value="#3AFFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -414,6 +448,18 @@
         <!-- ========================================================= -->
         <!-- APPLE iOS / macOS SYSTEM SETTINGS CONTROLS                -->
         <!-- ========================================================= -->
+        <SolidColorBrush x:Key="AppAccentBrush" Color="#38BDF8"/>
+        <SolidColorBrush x:Key="SettingsTrafficCloseBgBrush" Color="#FF5F56"/>
+        <SolidColorBrush x:Key="SettingsTrafficCloseHoverBrush" Color="#FF3B30"/>
+        <SolidColorBrush x:Key="SettingsTrafficMinBgBrush" Color="#FFBD2E"/>
+        <SolidColorBrush x:Key="SettingsTrafficMinHoverBrush" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="SettingsToggleActiveBgBrush" Color="#22C55E"/>
+        <SolidColorBrush x:Key="SettingsToggleActiveBorderBrush" Color="#5522C55E"/>
+        <SolidColorBrush x:Key="SettingsToggleThumbBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SettingsSegmentActiveBgBrush" Color="#484852"/>
+        <SolidColorBrush x:Key="SettingsSegmentActiveFgBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SettingsNavActiveBgBrush" Color="#26FFFFFF"/>
+
         <Style x:Key="AppleToggleSwitchStyle" TargetType="{x:Type CheckBox}">
             <Setter Property="Width" Value="42"/>
             <Setter Property="Height" Value="24"/>
@@ -432,7 +478,7 @@
                             <Ellipse x:Name="SwitchThumb"
                                      Width="18"
                                      Height="18"
-                                     Fill="#FFFFFF"
+                                     Fill="{DynamicResource SettingsToggleThumbBrush}"
                                      HorizontalAlignment="Left"
                                      VerticalAlignment="Center"
                                      Margin="2.5,0,0,0">
@@ -443,8 +489,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="SwitchTrack" Property="Background" Value="#22C55E"/>
-                                <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#5522C55E"/>
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="{DynamicResource SettingsToggleActiveBgBrush}"/>
+                                <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="{DynamicResource SettingsToggleActiveBorderBrush}"/>
                                 <Setter TargetName="SwitchThumb" Property="Margin" Value="19.5,0,0,0"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -478,7 +524,7 @@
                                 <Setter Property="Foreground" Value="#F8FAFC"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="NavRowBorder" Property="Background" Value="#26FFFFFF"/>
+                                <Setter TargetName="NavRowBorder" Property="Background" Value="{DynamicResource SettingsNavActiveBgBrush}"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
                             </Trigger>
@@ -511,8 +557,8 @@
                                 <Setter Property="Foreground" Value="#E2E8F0"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="SegBorder" Property="Background" Value="#484852"/>
-                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter TargetName="SegBorder" Property="Background" Value="{DynamicResource SettingsSegmentActiveBgBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource SettingsSegmentActiveFgBrush}"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
