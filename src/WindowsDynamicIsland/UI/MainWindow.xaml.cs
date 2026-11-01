@@ -74,9 +74,17 @@ public partial class MainWindow : Window
     private bool _isDraggingToastSlider;
     private bool _isDraggingSysVolume;
     private bool _isDraggingSysBrightness;
+    private bool _isDraggingAppMixer;
+    private int _draggingAppMixerPid;
     private ToastSliderKind _activeToastSliderKind = ToastSliderKind.None;
     private CancellationTokenSource? _repositionCts;
     private bool _isWindowActivatable;
+
+    // Spotlight Quick Launcher & App Mixer state
+    private readonly SpotlightSearchService _spotlightService;
+    private bool _isShowingAppMixer;
+    private int _selectedSpotlightIndex = -1;
+    private List<SpotlightItem> _currentSpotlightItems = [];
 
     // Interactive satellite side-wing switcher & bottom morphing dock state
     private double _leftWingWidth;
@@ -249,6 +257,9 @@ public partial class MainWindow : Window
         _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
         _settingsService.SettingsChanged += () => Dispatcher.InvokeAsync(ApplyAppSettings);
 
+        _spotlightService = new(_shortcutService, _settingsService);
+        Deactivated += OnWindowDeactivated;
+
         Loaded += OnWindowLoaded;
         Closed += OnWindowClosed;
 
@@ -274,6 +285,12 @@ public partial class MainWindow : Window
 
             AppLogger.LogInfo("OnSourceInitialized", "Adding clipboard format listener...");
             Win32Interop.AddClipboardFormatListener(_hwnd);
+
+            if (_settingsService.SpotlightHotkeyEnabled)
+            {
+                AppLogger.LogInfo("OnSourceInitialized", "Registering Spotlight Hotkey (Alt + Spasi)...");
+                Win32Interop.RegisterHotKey(_hwnd, Win32Interop.HOTKEY_ID_SPOTLIGHT, Win32Interop.MOD_ALT | Win32Interop.MOD_NOREPEAT, Win32Interop.VK_SPACE);
+            }
 
             AppLogger.LogInfo("OnSourceInitialized", "Initializing system tray icon...");
             InitializeSystemTrayIcon();
@@ -374,6 +391,7 @@ public partial class MainWindow : Window
 
         if (_hwnd != IntPtr.Zero)
         {
+            Win32Interop.UnregisterHotKey(_hwnd, Win32Interop.HOTKEY_ID_SPOTLIGHT);
             Win32Interop.RemoveClipboardFormatListener(_hwnd);
             Win32Interop.Shell_NotifyIcon(Win32Interop.NIM_DELETE, ref _trayIconData);
             if (_trayIconData.hIcon != IntPtr.Zero && _trayIconData.hIcon != Win32Interop.IDI_APPLICATION)
@@ -591,7 +609,8 @@ public partial class MainWindow : Window
                 _isDraggingTimeline ||
                 _isDraggingToastSlider ||
                 _isDraggingSysVolume ||
-                _isDraggingSysBrightness;
+                _isDraggingSysBrightness ||
+                _isDraggingAppMixer;
 
             if (isAltBypass || isHidden || (!IsCursorInsideIslandBounds() && !isDraggingControl))
             {
@@ -602,10 +621,20 @@ public partial class MainWindow : Window
         }
         else if (msg == Win32Interop.WM_MOUSEACTIVATE)
         {
-            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard)
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard ||
+                _stateMachine.IsSpotlightActive)
             {
                 handled = true;
                 return new IntPtr(Win32Interop.MA_ACTIVATE);
+            }
+        }
+        else if (msg == Win32Interop.WM_HOTKEY)
+        {
+            if (wParam.ToInt32() == Win32Interop.HOTKEY_ID_SPOTLIGHT)
+            {
+                ToggleSpotlightMode();
+                handled = true;
+                return IntPtr.Zero;
             }
         }
         else if (msg == Win32Interop.WM_CLIPBOARDUPDATE)
@@ -709,6 +738,7 @@ public partial class MainWindow : Window
         double bodyWidth = Math.Max(48, _morph.Width.Current);
         double bodyHeight = Math.Max(4, _morph.Height.Current);
         double yTop = _currentPlacementTopDip;
+        double centerX = MasterGridWidth / 2.0;
 
         // In TuckedTopEdge ("Mode Simpan"), restrict clickable zone to the micro handle
         // so browser tabs right below are 100% clickable!
@@ -719,9 +749,14 @@ public partial class MainWindow : Window
             return dipX >= (tuckedLeft - 10) && dipX <= (tuckedLeft + bodyWidth + 10) && dipY >= 0 && dipY <= maxTuckY;
         }
 
+        if (_stateMachine.CurrentState == IslandVisualState.SpotlightSearch)
+        {
+            double halfW = bodyWidth / 2.0;
+            return dipX >= (centerX - halfW - 14) && dipX <= (centerX + halfW + 14) && dipY >= 0 && dipY <= (yTop + bodyHeight + 14);
+        }
+
         // Generous margin tolerance around the notch so swift cursor moves never flicker
         double marginTolerance = 24.0;
-        double centerX = MasterGridWidth / 2.0;
         double leftEdge = centerX - (bodyWidth / 2.0) - _leftWingWidth - marginTolerance;
         double rightEdge = centerX + (bodyWidth / 2.0) + _rightWingWidth + marginTolerance;
         double bottomEdge = yTop + bodyHeight + marginTolerance;
@@ -744,7 +779,8 @@ public partial class MainWindow : Window
             _isDraggingTimeline ||
             _isDraggingToastSlider ||
             _isDraggingSysVolume ||
-            _isDraggingSysBrightness;
+            _isDraggingSysBrightness ||
+            _isDraggingAppMixer;
 
         bool cursorInside = IsCursorInsideIslandBounds();
         bool shouldBeClickThrough = isAltBypass || isHidden || isScreenshotLocked || (!cursorInside && !isDraggingControl);
@@ -925,6 +961,7 @@ public partial class MainWindow : Window
         CompactMediaPanel.Visibility = state == IslandVisualState.CompactMedia ? Visibility.Visible : Visibility.Collapsed;
         ToastPanel.Visibility = state == IslandVisualState.ToastNotification ? Visibility.Visible : Visibility.Collapsed;
         ExpandedDashboardPanel.Visibility = state == IslandVisualState.ExpandedDashboard ? Visibility.Visible : Visibility.Collapsed;
+        SpotlightPanel.Visibility = state == IslandVisualState.SpotlightSearch ? Visibility.Visible : Visibility.Collapsed;
 
         if (state == IslandVisualState.PinnedPerformancePill)
         {
@@ -954,7 +991,11 @@ public partial class MainWindow : Window
             SetWindowActivatable(true);
             AnimateTabContentSlide(tab);
 
-            if (tab == IslandDashboardTab.SystemStatus)
+            if (tab == IslandDashboardTab.MediaLyrics)
+            {
+                UpdateAppMixerUi();
+            }
+            else if (tab == IslandDashboardTab.SystemStatus)
             {
                 UpdateSlidersAndMuteUi();
             }
@@ -974,6 +1015,11 @@ public partial class MainWindow : Window
             {
                 UpdatePerformanceUi();
             }
+        }
+        else if (state == IslandVisualState.SpotlightSearch)
+        {
+            SetWindowActivatable(true);
+            ForceActivateAndFocus(SpotlightSearchBox);
         }
         else
         {
@@ -1387,6 +1433,14 @@ public partial class MainWindow : Window
                 UpdateSlidersAndMuteUi();
             }
 
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics &&
+                _isShowingAppMixer &&
+                !_isDraggingAppMixer)
+            {
+                UpdateAppMixerUi();
+            }
+
             if (_mediaService.CurrentTrack.HasActiveSession)
             {
                 UpdateMediaAndLyricsUi();
@@ -1499,6 +1553,14 @@ public partial class MainWindow : Window
             {
                 UpdateSlidersAndMuteUi();
             }
+
+            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics &&
+                _isShowingAppMixer &&
+                !_isDraggingAppMixer)
+            {
+                UpdateAppMixerUi();
+            }
         }
         catch (Exception ex)
         {
@@ -1574,6 +1636,12 @@ public partial class MainWindow : Window
 
     private Geometry ResolveToastVectorGeometry(string iconCode, ToastSliderKind sliderKind)
     {
+        if (iconCode == "BATTERY_HEALTH")
+            return GetVectorGeometry("GeomBatteryHealth");
+
+        if (iconCode == "CALCULATOR" || iconCode == "CALC")
+            return GetVectorGeometry("GeomCalculator");
+
         if (sliderKind == ToastSliderKind.Brightness || iconCode == "SUN" || iconCode.StartsWith("BRIGHTNESS"))
             return GetVectorGeometry("GeomBrightnessSun");
 
@@ -1949,8 +2017,17 @@ public partial class MainWindow : Window
         HeaderBatteryBoltPath.Visibility = isCharging ? Visibility.Visible : Visibility.Collapsed;
         HeaderBatteryBoltPath.Fill = new SolidColorBrush(
             isMono ? Color.FromRgb(244, 244, 245) : Color.FromRgb(34, 197, 94));
+
+        string batteryEstimate = !string.IsNullOrWhiteSpace(hw.BatteryEstimatedTimeText)
+            ? $" ({hw.BatteryEstimatedTimeText})"
+            : string.Empty;
+
         HeaderBatteryBadge.ToolTip = hw.HasBattery
-            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%"
+            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%{batteryEstimate}"
+            : "Daya Desktop AC (100%)";
+
+        IdleBatteryBodyBorder.ToolTip = hw.HasBattery
+            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%{batteryEstimate}"
             : "Daya Desktop AC (100%)";
 
         bool minimal = _settingsService.MinimalNotchEnabled;
@@ -1968,7 +2045,7 @@ public partial class MainWindow : Window
         _stateMachine.UpdateDynamicIdleWidth(hasExtraIdle);
 
         SysBatteryDetailText.Text = hw.HasBattery
-            ? $"{(hw.IsCharging ? "Charging" : "Baterai")} • {hw.BatteryPercent}%"
+            ? $"{(hw.IsCharging ? "Charging" : "Baterai")} • {hw.BatteryPercent}%{batteryEstimate}"
             : "Daya Desktop AC (100%)";
 
         SysNetworkDetailText.Text = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName)
@@ -2260,6 +2337,11 @@ public partial class MainWindow : Window
         }
 
         if (!_settingsService.BatteryToastEnabled && toast.SliderKind == ToastSliderKind.Battery)
+        {
+            return;
+        }
+
+        if (!_settingsService.Battery80PercentAlertEnabled && toast.Icon == "BATTERY_HEALTH")
         {
             return;
         }
@@ -3723,6 +3805,25 @@ public partial class MainWindow : Window
                 Win32Interop.SetWindowDisplayAffinity(
                     _hwnd,
                     _settingsService.ExcludeFromScreenCapture ? Win32Interop.WDA_EXCLUDEFROMCAPTURE : Win32Interop.WDA_NONE);
+
+                if (_settingsService.SpotlightHotkeyEnabled)
+                {
+                    Win32Interop.RegisterHotKey(_hwnd, Win32Interop.HOTKEY_ID_SPOTLIGHT, Win32Interop.MOD_ALT | Win32Interop.MOD_NOREPEAT, Win32Interop.VK_SPACE);
+                }
+                else
+                {
+                    Win32Interop.UnregisterHotKey(_hwnd, Win32Interop.HOTKEY_ID_SPOTLIGHT);
+                }
+            }
+
+            MediaViewToggleBtn.Visibility = _settingsService.AppVolumeMixerEnabled ? Visibility.Visible : Visibility.Collapsed;
+            if (!_settingsService.AppVolumeMixerEnabled && _isShowingAppMixer)
+            {
+                _isShowingAppMixer = false;
+                LyricsStageBorder.Visibility = Visibility.Visible;
+                AppMixerBorder.Visibility = Visibility.Collapsed;
+                MediaViewToggleText.Text = "Mixer";
+                MediaViewToggleIcon.Data = GetVectorGeometry("GeomAppMixer");
             }
 
             // 3. Pomodoro & Water defaults
@@ -3926,6 +4027,353 @@ public partial class MainWindow : Window
             EnsureRenderLoopRunning();
         });
     }
+
+    private void OnWindowDeactivated(object? sender, EventArgs e)
+    {
+        if (_stateMachine.IsSpotlightActive)
+        {
+            CloseSpotlight();
+        }
+    }
+
+    // =========================================================================
+    // FEATURE 1: SPOTLIGHT QUICK COMMAND & APP LAUNCHER (Alt + Spasi)
+    // =========================================================================
+
+    public void ToggleSpotlightMode()
+    {
+        if (_stateMachine.IsSpotlightActive)
+        {
+            CloseSpotlight();
+        }
+        else
+        {
+            OpenSpotlight();
+        }
+    }
+
+    public void OpenSpotlight()
+    {
+        _stateMachine.SetSpotlightActive(true);
+        SpotlightSearchBox.Text = string.Empty;
+        SpotlightPlaceholder.Visibility = Visibility.Visible;
+        SpotlightClearBtn.Visibility = Visibility.Collapsed;
+        _selectedSpotlightIndex = -1;
+        UpdateSpotlightSearchResults(string.Empty);
+        ForceActivateAndFocus(SpotlightSearchBox);
+    }
+
+    public void CloseSpotlight()
+    {
+        _stateMachine.SetSpotlightActive(false);
+        Keyboard.ClearFocus();
+        SetWindowActivatable(false);
+    }
+
+    private void OnSpotlightClearClick(object sender, RoutedEventArgs e)
+    {
+        SpotlightSearchBox.Text = string.Empty;
+        SpotlightSearchBox.Focus();
+    }
+
+    private void OnSpotlightSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        string query = SpotlightSearchBox.Text ?? string.Empty;
+        SpotlightPlaceholder.Visibility = string.IsNullOrEmpty(query) ? Visibility.Visible : Visibility.Collapsed;
+        SpotlightClearBtn.Visibility = string.IsNullOrEmpty(query) ? Visibility.Collapsed : Visibility.Visible;
+
+        _selectedSpotlightIndex = 0;
+        UpdateSpotlightSearchResults(query);
+    }
+
+    private void OnSpotlightSearchKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            CloseSpotlight();
+            return;
+        }
+
+        if (_currentSpotlightItems.Count == 0) return;
+
+        if (e.Key == Key.Down)
+        {
+            e.Handled = true;
+            _selectedSpotlightIndex = (_selectedSpotlightIndex + 1) % _currentSpotlightItems.Count;
+            RefreshSpotlightItemSelection();
+        }
+        else if (e.Key == Key.Up)
+        {
+            e.Handled = true;
+            _selectedSpotlightIndex = (_selectedSpotlightIndex - 1 + _currentSpotlightItems.Count) % _currentSpotlightItems.Count;
+            RefreshSpotlightItemSelection();
+        }
+        else if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            ExecuteSelectedSpotlightItem();
+        }
+    }
+
+    private void OnSpotlightResultItemClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement elem && elem.Tag is string itemId)
+        {
+            var match = _currentSpotlightItems.FirstOrDefault(x => x.Id == itemId);
+            if (match != null)
+            {
+                ExecuteSpotlightItem(match);
+            }
+        }
+    }
+
+    private void UpdateSpotlightSearchResults(string rawQuery)
+    {
+        _currentSpotlightItems = _spotlightService.Search(
+            rawQuery,
+            toggleMuteAudio: () => _audioService.ToggleMute(),
+            toggleMuteMic: () => _audioService.ToggleMicrophoneMute(),
+            toggleBluetooth: () => _ = _hardwareService.ToggleBluetoothRadioAsync(),
+            openSettings: () => OpenSettingsWindow(0),
+            tuckIsland: () => _stateMachine.SetTuckedMode(true),
+            startPomodoroFocus: () => _pomodoroService.StartFocus());
+
+        RefreshSpotlightItemSelection();
+
+        if (_currentSpotlightItems.Count == 0)
+        {
+            SpotlightResultsBorder.Visibility = Visibility.Collapsed;
+            _stateMachine.SetSpotlightHeight(64.0);
+        }
+        else
+        {
+            SpotlightResultsBorder.Visibility = Visibility.Visible;
+            double listHeight = Math.Min(220.0, _currentSpotlightItems.Count * 44.0 + 12.0);
+            _stateMachine.SetSpotlightHeight(64.0 + listHeight + 8.0);
+        }
+    }
+
+    private void RefreshSpotlightItemSelection()
+    {
+        var accentBrush = (Brush)FindResource("AppAccentBrush");
+        var viewModels = new List<SpotlightItemViewModel>();
+
+        for (int i = 0; i < _currentSpotlightItems.Count; i++)
+        {
+            var item = _currentSpotlightItems[i];
+            bool isSelected = i == _selectedSpotlightIndex;
+
+            string actionHint = item.Kind switch
+            {
+                SpotlightResultKind.MathResult => "Salin",
+                SpotlightResultKind.SystemCommand => "Jalankan",
+                SpotlightResultKind.WebUrl => "Buka",
+                _ => "Buka"
+            };
+
+            Geometry? vectorGeom = null;
+            if (!string.IsNullOrEmpty(item.VectorIconKey))
+            {
+                vectorGeom = GetVectorGeometry(item.VectorIconKey);
+            }
+
+            viewModels.Add(new SpotlightItemViewModel
+            {
+                Id = item.Id,
+                Title = item.Title,
+                Subtitle = item.Subtitle,
+                ActionHintText = actionHint,
+                TitleBrush = isSelected ? accentBrush : (Brush)new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+                ItemBackgroundBrush = isSelected
+                    ? new SolidColorBrush(Color.FromArgb(45, 56, 189, 248))
+                    : new SolidColorBrush(Color.FromArgb(16, 255, 255, 255)),
+                ItemBorderBrush = isSelected
+                    ? new SolidColorBrush(Color.FromArgb(90, 56, 189, 248))
+                    : new SolidColorBrush(Color.FromArgb(20, 255, 255, 255)),
+                ResolvedVectorIcon = vectorGeom,
+                VectorIconVisibility = vectorGeom != null ? Visibility.Visible : Visibility.Collapsed,
+                IconImage = item.IconImage,
+                ImageIconVisibility = item.IconImage != null ? Visibility.Visible : Visibility.Collapsed,
+                SourceItem = item
+            });
+        }
+
+        SpotlightItemsControl.ItemsSource = viewModels;
+    }
+
+    private void ExecuteSelectedSpotlightItem()
+    {
+        if (_currentSpotlightItems.Count == 0) return;
+        int idx = Math.Clamp(_selectedSpotlightIndex >= 0 ? _selectedSpotlightIndex : 0, 0, _currentSpotlightItems.Count - 1);
+        ExecuteSpotlightItem(_currentSpotlightItems[idx]);
+    }
+
+    private void ExecuteSpotlightItem(SpotlightItem item)
+    {
+        try
+        {
+            item.ExecuteAction?.Invoke();
+
+            if (item.Kind == SpotlightResultKind.MathResult)
+            {
+                TriggerToast(new ToastPayload(
+                    Icon: "CALCULATOR",
+                    Title: "Hasil Disalin",
+                    Subtitle: item.Title,
+                    AccentHex: "#22C55E",
+                    Duration: TimeSpan.FromSeconds(2.0)));
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("ExecuteSpotlightItem", "Failed executing spotlight item", ex);
+        }
+        finally
+        {
+            CloseSpotlight();
+        }
+    }
+
+    // =========================================================================
+    // FEATURE 2: PER-APP AUDIO VOLUME MIXER
+    // =========================================================================
+
+    private void OnToggleMediaViewClick(object sender, RoutedEventArgs e)
+    {
+        _isShowingAppMixer = !_isShowingAppMixer;
+        LyricsStageBorder.Visibility = _isShowingAppMixer ? Visibility.Collapsed : Visibility.Visible;
+        AppMixerBorder.Visibility = _isShowingAppMixer ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_isShowingAppMixer)
+        {
+            MediaViewToggleText.Text = "Lirik";
+            MediaViewToggleIcon.Data = GetVectorGeometry("GeomMusic");
+            UpdateAppMixerUi();
+        }
+        else
+        {
+            MediaViewToggleText.Text = "Mixer";
+            MediaViewToggleIcon.Data = GetVectorGeometry("GeomAppMixer");
+        }
+    }
+
+    private void UpdateAppMixerUi()
+    {
+        if (!_isShowingAppMixer) return;
+
+        var sessions = _audioService.GetAppAudioSessions();
+        if (sessions.Count == 0)
+        {
+            AppMixerItemsControl.ItemsSource = null;
+            AppMixerEmptyHintText.Visibility = Visibility.Visible;
+            return;
+        }
+
+        AppMixerEmptyHintText.Visibility = Visibility.Collapsed;
+        var viewModels = new List<AppMixerItemViewModel>();
+
+        const double sliderTrackWidth = 140.0;
+        foreach (var s in sessions)
+        {
+            double fillPx = Math.Clamp((s.VolumePercent / 100.0) * sliderTrackWidth, 0.0, sliderTrackWidth);
+            viewModels.Add(new AppMixerItemViewModel
+            {
+                ProcessId = s.ProcessId,
+                AppName = s.AppName,
+                VolumePercent = s.VolumePercent,
+                FillWidthPx = fillPx,
+                IconImage = s.IconImage,
+                IsMuted = s.IsMuted,
+                MuteIconGeometry = s.IsMuted ? GetVectorGeometry("GeomSpeakerMuted") : GetVectorGeometry("GeomSpeakerOn"),
+                MuteIconBrush = s.IsMuted
+                    ? new SolidColorBrush(Color.FromRgb(248, 113, 113))
+                    : (Brush)FindResource("AppAccentBrush")
+            });
+        }
+
+        AppMixerItemsControl.ItemsSource = viewModels;
+    }
+
+    private void OnAppMixerSliderMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is int pid)
+        {
+            _isDraggingAppMixer = true;
+            _draggingAppMixerPid = pid;
+            fe.CaptureMouse();
+            ApplyAppMixerSliderFromMouse(fe, e.GetPosition(fe).X, pid);
+            e.Handled = true;
+        }
+    }
+
+    private void OnAppMixerSliderMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_isDraggingAppMixer && e.LeftButton == MouseButtonState.Pressed && sender is FrameworkElement fe && fe.Tag is int pid)
+        {
+            ApplyAppMixerSliderFromMouse(fe, e.GetPosition(fe).X, pid);
+            e.Handled = true;
+        }
+    }
+
+    private void OnAppMixerSliderMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isDraggingAppMixer)
+        {
+            _isDraggingAppMixer = false;
+            (sender as UIElement)?.ReleaseMouseCapture();
+            e.Handled = true;
+        }
+    }
+
+    private void ApplyAppMixerSliderFromMouse(FrameworkElement fe, double mouseX, int pid)
+    {
+        double trackW = Math.Max(1.0, fe.ActualWidth);
+        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100);
+        _audioService.SetAppVolume(pid, pct);
+        UpdateAppMixerUi();
+    }
+
+    private void OnToggleAppMixerMuteClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is int pid)
+        {
+            _audioService.ToggleAppMute(pid);
+            UpdateAppMixerUi();
+            e.Handled = true;
+        }
+    }
+}
+
+public sealed class SpotlightItemViewModel
+{
+    public string Id { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string Subtitle { get; init; } = string.Empty;
+    public string ActionHintText { get; init; } = "Buka";
+    public Brush TitleBrush { get; init; } = Brushes.White;
+    public Brush ItemBackgroundBrush { get; init; } = Brushes.Transparent;
+    public Brush ItemBorderBrush { get; init; } = Brushes.Transparent;
+    public Geometry? ResolvedVectorIcon { get; init; }
+    public Visibility VectorIconVisibility { get; init; } = Visibility.Collapsed;
+    public ImageSource? IconImage { get; init; }
+    public Visibility ImageIconVisibility { get; init; } = Visibility.Collapsed;
+    public SpotlightItem SourceItem { get; init; } = null!;
+}
+
+public sealed class AppMixerItemViewModel
+{
+    public int ProcessId { get; init; }
+    public string AppName { get; init; } = string.Empty;
+    public int VolumePercent { get; init; }
+    public string VolumeText => IsMuted ? "Muted" : $"{VolumePercent}%";
+    public double FillWidthPx { get; init; }
+    public ImageSource? IconImage { get; init; }
+    public Visibility FallbackVisibility => IconImage == null ? Visibility.Visible : Visibility.Collapsed;
+    public bool IsMuted { get; init; }
+    public Geometry? MuteIconGeometry { get; init; }
+    public Brush? MuteIconBrush { get; init; }
+    public string MuteToolTip => IsMuted ? "Bunyikan audio aplikasi" : "Bisukan audio aplikasi";
 }
 
 public sealed class TodoItemViewModel

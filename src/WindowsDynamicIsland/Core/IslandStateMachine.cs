@@ -8,7 +8,8 @@ public enum IslandVisualState
     PinnedPerformancePill,
     CompactMedia,
     ToastNotification,
-    ExpandedDashboard
+    ExpandedDashboard,
+    SpotlightSearch
 }
 
 public enum IslandDashboardTab
@@ -49,6 +50,7 @@ public sealed class IslandStateMachine
     public bool IsHovered { get; private set; }
     public bool IsPinnedExpanded { get; private set; }
     public bool IsPerformancePinned { get; private set; }
+    public bool IsSpotlightActive { get; private set; }
     public bool IsMediaActive { get; private set; }
     public bool IsFullScreenHidden { get; private set; }
     public bool IsScreenshotMode { get; private set; }
@@ -60,6 +62,7 @@ public sealed class IslandStateMachine
     // Dynamic content sizing inputs so the notch breathes organically
     public double DynamicCompactWidth { get; private set; } = 320;
     public double DynamicIdleWidth { get; private set; } = 268;
+    public double DynamicSpotlightHeight { get; private set; } = 64;
     public int ShelfItemCount { get; private set; }
 
     public string CornerStyle { get; private set; } = "Squircle";
@@ -110,13 +113,14 @@ public sealed class IslandStateMachine
             IslandVisualState.CompactMedia => (DynamicCompactWidth, 40.0, 18.0, 14.0, 0.35),
             IslandVisualState.ToastNotification => (388.0, 52.0, 22.0, 15.0, 0.48),
             IslandVisualState.ExpandedDashboard => (540.0, 268.0, 26.0, 18.0, 0.48),
+            IslandVisualState.SpotlightSearch => (540.0, DynamicSpotlightHeight, 26.0, 18.0, 0.55),
             _ => (268.0, 37.0, 17.0, 13.0, 0.16)
         };
 
         if (isPunchHole)
         {
             eRad = 0.0;
-            if (CurrentState == IslandVisualState.ExpandedDashboard)
+            if (CurrentState is IslandVisualState.ExpandedDashboard or IslandVisualState.SpotlightSearch)
             {
                 bRad = CornerStyle == "Sharp" ? 14.0 : (CornerStyle == "UltraPill" ? 30.0 : 24.0);
             }
@@ -303,6 +307,31 @@ public sealed class IslandStateMachine
         SetActiveTab((IslandDashboardTab)prev);
     }
 
+    public void SetSpotlightActive(bool active)
+    {
+        if (IsSpotlightActive == active) return;
+        IsSpotlightActive = active;
+        if (active)
+        {
+            IsTuckedMode = false;
+            IsAutoTucked = false;
+        }
+        RecalculateState();
+    }
+
+    public void ToggleSpotlight() => SetSpotlightActive(!IsSpotlightActive);
+
+    public void SetSpotlightHeight(double height)
+    {
+        double clamped = Math.Clamp(height, 64.0, 310.0);
+        if (Math.Abs(DynamicSpotlightHeight - clamped) < 1.0) return;
+        DynamicSpotlightHeight = clamped;
+        if (CurrentState == IslandVisualState.SpotlightSearch)
+        {
+            StateChanged?.Invoke(CurrentState, ActiveTab);
+        }
+    }
+
     public void ShowToast(ToastPayload toast)
     {
         ActiveToast = toast;
@@ -328,6 +357,10 @@ public sealed class IslandStateMachine
         {
             // Screenshot mode ("Mode SS"): lock Dynamic Island in tucked top-edge strip without touching or expanding
             next = IslandVisualState.TuckedTopEdge;
+        }
+        else if (IsSpotlightActive)
+        {
+            next = IslandVisualState.SpotlightSearch;
         }
         else if (ActiveToast != null)
         {

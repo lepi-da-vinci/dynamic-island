@@ -1002,6 +1002,31 @@
                                                 </StackPanel>
                                             </Border>
 
+                                            <!-- Media View Mode Toggle (Lirik / Mixer Aplikasi) -->
+                                            <Button x:Name="MediaViewToggleBtn"
+                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                    Padding="6,2"
+                                                    Margin="0,0,7,0"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip="Beralih antara Tampilan Lirik dan Mixer Volume Aplikasi"
+                                                    Click="OnToggleMediaViewClick">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Path x:Name="MediaViewToggleIcon"
+                                                          Data="{StaticResource GeomAppMixer}"
+                                                          Width="9.5" Height="9.5"
+                                                          Stretch="Uniform"
+                                                          Fill="{DynamicResource AppAccentBrush}"
+                                                          Margin="0,0,3.5,0"
+                                                          VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="MediaViewToggleText"
+                                                               Text="Mixer"
+                                                               FontSize="9.5"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource AppAccentBrush}"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+
                                             <TextBlock x:Name="ExpandedArtistText"
                                                        Text="Putar lagu di Spotify, Chrome, Edge, atau VLC"
                                                        Foreground="#94A3B8"
@@ -1102,7 +1127,8 @@
                             </Grid>
 
                             <!-- ANIMATED 3-LINE LIVE LYRICS STAGE (Clean Zero-Glow Typography + Bottom Lyric Duration Bar) -->
-                            <Border Grid.Row="2"
+                            <Border x:Name="LyricsStageBorder"
+                                    Grid.Row="2"
                                     Background="#0EFFFFFF"
                                     BorderBrush="#1CFFFFFF"
                                     BorderThickness="1"
@@ -1172,6 +1198,124 @@
                                                 Background="#38BDF8"/>
                                     </Border>
                                 </Grid>
+                            </Border>
+
+                            <!-- PER-APP AUDIO VOLUME MIXER (Sleek Apple List with Real-Time Per-App Sliders & Mute) -->
+                            <Border x:Name="AppMixerBorder"
+                                    Grid.Row="2"
+                                    Background="#0EFFFFFF"
+                                    BorderBrush="#1CFFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="14"
+                                    Padding="10,6"
+                                    Visibility="Collapsed"
+                                    ClipToBounds="True">
+                                <ScrollViewer Style="{StaticResource AppleScrollViewerStyle}"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel>
+                                        <ItemsControl x:Name="AppMixerItemsControl">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Margin="0,0,0,5"
+                                                            Background="#10FFFFFF"
+                                                            BorderBrush="#18FFFFFF"
+                                                            BorderThickness="1"
+                                                            CornerRadius="8"
+                                                            Padding="8,4">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="22"/>
+                                                                <ColumnDefinition Width="100"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="38"/>
+                                                                <ColumnDefinition Width="26"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- App Icon -->
+                                                            <Border Grid.Column="0" Width="18" Height="18" CornerRadius="4" ClipToBounds="True" VerticalAlignment="Center">
+                                                                <Grid>
+                                                                    <Path Data="{StaticResource GeomSpeakerOn}"
+                                                                          Width="10" Height="10"
+                                                                          Stretch="Uniform"
+                                                                          Fill="#64748B"
+                                                                          HorizontalAlignment="Center"
+                                                                          VerticalAlignment="Center"
+                                                                          Visibility="{Binding FallbackVisibility}"/>
+                                                                    <Image Source="{Binding IconImage}" Stretch="UniformToFill"/>
+                                                                </Grid>
+                                                            </Border>
+
+                                                            <!-- App Name -->
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding AppName}"
+                                                                       Foreground="#F8FAFC"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold"
+                                                                       Margin="6,0,6,0"
+                                                                       VerticalAlignment="Center"
+                                                                       TextTrimming="CharacterEllipsis"/>
+
+                                                            <!-- Interactive Slider Track -->
+                                                            <Grid Grid.Column="2"
+                                                                  Height="14"
+                                                                  Background="Transparent"
+                                                                  Cursor="Hand"
+                                                                  VerticalAlignment="Center"
+                                                                  MouseLeftButtonDown="OnAppMixerSliderMouseDown"
+                                                                  MouseMove="OnAppMixerSliderMouseMove"
+                                                                  MouseLeftButtonUp="OnAppMixerSliderMouseUp"
+                                                                  Tag="{Binding ProcessId}">
+                                                                <Border x:Name="MixerTrackBorder"
+                                                                        Height="5.5" CornerRadius="2.75" Background="#24FFFFFF" ClipToBounds="True">
+                                                                    <Border HorizontalAlignment="Left"
+                                                                            Width="{Binding FillWidthPx}"
+                                                                            Height="5.5"
+                                                                            CornerRadius="2.75"
+                                                                            Background="{DynamicResource AppAccentBrush}"/>
+                                                                </Border>
+                                                            </Grid>
+
+                                                            <!-- Volume Percent -->
+                                                            <TextBlock Grid.Column="3"
+                                                                       Text="{Binding VolumeText}"
+                                                                       Foreground="#94A3B8"
+                                                                       FontSize="10"
+                                                                       FontWeight="Bold"
+                                                                       TextAlignment="Right"
+                                                                       Margin="4,0"
+                                                                       VerticalAlignment="Center"/>
+
+                                                            <!-- Mute Button -->
+                                                            <Button Grid.Column="4"
+                                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                                    Width="22" Height="22"
+                                                                    Padding="0"
+                                                                    Tag="{Binding ProcessId}"
+                                                                    Click="OnToggleAppMixerMuteClick">
+                                                                <Path Data="{Binding MuteIconGeometry}"
+                                                                      Width="10" Height="10"
+                                                                      Stretch="Uniform"
+                                                                      Fill="{Binding MuteIconBrush}"
+                                                                      HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center"/>
+                                                            </Button>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <TextBlock x:Name="AppMixerEmptyHintText"
+                                                   Text="Tidak ada aplikasi lain yang memutar audio saat ini"
+                                                   Foreground="#64748B"
+                                                   FontSize="11"
+                                                   FontWeight="Medium"
+                                                   TextAlignment="Center"
+                                                   Margin="0,18,0,0"
+                                                   Visibility="Collapsed"/>
+                                    </StackPanel>
+                                </ScrollViewer>
                             </Border>
                         </Grid>
 
@@ -2936,6 +3080,189 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
+                    </Grid>
+
+                    <!-- STATE 5: SPOTLIGHT SEARCH (Apple Spotlight & Raycast Style Quick Command / App Launcher) -->
+                    <Grid x:Name="SpotlightPanel"
+                          Width="510"
+                          HorizontalAlignment="Center"
+                          Margin="0,10,0,10"
+                          Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Search Input Bar with Apple Glass Finish -->
+                        <Border Grid.Row="0"
+                                Background="#15FFFFFF"
+                                BorderBrush="{DynamicResource AppAccentBrush}"
+                                BorderThickness="1.2"
+                                CornerRadius="14"
+                                Height="44"
+                                Padding="12,0"
+                                Focusable="False">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Magnifying Glass Icon -->
+                                <Path Grid.Column="0"
+                                      Data="{StaticResource GeomSearch}"
+                                      Width="15" Height="15"
+                                      Stretch="Uniform"
+                                      Fill="{DynamicResource AppAccentBrush}"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,10,0"/>
+
+                                <!-- Real Input Box -->
+                                <Grid Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock x:Name="SpotlightPlaceholder"
+                                               Text="Cari aplikasi, perhitungan (25*4), atau perintah..."
+                                               Foreground="#64748B"
+                                               FontSize="13"
+                                               FontFamily="Segoe UI Variable Text, Segoe UI"
+                                               IsHitTestVisible="False"
+                                               VerticalAlignment="Center"/>
+                                    <TextBox x:Name="SpotlightSearchBox"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="#F8FAFC"
+                                             FontSize="13"
+                                             FontFamily="Segoe UI Variable Text, Segoe UI"
+                                             FontWeight="SemiBold"
+                                             CaretBrush="{DynamicResource AppAccentBrush}"
+                                             VerticalAlignment="Center"
+                                             TextChanged="OnSpotlightSearchTextChanged"
+                                             KeyDown="OnSpotlightSearchKeyDown"/>
+                                </Grid>
+
+                                <!-- Clear Query Button -->
+                                <Button x:Name="SpotlightClearBtn"
+                                        Grid.Column="2"
+                                        Style="{StaticResource IslandIconButtonStyle}"
+                                        Width="20" Height="20"
+                                        Padding="0"
+                                        Margin="4,0"
+                                        Visibility="Collapsed"
+                                        ToolTip="Hapus teks pencarian"
+                                        Click="OnSpotlightClearClick">
+                                    <Path Data="{StaticResource GeomClosePower}"
+                                          Width="9" Height="9"
+                                          Stretch="Uniform"
+                                          Fill="#94A3B8"/>
+                                </Button>
+
+                                <!-- Hotkey Esc Pill -->
+                                <Border Grid.Column="3"
+                                        Background="#18FFFFFF"
+                                        BorderBrush="#25FFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Padding="6,2"
+                                        VerticalAlignment="Center"
+                                        ToolTip="Tutup Spotlight (Esc)">
+                                    <TextBlock Text="Esc"
+                                               Foreground="#94A3B8"
+                                               FontSize="10"
+                                               FontWeight="Bold"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- Search Results List -->
+                        <Border x:Name="SpotlightResultsBorder"
+                                Grid.Row="1"
+                                Margin="0,8,0,0"
+                                Background="#0EFFFFFF"
+                                BorderBrush="#1CFFFFFF"
+                                BorderThickness="1"
+                                CornerRadius="14"
+                                Padding="6,6"
+                                MaxHeight="220"
+                                Visibility="Collapsed"
+                                ClipToBounds="True">
+                            <ScrollViewer Style="{StaticResource AppleScrollViewerStyle}"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl x:Name="SpotlightItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,4"
+                                                    Background="{Binding ItemBackgroundBrush}"
+                                                    BorderBrush="{Binding ItemBorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="9"
+                                                    Padding="8,6"
+                                                    Cursor="Hand"
+                                                    Tag="{Binding Id}"
+                                                    MouseLeftButtonDown="OnSpotlightResultItemClick">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="28"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Icon (Image or Bespoke Vector) -->
+                                                    <Border Grid.Column="0"
+                                                            Width="22" Height="22"
+                                                            CornerRadius="5"
+                                                            Background="#18FFFFFF"
+                                                            ClipToBounds="True"
+                                                            VerticalAlignment="Center">
+                                                        <Grid>
+                                                            <Path Data="{Binding ResolvedVectorIcon}"
+                                                                  Width="12" Height="12"
+                                                                  Stretch="Uniform"
+                                                                  Fill="{DynamicResource AppAccentBrush}"
+                                                                  HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"
+                                                                  Visibility="{Binding VectorIconVisibility}"/>
+                                                            <Image Source="{Binding IconImage}"
+                                                                   Stretch="UniformToFill"
+                                                                   Visibility="{Binding ImageIconVisibility}"/>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <!-- Title and Subtitle -->
+                                                    <StackPanel Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Title}"
+                                                                   Foreground="{Binding TitleBrush}"
+                                                                   FontSize="12"
+                                                                   FontWeight="Bold"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Subtitle}"
+                                                                   Foreground="#94A3B8"
+                                                                   FontSize="10"
+                                                                   FontWeight="Medium"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+
+                                                    <!-- Action Hint (Enter) -->
+                                                    <Border Grid.Column="2"
+                                                            Background="#12FFFFFF"
+                                                            BorderBrush="#1CFFFFFF"
+                                                            BorderThickness="1"
+                                                            CornerRadius="5"
+                                                            Padding="6,2"
+                                                            VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ActionHintText}"
+                                                                   Foreground="#94A3B8"
+                                                                   FontSize="9.5"
+                                                                   FontWeight="SemiBold"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
                     </Grid>
                 </Grid>
             </Border>

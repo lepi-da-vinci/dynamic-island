@@ -66,12 +66,17 @@ public sealed class AppSettingsData
     // Shelf
     public bool AutoOpenShelfOnDrag { get; set; } = true;
 
-    // HUD & popups
+    // HUD, Popups & Smart Features
     public bool VolumeBrightnessHudEnabled { get; set; } = true;
     public bool BatteryToastEnabled { get; set; } = true;
+    public bool Battery80PercentAlertEnabled { get; set; } = true;
     public bool BluetoothToastEnabled { get; set; } = true;
     public bool SystemNotificationToastEnabled { get; set; } = true;
     public double ToastDurationSeconds { get; set; } = 2.8;
+
+    // Spotlight & Quick Features
+    public bool SpotlightHotkeyEnabled { get; set; } = true;
+    public bool AppVolumeMixerEnabled { get; set; } = true;
 }
 
 public sealed class AppSettingsService
@@ -598,6 +603,42 @@ public sealed class AppSettingsService
         {
             if (_data.BatteryToastEnabled == value) return;
             _data.BatteryToastEnabled = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool Battery80PercentAlertEnabled
+    {
+        get => _data.Battery80PercentAlertEnabled;
+        set
+        {
+            if (_data.Battery80PercentAlertEnabled == value) return;
+            _data.Battery80PercentAlertEnabled = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool SpotlightHotkeyEnabled
+    {
+        get => _data.SpotlightHotkeyEnabled;
+        set
+        {
+            if (_data.SpotlightHotkeyEnabled == value) return;
+            _data.SpotlightHotkeyEnabled = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool AppVolumeMixerEnabled
+    {
+        get => _data.AppVolumeMixerEnabled;
+        set
+        {
+            if (_data.AppVolumeMixerEnabled == value) return;
+            _data.AppVolumeMixerEnabled = value;
             Save();
             SettingsChanged?.Invoke();
         }

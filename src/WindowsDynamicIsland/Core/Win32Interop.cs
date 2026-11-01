@@ -26,6 +26,16 @@ public static class Win32Interop
     public const int WM_DISPLAYCHANGE = 0x007E;
     public const int WM_DPICHANGED = 0x02E0;
     public const int WM_POWERBROADCAST = 0x0218;
+    public const int WM_HOTKEY = 0x0312;
+
+    public const uint MOD_ALT = 0x0001;
+    public const uint MOD_CONTROL = 0x0002;
+    public const uint MOD_SHIFT = 0x0004;
+    public const uint MOD_WIN = 0x0008;
+    public const uint MOD_NOREPEAT = 0x4000;
+    public const int VK_SPACE = 0x20;
+
+    public const int HOTKEY_ID_SPOTLIGHT = 9001;
 
     public const uint MONITOR_DEFAULTTONULL = 0x00000000;
     public const uint MONITOR_DEFAULTTOPRIMARY = 0x00000001;
@@ -72,6 +82,12 @@ public static class Win32Interop
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     [DllImport("user32.dll")]
     public static extern bool GetCursorPos(out POINT lpPoint);
@@ -371,6 +387,7 @@ public static class Win32Interop
     // SHGetFileInfo for extracting icons from .exe, .lnk, and folders
     public const uint SHGFI_ICON = 0x000000100;
     public const uint SHGFI_LARGEICON = 0x000000000;
+    public const uint SHGFI_SMALLICON = 0x000000001;
     public const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

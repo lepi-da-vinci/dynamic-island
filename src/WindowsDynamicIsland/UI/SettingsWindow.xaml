@@ -1447,6 +1447,30 @@
                                                       VerticalAlignment="Center"
                                                       Click="OnSettingToggleClicked"/>
                                         </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Mixer Audio Per Aplikasi"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Aktifkan tombol alih Mixer di tab Musik untuk mengontrol volume Spotify, browser, dan game secara mandiri"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkAppVolumeMixer"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnSettingToggleClicked"/>
+                                        </Grid>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -1989,6 +2013,54 @@
                                                            Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkSystemNotifToast"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnSettingToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Spotlight Quick Launcher (Alt + Spasi)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Buka command launcher cepat untuk mencari aplikasi, perhitungan matematika, dan perintah sistem"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkSpotlightHotkey"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnSettingToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Notifikasi Baterai 80% (Smart Charge Limit)"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Beri notifikasi saat pengisian baterai mencapai 80% untuk melindungi kesehatan baterai"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkBattery80Alert"
                                                       Grid.Column="1"
                                                       Style="{StaticResource AppleToggleSwitchStyle}"
                                                       VerticalAlignment="Center"

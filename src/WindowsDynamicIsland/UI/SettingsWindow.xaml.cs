@@ -208,6 +208,7 @@ public partial class SettingsWindow : Window
             ChkSlowLyricPan.IsChecked = _settings.SlowLyricPanEnabled;
             ChkTrackChangeToast.IsChecked = _settings.MediaTrackChangeToastEnabled;
             ChkAudioVisualizer.IsChecked = _settings.AudioVisualizerEnabled;
+            ChkAppVolumeMixer.IsChecked = _settings.AppVolumeMixerEnabled;
 
             // Page 4: To-do
             ChkShowTodoBadge.IsChecked = _settings.ShowTodoBadgeOnIdle;
@@ -250,6 +251,8 @@ public partial class SettingsWindow : Window
             ChkBatteryToast.IsChecked = _settings.BatteryToastEnabled;
             ChkBluetoothToast.IsChecked = _settings.BluetoothToastEnabled;
             ChkSystemNotifToast.IsChecked = _settings.SystemNotificationToastEnabled;
+            ChkSpotlightHotkey.IsChecked = _settings.SpotlightHotkeyEnabled;
+            ChkBattery80Alert.IsChecked = _settings.Battery80PercentAlertEnabled;
 
             double toastDur = _settings.ToastDurationSeconds;
             if (Math.Abs(toastDur - 2.0) < 0.2) Toast20Btn.IsChecked = true;
@@ -316,6 +319,7 @@ public partial class SettingsWindow : Window
         _settings.SlowLyricPanEnabled = ChkSlowLyricPan.IsChecked == true;
         _settings.MediaTrackChangeToastEnabled = ChkTrackChangeToast.IsChecked == true;
         _settings.AudioVisualizerEnabled = ChkAudioVisualizer.IsChecked == true;
+        _settings.AppVolumeMixerEnabled = ChkAppVolumeMixer.IsChecked == true;
         _settings.ShowTodoBadgeOnIdle = ChkShowTodoBadge.IsChecked == true;
         _settings.ShowDateOnIdle = ChkShowDateOnIdle.IsChecked == true;
         _settings.Use24HourClock = ChkUse24HourClock.IsChecked == true;
@@ -326,6 +330,8 @@ public partial class SettingsWindow : Window
         _settings.BatteryToastEnabled = ChkBatteryToast.IsChecked == true;
         _settings.BluetoothToastEnabled = ChkBluetoothToast.IsChecked == true;
         _settings.SystemNotificationToastEnabled = ChkSystemNotifToast.IsChecked == true;
+        _settings.SpotlightHotkeyEnabled = ChkSpotlightHotkey.IsChecked == true;
+        _settings.Battery80PercentAlertEnabled = ChkBattery80Alert.IsChecked == true;
     }
 
     private void OnTabVisibilityToggleClicked(object sender, RoutedEventArgs e)

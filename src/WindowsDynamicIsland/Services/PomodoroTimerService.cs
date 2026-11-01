@@ -30,6 +30,15 @@ public sealed class PomodoroTimerService
         TimerTicked?.Invoke();
     }
 
+    public void StartFocus(int minutes = 25)
+    {
+        IsBreakMode = false;
+        TotalDuration = TimeSpan.FromMinutes(minutes);
+        Remaining = TotalDuration;
+        IsRunning = true;
+        TimerTicked?.Invoke();
+    }
+
     public void Reset(int minutes = 25, bool isBreak = false)
     {
         IsRunning = false;

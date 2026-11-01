@@ -16,6 +16,7 @@ public sealed class HardwareStatusSnapshot
     public int BatteryPercent { get; init; } = 100;
     public bool IsCharging { get; init; } = true;
     public bool HasBattery { get; init; }
+    public string BatteryEstimatedTimeText { get; init; } = string.Empty;
     public bool IsCapsLockOn { get; init; }
     public bool IsNumLockOn { get; init; }
     public bool IsCameraInUse { get; init; }
@@ -63,6 +64,8 @@ public sealed class HardwareTelemetryService : IDisposable
     private bool _lastCapsLock;
     private bool _lastNumLock;
     private bool _lastCharging;
+    private int _lastBatteryPercent = -1;
+    private bool _hasEmitted80PercentAlertForCurrentChargeCycle;
     private bool _netBaselineCaptured;
     private bool _lastNetAvailable;
     private string _lastNetName = string.Empty;
@@ -569,6 +572,46 @@ public sealed class HardwareTelemetryService : IDisposable
             batteryPct = power.BatteryLifePercent <= 100 ? power.BatteryLifePercent : 100;
         }
 
+        string batteryEstimateText = hasBattery ? (isCharging ? "Mengisi Daya (Charging)" : "Mode Baterai") : "Daya Desktop AC (100%)";
+        if (hasBattery)
+        {
+            if (isCharging)
+            {
+                if (batteryPct < 75)
+                {
+                    _hasEmitted80PercentAlertForCurrentChargeCycle = false;
+                }
+                else if (batteryPct >= 80 && _lastBatteryPercent > 0 && _lastBatteryPercent < 80 && !_hasEmitted80PercentAlertForCurrentChargeCycle)
+                {
+                    _hasEmitted80PercentAlertForCurrentChargeCycle = true;
+                    if (emitToasts && _initialized)
+                    {
+                        HardwareToastTriggered?.Invoke(new ToastPayload(
+                            Icon: "BATTERY_HEALTH",
+                            Title: "Baterai 80% Tercapai (Smart Charge)",
+                            Subtitle: "Cabut adaptor untuk menjaga usia pakai baterai lithium",
+                            AccentHex: "#22C55E",
+                            Duration: TimeSpan.FromSeconds(4.5)));
+                    }
+                }
+            }
+            else
+            {
+                _hasEmitted80PercentAlertForCurrentChargeCycle = false;
+                if (power.BatteryLifeTime > 0 && power.BatteryLifeTime != -1)
+                {
+                    int hours = power.BatteryLifeTime / 3600;
+                    int mins = (power.BatteryLifeTime % 3600) / 60;
+                    batteryEstimateText = hours > 0 ? $"{hours}j {mins}m tersisa" : $"{mins}m tersisa";
+                }
+                else
+                {
+                    batteryEstimateText = "Mode Baterai";
+                }
+            }
+        }
+        _lastBatteryPercent = batteryPct;
+
         if (emitToasts && _initialized && hasBattery && isCharging != _lastCharging)
         {
             _lastCharging = isCharging;
@@ -655,6 +698,7 @@ public sealed class HardwareTelemetryService : IDisposable
             BatteryPercent = batteryPct,
             IsCharging = isCharging,
             HasBattery = hasBattery,
+            BatteryEstimatedTimeText = batteryEstimateText,
             IsCapsLockOn = _lastCapsLock,
             IsNumLockOn = _lastNumLock,
             IsCameraInUse = _cachedCamActive,
