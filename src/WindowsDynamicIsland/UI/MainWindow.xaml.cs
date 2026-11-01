@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private readonly TodoAndWaterService _todoAndWaterService = new();
     private readonly UpdateCheckerService _updateService = new();
     private readonly AppSettingsService _settingsService = new();
+    private readonly BatteryChargeLimitService _batteryLimitService = new();
 
     private readonly DispatcherTimer _oneSecondTimer;
     private readonly DispatcherTimer _fastUpdateTimer;
@@ -232,6 +233,8 @@ public partial class MainWindow : Window
                 AccentHex: "#22C55E",
                 Duration: TimeSpan.FromSeconds(4.5)));
         });
+
+        _batteryLimitService.LimitModeChanged += _ => Dispatcher.InvokeAsync(UpdateHardwareUi);
 
         // Subscribe to external keyboard Volume / Mute / Mic Mute / Brightness key events
         _audioService.SpeakerVolumeOrMuteChanged += (vol, muted, muteToggled) =>
@@ -2022,12 +2025,16 @@ public partial class MainWindow : Window
             ? $" ({hw.BatteryEstimatedTimeText})"
             : string.Empty;
 
+        string limitModeInfo = _batteryLimitService.IsSupported
+            ? (_batteryLimitService.CurrentMode == BatteryChargeLimitMode.SmartCharge80 ? " • Smart Charge 80%" : " • Baterai 100%")
+            : string.Empty;
+
         HeaderBatteryBadge.ToolTip = hw.HasBattery
-            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%{batteryEstimate}"
+            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%{batteryEstimate}{limitModeInfo}"
             : "Daya Desktop AC (100%)";
 
         IdleBatteryBodyBorder.ToolTip = hw.HasBattery
-            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%{batteryEstimate}"
+            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%{batteryEstimate}{limitModeInfo}"
             : "Daya Desktop AC (100%)";
 
         bool minimal = _settingsService.MinimalNotchEnabled;
@@ -2045,7 +2052,7 @@ public partial class MainWindow : Window
         _stateMachine.UpdateDynamicIdleWidth(hasExtraIdle);
 
         SysBatteryDetailText.Text = hw.HasBattery
-            ? $"{(hw.IsCharging ? "Charging" : "Baterai")} • {hw.BatteryPercent}%{batteryEstimate}"
+            ? $"{(hw.IsCharging ? "Charging" : "Baterai")} • {hw.BatteryPercent}%{batteryEstimate}{limitModeInfo}"
             : "Daya Desktop AC (100%)";
 
         SysNetworkDetailText.Text = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName)
@@ -3660,6 +3667,62 @@ public partial class MainWindow : Window
         HardwareTelemetryService.OpenWindowsBluetoothSettings();
     }
 
+    private async void SetBatteryLimit(BatteryChargeLimitMode mode)
+    {
+        try
+        {
+            bool success = await _batteryLimitService.SetLimitModeAsync(mode);
+            if (success)
+            {
+                if (mode == BatteryChargeLimitMode.SmartCharge80)
+                {
+                    TriggerToast(new ToastPayload(
+                        Icon: "BATTERY_HEALTH",
+                        Title: "Smart Charge 80% Aktif",
+                        Subtitle: "Pengisian daya fisik dibatasi ke 80% (Mode Sehat Baterai)",
+                        AccentHex: "#22C55E",
+                        Duration: TimeSpan.FromSeconds(3.0)));
+                }
+                else
+                {
+                    TriggerToast(new ToastPayload(
+                        Icon: "BOLT",
+                        Title: "Kapasitas Penuh 100% Aktif",
+                        Subtitle: "Batas pengisian dilepas hingga kapasitas penuh 100%",
+                        AccentHex: "#38BDF8",
+                        Duration: TimeSpan.FromSeconds(3.0)));
+                }
+                UpdateHardwareUi();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("SetBatteryLimit", "Gagal mengubah batas pengisian baterai", ex);
+        }
+    }
+
+    private void OnBatteryCardClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (_batteryLimitService.IsSupported)
+        {
+            var nextMode = _batteryLimitService.CurrentMode == BatteryChargeLimitMode.SmartCharge80
+                ? BatteryChargeLimitMode.FullCapacity100
+                : BatteryChargeLimitMode.SmartCharge80;
+            SetBatteryLimit(nextMode);
+        }
+        else
+        {
+            OpenSettingsWindow(0);
+        }
+    }
+
+    private void OnBatteryCardRightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        OpenSettingsWindow(0);
+    }
+
     private void OpenSettingsWindow(int categoryIndex = 0)
     {
         try
@@ -3674,7 +3737,8 @@ public partial class MainWindow : Window
                     _brightnessService,
                     _todoAndWaterService,
                     _fileShelfService,
-                    () => OnManualTuckClick(this, new RoutedEventArgs()));
+                    () => OnManualTuckClick(this, new RoutedEventArgs()),
+                    _batteryLimitService);
                 _settingsWindow.Closed += (_, _) => _settingsWindow = null;
                 _settingsWindow.SelectCategory(categoryIndex);
                 _settingsWindow.Show();
@@ -4137,7 +4201,9 @@ public partial class MainWindow : Window
             toggleBluetooth: () => _ = _hardwareService.ToggleBluetoothRadioAsync(),
             openSettings: () => OpenSettingsWindow(0),
             tuckIsland: () => _stateMachine.SetTuckedMode(true),
-            startPomodoroFocus: () => _pomodoroService.StartFocus());
+            startPomodoroFocus: () => _pomodoroService.StartFocus(),
+            setSmartCharge80: () => SetBatteryLimit(BatteryChargeLimitMode.SmartCharge80),
+            setFullCapacity100: () => SetBatteryLimit(BatteryChargeLimitMode.FullCapacity100));
 
         RefreshSpotlightItemSelection();
 

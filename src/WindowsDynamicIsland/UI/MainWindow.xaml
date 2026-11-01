@@ -335,56 +335,62 @@
                                   Margin="0,0,7,0"
                                   VerticalAlignment="Center"/>
 
-                            <TextBlock x:Name="IdleBatteryPercentText"
-                                       Text="100%"
-                                       Foreground="#F8FAFC"
-                                       FontSize="11.5"
-                                       FontWeight="SemiBold"
-                                       Margin="0,0,5,0"
-                                       VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal"
+                                        VerticalAlignment="Center"
+                                        Cursor="Hand"
+                                        MouseLeftButtonUp="OnBatteryCardClick"
+                                        MouseRightButtonUp="OnBatteryCardRightClick">
+                                <TextBlock x:Name="IdleBatteryPercentText"
+                                           Text="100%"
+                                           Foreground="#F8FAFC"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,5,0"
+                                           VerticalAlignment="Center"/>
 
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <!-- Sleek iOS 18 Battery Body (Resolution & DPI Independent Star-Grid Fill) -->
-                                <Border x:Name="IdleBatteryBodyBorder"
-                                        Width="24" Height="12"
-                                        CornerRadius="3.8"
-                                        BorderThickness="1.2"
-                                        BorderBrush="#72FFFFFF"
-                                        Background="#18FFFFFF"
-                                        Padding="1.4"
-                                        VerticalAlignment="Center">
-                                    <Grid ClipToBounds="True">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition x:Name="IdleBatteryFillCol" Width="100*"/>
-                                                <ColumnDefinition x:Name="IdleBatteryEmptyCol" Width="0*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border x:Name="IdleBatteryFillBar"
-                                                    Grid.Column="0"
-                                                    HorizontalAlignment="Stretch"
-                                                    VerticalAlignment="Stretch"
-                                                    CornerRadius="1.8"
-                                                    Background="#22C55E"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- Sleek iOS 18 Battery Body (Resolution & DPI Independent Star-Grid Fill) -->
+                                    <Border x:Name="IdleBatteryBodyBorder"
+                                            Width="24" Height="12"
+                                            CornerRadius="3.8"
+                                            BorderThickness="1.2"
+                                            BorderBrush="#72FFFFFF"
+                                            Background="#18FFFFFF"
+                                            Padding="1.4"
+                                            VerticalAlignment="Center">
+                                        <Grid ClipToBounds="True">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition x:Name="IdleBatteryFillCol" Width="100*"/>
+                                                    <ColumnDefinition x:Name="IdleBatteryEmptyCol" Width="0*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border x:Name="IdleBatteryFillBar"
+                                                        Grid.Column="0"
+                                                        HorizontalAlignment="Stretch"
+                                                        VerticalAlignment="Stretch"
+                                                        CornerRadius="1.8"
+                                                        Background="#22C55E"/>
+                                            </Grid>
+                                            <Path x:Name="IdleBatteryBoltPath"
+                                                  Data="{StaticResource GeomBolt}"
+                                                  Width="6.5" Height="8"
+                                                  Stretch="Uniform"
+                                                  Fill="#FFFFFF"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center">
+                                                <Path.Effect>
+                                                    <DropShadowEffect BlurRadius="3" ShadowDepth="0" Color="#000000" Opacity="0.95"/>
+                                                </Path.Effect>
+                                            </Path>
                                         </Grid>
-                                        <Path x:Name="IdleBatteryBoltPath"
-                                              Data="{StaticResource GeomBolt}"
-                                              Width="6.5" Height="8"
-                                              Stretch="Uniform"
-                                              Fill="#FFFFFF"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center">
-                                            <Path.Effect>
-                                                <DropShadowEffect BlurRadius="3" ShadowDepth="0" Color="#000000" Opacity="0.95"/>
-                                            </Path.Effect>
-                                        </Path>
-                                    </Grid>
-                                </Border>
-                                <!-- Battery Positive Terminal Cap -->
-                                <Border Width="2" Height="4.5"
-                                        CornerRadius="0,1.2,1.2,0"
-                                        Background="#72FFFFFF"
-                                        Margin="1,0,0,0"
-                                        VerticalAlignment="Center"/>
+                                    </Border>
+                                    <!-- Battery Positive Terminal Cap -->
+                                    <Border Width="2" Height="4.5"
+                                            CornerRadius="0,1.2,1.2,0"
+                                            Background="#72FFFFFF"
+                                            Margin="1,0,0,0"
+                                            VerticalAlignment="Center"/>
+                                </StackPanel>
                             </StackPanel>
                         </StackPanel>
                     </Grid>
@@ -807,7 +813,10 @@
                                         Padding="7.5,4"
                                         Margin="0,0,5,0"
                                         VerticalAlignment="Center"
-                                        ToolTip="Status Baterai">
+                                        Cursor="Hand"
+                                        MouseLeftButtonUp="OnBatteryCardClick"
+                                        MouseRightButtonUp="OnBatteryCardRightClick"
+                                        ToolTip="Klik: Beralih Smart Charge 80% / 100% | Klik Kanan: Pengaturan">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Path x:Name="HeaderBatteryBoltPath"
                                               Data="{StaticResource GeomBolt}"
@@ -2612,7 +2621,11 @@
                                         BorderThickness="1"
                                         CornerRadius="11"
                                         Padding="11,6"
-                                        Margin="0,0,5,0">
+                                        Margin="0,0,5,0"
+                                        Cursor="Hand"
+                                        MouseLeftButtonUp="OnBatteryCardClick"
+                                        MouseRightButtonUp="OnBatteryCardRightClick"
+                                        ToolTip="Klik: Beralih Smart Charge 80% / 100% | Klik Kanan: Pengaturan">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <Path Data="{StaticResource GeomBolt}"

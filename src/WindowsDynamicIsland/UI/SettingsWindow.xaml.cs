@@ -18,6 +18,7 @@ public partial class SettingsWindow : Window
     private readonly TodoAndWaterService _todoAndWaterService;
     private readonly FileShelfService _fileShelfService;
     private readonly Action _onTuckRequested;
+    private readonly BatteryChargeLimitService _batteryLimitService;
     private readonly DispatcherTimer _liveTelemetryTimer;
     private readonly List<Border> _primaryCardBorders = [];
     private readonly List<Border> _subCardBorders = [];
@@ -34,7 +35,8 @@ public partial class SettingsWindow : Window
         BrightnessService brightnessService,
         TodoAndWaterService todoAndWaterService,
         FileShelfService fileShelfService,
-        Action onTuckRequested)
+        Action onTuckRequested,
+        BatteryChargeLimitService? batteryLimitService = null)
     {
         InitializeComponent();
 
@@ -46,6 +48,7 @@ public partial class SettingsWindow : Window
         _todoAndWaterService = todoAndWaterService;
         _fileShelfService = fileShelfService;
         _onTuckRequested = onTuckRequested;
+        _batteryLimitService = batteryLimitService ?? new();
 
         _liveTelemetryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.0) };
         _liveTelemetryTimer.Tick += (_, _) =>
@@ -59,16 +62,21 @@ public partial class SettingsWindow : Window
         void OnSettingsChangedHandler() => Dispatcher.InvokeAsync(ApplyThemeToSettingsWindow);
         _settings.SettingsChanged += OnSettingsChangedHandler;
 
+        Action<BatteryChargeLimitMode> onLimitChanged = _ => Dispatcher.InvokeAsync(RefreshBatteryLimitControls);
+        _batteryLimitService.LimitModeChanged += onLimitChanged;
+
         Loaded += (_, _) =>
         {
             ApplyThemeToSettingsWindow();
             RefreshSystemControlCenterCard();
+            RefreshBatteryLimitControls();
             _liveTelemetryTimer.Start();
         };
         Closed += (_, _) =>
         {
             _liveTelemetryTimer.Stop();
             _settings.SettingsChanged -= OnSettingsChangedHandler;
+            _batteryLimitService.LimitModeChanged -= onLimitChanged;
         };
 
         LoadSettingsIntoControls();
@@ -77,6 +85,7 @@ public partial class SettingsWindow : Window
         RefreshBluetoothCard();
         RefreshWaterCard();
         RefreshSystemControlCenterCard();
+        RefreshBatteryLimitControls();
     }
 
     public void SelectCategory(int index)
@@ -259,11 +268,76 @@ public partial class SettingsWindow : Window
             else if (Math.Abs(toastDur - 4.0) < 0.2) Toast40Btn.IsChecked = true;
             else if (Math.Abs(toastDur - 5.0) < 0.2) Toast50Btn.IsChecked = true;
             else Toast28Btn.IsChecked = true;
+
+            // Battery Limit & Smart Charge
+            RefreshBatteryLimitControls();
         }
         finally
         {
             _isLoadingUi = false;
         }
+    }
+
+    private void RefreshBatteryLimitControls()
+    {
+        if (BatteryLimitStatusBadge == null || BatLimit80Btn == null || BatLimit100Btn == null) return;
+
+        if (!_batteryLimitService.IsSupported)
+        {
+            BatteryChargeLimitDescText.Text = "Kontrol hardware tidak didukung oleh motherboard laptop ini";
+            BatLimit80Btn.IsEnabled = false;
+            BatLimit100Btn.IsEnabled = false;
+            BatteryLimitStatusBadge.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        BatLimit80Btn.IsEnabled = true;
+        BatLimit100Btn.IsEnabled = true;
+        BatteryLimitStatusBadge.Visibility = Visibility.Visible;
+
+        bool is80 = _batteryLimitService.CurrentMode == BatteryChargeLimitMode.SmartCharge80;
+        if (is80)
+        {
+            BatLimit80Btn.IsChecked = true;
+            BatteryLimitStatusBadge.Background = new SolidColorBrush(Color.FromArgb(0x22, 0x22, 0xC5, 0x5E));
+            BatteryLimitStatusBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0x22, 0xC5, 0x5E));
+            BatteryLimitStatusBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
+            BatteryLimitStatusBadgeText.Text = "80% Aktif";
+        }
+        else
+        {
+            BatLimit100Btn.IsChecked = true;
+            BatteryLimitStatusBadge.Background = new SolidColorBrush(Color.FromArgb(0x22, 0x38, 0xBD, 0xF8));
+            BatteryLimitStatusBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0x38, 0xBD, 0xF8));
+            BatteryLimitStatusBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0x38, 0xBD, 0xF8));
+            BatteryLimitStatusBadgeText.Text = "100% Aktif";
+        }
+
+        if (BatteryHardwareActivationPanel != null)
+        {
+            BatteryHardwareActivationPanel.Visibility =
+                _batteryLimitService.IsHardwareTaskRegistered ? Visibility.Collapsed : Visibility.Visible;
+        }
+    }
+
+    private async void OnActivateBatteryHardwareTaskClick(object sender, RoutedEventArgs e)
+    {
+        await Task.Run(() => BatteryChargeLimitService.RegisterHardwareTasksOneTime());
+        RefreshBatteryLimitControls();
+    }
+
+    private async void OnBatteryLimitModeClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi) return;
+        if (sender is not RadioButton rb || rb.Tag == null) return;
+        string tag = rb.Tag.ToString() ?? "";
+
+        var targetMode = tag == "80"
+            ? BatteryChargeLimitMode.SmartCharge80
+            : BatteryChargeLimitMode.FullCapacity100;
+
+        await _batteryLimitService.SetLimitModeAsync(targetMode);
+        RefreshBatteryLimitControls();
     }
 
     private void OnNavCategoryChecked(object sender, RoutedEventArgs e)

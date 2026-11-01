@@ -181,7 +181,9 @@ public sealed class SpotlightSearchService
         Action toggleBluetooth,
         Action openSettings,
         Action tuckIsland,
-        Action startPomodoroFocus)
+        Action startPomodoroFocus,
+        Action? setSmartCharge80 = null,
+        Action? setFullCapacity100 = null)
     {
         string q = (rawQuery ?? string.Empty).Trim();
         var results = new List<SpotlightItem>();
@@ -189,7 +191,7 @@ public sealed class SpotlightSearchService
         if (string.IsNullOrWhiteSpace(q))
         {
             // Empty query: Show smart quick commands & top apps
-            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus));
+            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, setSmartCharge80, setFullCapacity100));
             lock (_cachedAppItems)
             {
                 results.AddRange(_cachedAppItems.Take(4));
@@ -223,7 +225,7 @@ public sealed class SpotlightSearchService
         }
 
         // 2. System Commands Match
-        var commands = GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus);
+        var commands = GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, setSmartCharge80, setFullCapacity100);
         foreach (var cmd in commands)
         {
             if (cmd.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ||
@@ -340,9 +342,11 @@ public sealed class SpotlightSearchService
         Action toggleBluetooth,
         Action openSettings,
         Action tuckIsland,
-        Action startPomodoroFocus)
+        Action startPomodoroFocus,
+        Action? setSmartCharge80 = null,
+        Action? setFullCapacity100 = null)
     {
-        return new List<SpotlightItem>
+        var list = new List<SpotlightItem>
         {
             new()
             {
@@ -423,6 +427,34 @@ public sealed class SpotlightSearchService
                 }
             }
         };
+
+        if (setSmartCharge80 != null)
+        {
+            list.Add(new SpotlightItem
+            {
+                Title = "Smart Charge 80% (Mode Sehat Baterai)",
+                Subtitle = "Batasi pengisian fisik ke 80% untuk usia baterai optimal",
+                Kind = SpotlightResultKind.SystemCommand,
+                VectorIconKey = "GeomBatteryHealth",
+                ActionData = "smart charge 80 baterai battery hemat awet limit batas daya",
+                ExecuteAction = setSmartCharge80
+            });
+        }
+
+        if (setFullCapacity100 != null)
+        {
+            list.Add(new SpotlightItem
+            {
+                Title = "Pengisian Baterai Penuh (100%)",
+                Subtitle = "Buka batas pengisian daya hingga 100% kapasitas penuh",
+                Kind = SpotlightResultKind.SystemCommand,
+                VectorIconKey = "GeomBolt",
+                ActionData = "charge 100 baterai penuh full kapasitas daya",
+                ExecuteAction = setFullCapacity100
+            });
+        }
+
+        return list;
     }
 
     private static bool TryEvaluateMath(string input, out double result, out string expr)

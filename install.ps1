@@ -34,6 +34,19 @@ if ($isAdmin) {
         Add-MpPreference -ExclusionProcess "WindowsDynamicIsland.exe", "Uninstall.exe" -ErrorAction SilentlyContinue
         Write-Host "  -> Added Windows Defender exclusion for $installDir" -ForegroundColor Green
     } catch { }
+
+    try {
+        $cmd80 = "try { (Get-WmiObject -Namespace root/wmi -Class AsusAtkWmi_WMNB).DEVS(0x00120057, 80) } catch { Invoke-CimMethod -InputObject (Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB) -MethodName DEVS -Arguments @{Device_ID=[uint32]0x00120057; Control_status=[uint32]80} }"
+        $cmd100 = "try { (Get-WmiObject -Namespace root/wmi -Class AsusAtkWmi_WMNB).DEVS(0x00120057, 100) } catch { Invoke-CimMethod -InputObject (Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB) -MethodName DEVS -Arguments @{Device_ID=[uint32]0x00120057; Control_status=[uint32]100} }"
+        $action80 = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$cmd80`""
+        $action100 = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$cmd100`""
+        $principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
+
+        Register-ScheduledTask -TaskName "WindowsDynamicIsland-Battery80" -Action $action80 -Principal $principal -Settings $settings -Force -ErrorAction SilentlyContinue | Out-Null
+        Register-ScheduledTask -TaskName "WindowsDynamicIsland-Battery100" -Action $action100 -Principal $principal -Settings $settings -Force -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "  -> Registered zero-UAC battery hardware control tasks." -ForegroundColor Green
+    } catch { }
 }
 
 try {
