@@ -409,4 +409,37 @@ public static class Win32Interop
         ref SHFILEINFO psfi,
         uint cbFileInfo,
         uint uFlags);
+
+    // Process image name helper for sandboxed/protected child processes
+    public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int processId);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern bool QueryFullProcessImageName(IntPtr hProcess, int flags, [Out] System.Text.StringBuilder lpExeName, ref int lpdwSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool CloseHandle(IntPtr hObject);
+
+    public static string? GetProcessExecutablePath(int processId)
+    {
+        if (processId <= 0) return null;
+        IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
+        if (h == IntPtr.Zero) return null;
+        try
+        {
+            var sb = new System.Text.StringBuilder(1024);
+            int size = sb.Capacity;
+            if (QueryFullProcessImageName(h, 0, sb, ref size))
+            {
+                return sb.ToString();
+            }
+            return null;
+        }
+        finally
+        {
+            CloseHandle(h);
+        }
+    }
 }

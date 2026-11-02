@@ -774,6 +774,11 @@ public sealed class AudioService
         var list = new List<AudioAppSession>();
         try
         {
+            if (_sessionManager == null)
+            {
+                InitializeCoreAudio();
+            }
+
             if (_sessionManager == null) return list;
 
             if (_sessionManager.GetSessionEnumerator(out var sessionEnum) != 0 || sessionEnum == null)
@@ -789,7 +794,12 @@ public sealed class AudioService
                 if (sessionEnum.GetSession(i, out var control) != 0 || control == null)
                     continue;
 
-                control.GetProcessId(out uint pid);
+                uint pid = 0;
+                if (control is IAudioSessionControl2 ctl2)
+                {
+                    ctl2.GetProcessId(out pid);
+                }
+
                 control.GetState(out AudioSessionState state);
 
                 if (state == AudioSessionState.Expired)
@@ -827,19 +837,24 @@ public sealed class AudioService
                             string rawName = proc.ProcessName;
                             string? path = null;
                             try { path = proc.MainModule?.FileName; } catch { }
+                            if (string.IsNullOrEmpty(path))
+                            {
+                                path = Win32Interop.GetProcessExecutablePath((int)pid);
+                            }
 
-                            name = rawName switch
+                            name = rawName.ToLowerInvariant() switch
                             {
                                 "chrome" => "Google Chrome",
                                 "msedge" => "Microsoft Edge",
                                 "brave" => "Brave Browser",
                                 "firefox" => "Firefox",
                                 "spotify" => "Spotify",
-                                "Discord" => "Discord",
+                                "discord" => "Discord",
                                 "vlc" => "VLC Media Player",
-                                "Telegram" => "Telegram",
-                                "WhatsApp" => "WhatsApp",
-                                "Steam" => "Steam",
+                                "telegram" => "Telegram",
+                                "whatsapp" => "WhatsApp",
+                                "steam" => "Steam",
+                                "msedgewebview2" => "Edge WebView",
                                 _ => char.ToUpper(rawName[0]) + rawName[1..]
                             };
 
@@ -902,6 +917,7 @@ public sealed class AudioService
     {
         try
         {
+            if (_sessionManager == null) InitializeCoreAudio();
             if (_sessionManager == null) return;
             if (_sessionManager.GetSessionEnumerator(out var sessionEnum) != 0 || sessionEnum == null) return;
             if (sessionEnum.GetCount(out int count) != 0) return;
@@ -912,7 +928,12 @@ public sealed class AudioService
             for (int i = 0; i < count; i++)
             {
                 if (sessionEnum.GetSession(i, out var control) != 0 || control == null) continue;
-                control.GetProcessId(out uint pid);
+                uint pid = 0;
+                if (control is IAudioSessionControl2 ctl2)
+                {
+                    ctl2.GetProcessId(out pid);
+                }
+
                 if ((int)pid == processId && control is ISimpleAudioVolume simpleVol)
                 {
                     simpleVol.SetMasterVolume(scalar, ref ctx);
@@ -933,6 +954,7 @@ public sealed class AudioService
     {
         try
         {
+            if (_sessionManager == null) InitializeCoreAudio();
             if (_sessionManager == null) return false;
             if (_sessionManager.GetSessionEnumerator(out var sessionEnum) != 0 || sessionEnum == null) return false;
             if (sessionEnum.GetCount(out int count) != 0) return false;
@@ -941,7 +963,12 @@ public sealed class AudioService
             for (int i = 0; i < count; i++)
             {
                 if (sessionEnum.GetSession(i, out var control) != 0 || control == null) continue;
-                control.GetProcessId(out uint pid);
+                uint pid = 0;
+                if (control is IAudioSessionControl2 ctl2)
+                {
+                    ctl2.GetProcessId(out pid);
+                }
+
                 if ((int)pid == processId && control is ISimpleAudioVolume simpleVol)
                 {
                     if (simpleVol.GetMute(out bool muted) == 0)
@@ -961,7 +988,7 @@ public sealed class AudioService
     }
 
     [ComImport]
-    [Guid("77AA99A0-1BD6-484F-BCB2-3A6300ADC3F2")]
+    [Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IAudioSessionManager2
     {
@@ -975,18 +1002,18 @@ public sealed class AudioService
     }
 
     [ComImport]
-    [Guid("E2F5EE11-2070-4E59-BF81-E6768DDA5640")]
+    [Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IAudioSessionEnumerator
     {
         [PreserveSig] int GetCount(out int SessionCount);
-        [PreserveSig] int GetSession(int SessionIndex, out IAudioSessionControl2 Session);
+        [PreserveSig] int GetSession(int SessionIndex, out IAudioSessionControl Session);
     }
 
     [ComImport]
-    [Guid("bfb7ff88-7239-4fc9-8fa2-00c950be9d6d")]
+    [Guid("F4B1A599-7266-4319-A8CA-E70ACB11E8CD")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IAudioSessionControl2
+    private interface IAudioSessionControl
     {
         [PreserveSig] int GetState(out AudioSessionState pRetVal);
         [PreserveSig] int GetDisplayName([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
@@ -997,6 +1024,22 @@ public sealed class AudioService
         [PreserveSig] int SetGroupingParam(ref Guid Override, ref Guid EventContext);
         [PreserveSig] int RegisterAudioSessionNotification(IntPtr NewNotifications);
         [PreserveSig] int UnregisterAudioSessionNotification(IntPtr NewNotifications);
+    }
+
+    [ComImport]
+    [Guid("bfb7ff88-7239-4fc9-8fa2-07c950be9c6d")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioSessionControl2 : IAudioSessionControl
+    {
+        [PreserveSig] new int GetState(out AudioSessionState pRetVal);
+        [PreserveSig] new int GetDisplayName([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
+        [PreserveSig] new int SetDisplayName([MarshalAs(UnmanagedType.LPWStr)] string Value, ref Guid EventContext);
+        [PreserveSig] new int GetIconPath([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
+        [PreserveSig] new int SetIconPath([MarshalAs(UnmanagedType.LPWStr)] string Value, ref Guid EventContext);
+        [PreserveSig] new int GetGroupingParam(out Guid pRetVal);
+        [PreserveSig] new int SetGroupingParam(ref Guid Override, ref Guid EventContext);
+        [PreserveSig] new int RegisterAudioSessionNotification(IntPtr NewNotifications);
+        [PreserveSig] new int UnregisterAudioSessionNotification(IntPtr NewNotifications);
         [PreserveSig] int GetSessionIdentifier([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
         [PreserveSig] int GetSessionInstanceIdentifier([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
         [PreserveSig] int GetProcessId(out uint pRetVal);
@@ -1005,7 +1048,7 @@ public sealed class AudioService
     }
 
     [ComImport]
-    [Guid("87CE5498-68D6-44E5-AC9B-02CBE90C5F59")]
+    [Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface ISimpleAudioVolume
     {

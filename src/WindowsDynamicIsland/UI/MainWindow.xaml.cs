@@ -4324,9 +4324,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateAppMixerUi()
+    private void UpdateAppMixerUi(bool force = false)
     {
         if (!_isShowingAppMixer) return;
+        if (_isDraggingAppMixer && !force) return;
 
         var sessions = _audioService.GetAppAudioSessions();
         if (sessions.Count == 0)
@@ -4397,7 +4398,7 @@ public partial class MainWindow : Window
         double trackW = Math.Max(1.0, fe.ActualWidth);
         int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100);
         _audioService.SetAppVolume(pid, pct);
-        UpdateAppMixerUi();
+        UpdateAppMixerUi(force: true);
     }
 
     private void OnToggleAppMixerMuteClick(object sender, RoutedEventArgs e)
