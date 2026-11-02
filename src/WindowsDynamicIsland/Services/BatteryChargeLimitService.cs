@@ -167,6 +167,7 @@ public sealed class BatteryChargeLimitService
     }
 
     public bool IsHardwareTaskRegistered =>
+        File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "Tasks", "WindowsDynamicIsland-Battery80")) ||
         File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "Tasks", "WindowsDynamicIsland-Battery100"));
 
     private static bool IsCurrentProcessElevated()
@@ -186,6 +187,28 @@ public sealed class BatteryChargeLimitService
         try
         {
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            string batPath = Path.Combine(appDir, "Aktifkan-Smart-Charge.bat");
+            if (!File.Exists(batPath))
+            {
+                batPath = @"d:\DynamicIsland\Aktifkan-Smart-Charge.bat";
+            }
+
+            if (File.Exists(batPath))
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"\"{batPath}\"\"",
+                    Verb = "runas",
+                    UseShellExecute = true,
+                    WindowStyle = ProcessWindowStyle.Normal
+                };
+                using var p = Process.Start(psi);
+                p?.WaitForExit(15000);
+                AppLogger.LogInfo("BatteryChargeLimitService", "Completed one-time hardware tasks registration via batch.");
+                return;
+            }
+
             string scriptPath = Path.Combine(appDir, "setup_battery_tasks.ps1");
             if (!File.Exists(scriptPath))
             {
@@ -200,10 +223,10 @@ public sealed class BatteryChargeLimitService
                     Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
                     Verb = "runas",
                     UseShellExecute = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
+                    WindowStyle = ProcessWindowStyle.Normal
                 };
                 using var p = Process.Start(psi);
-                p?.WaitForExit(10000);
+                p?.WaitForExit(15000);
                 AppLogger.LogInfo("BatteryChargeLimitService", "Completed one-time hardware tasks registration.");
             }
         }
@@ -285,7 +308,7 @@ public sealed class BatteryChargeLimitService
                 var psi = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = $"-NoProfile -WindowStyle Hidden -Command \"try {{ (Get-WmiObject -Namespace root/wmi -Class AsusAtkWmi_WMNB).DEVS(0x00120057, {limitPercent}) }} catch {{ Invoke-CimMethod -InputObject (Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB) -MethodName DEVS -Arguments @{{Device_ID=[uint32]0x00120057; Control_status=[uint32]{limitPercent}}} }}\"",
+                    Arguments = $"-NoProfile -WindowStyle Hidden -Command \"try {{ Invoke-CimMethod -Namespace root/wmi -ClassName AsusAtkWmi_WMNB -MethodName DEVS -Arguments @{{Device_ID=[uint32]0x00120057; Control_status=[uint32]{limitPercent}}} }} catch {{ (Get-WmiObject -Namespace root/wmi -Class AsusAtkWmi_WMNB).DEVS(0x00120057, {limitPercent}) }}\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden

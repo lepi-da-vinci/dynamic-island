@@ -23,6 +23,7 @@
     <Resource Include="Assets\app_icon.ico" />
     <Resource Include="Assets\app_logo.png" />
     <None Include="setup_battery_tasks.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Aktifkan-Smart-Charge.bat" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Automatically stop any previous running instance before build/run so MSB3027 file-lock never happens -->
