@@ -20,6 +20,7 @@ public sealed class HardwareStatusSnapshot
     public bool IsCapsLockOn { get; init; }
     public bool IsNumLockOn { get; init; }
     public bool IsCameraInUse { get; init; }
+    public string ActiveCamApp { get; init; } = string.Empty;
     public bool IsMicrophoneInUse { get; init; }
     public string ActiveMicApp { get; init; } = string.Empty;
     public string NetworkName { get; init; } = "Connected";
@@ -72,6 +73,7 @@ public sealed class HardwareTelemetryService : IDisposable
     private DateTime _lastSlowPollUtc = DateTime.MinValue;
     private DateTime _lastBtPollUtc = DateTime.MinValue;
     private bool _cachedCamActive;
+    private string _cachedCamApp = string.Empty;
     private bool _cachedMicActive;
     private string _cachedMicApp = string.Empty;
     private string _cachedNetworkName = "Terhubung";
@@ -630,7 +632,7 @@ public sealed class HardwareTelemetryService : IDisposable
         if ((DateTime.UtcNow - _lastSlowPollUtc).TotalSeconds >= 6.0)
         {
             _lastSlowPollUtc = DateTime.UtcNow;
-            (_cachedCamActive, _) = CheckDeviceCapabilityInUse("webcam");
+            (_cachedCamActive, _cachedCamApp) = CheckDeviceCapabilityInUse("webcam");
             (_cachedMicActive, _cachedMicApp) = CheckDeviceCapabilityInUse("microphone");
             _cachedNetworkName = GetActiveNetworkNameLightweight();
             RefreshDiskStats();
@@ -702,6 +704,7 @@ public sealed class HardwareTelemetryService : IDisposable
             IsCapsLockOn = _lastCapsLock,
             IsNumLockOn = _lastNumLock,
             IsCameraInUse = _cachedCamActive,
+            ActiveCamApp = _cachedCamApp,
             IsMicrophoneInUse = _cachedMicActive,
             ActiveMicApp = _cachedMicApp,
             NetworkName = _cachedNetworkName,

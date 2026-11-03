@@ -81,9 +81,11 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _repositionCts;
     private bool _isWindowActivatable;
 
-    // Spotlight Quick Launcher & App Mixer state
+    // Spotlight Quick Launcher, App Mixer & Clipboard History state
     private readonly SpotlightSearchService _spotlightService;
+    private readonly ClipboardHistoryService _clipboardHistoryService;
     private bool _isShowingAppMixer;
+    private bool _isShelfClipboardMode;
     private int _selectedSpotlightIndex = -1;
     private List<SpotlightItem> _currentSpotlightItems = [];
 
@@ -260,7 +262,9 @@ public partial class MainWindow : Window
         _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
         _settingsService.SettingsChanged += () => Dispatcher.InvokeAsync(ApplyAppSettings);
 
-        _spotlightService = new(_shortcutService, _settingsService);
+        _clipboardHistoryService = new ClipboardHistoryService();
+        _clipboardHistoryService.HistoryChanged += () => Dispatcher.InvokeAsync(OnClipboardHistoryChanged);
+        _spotlightService = new(_shortcutService, _settingsService, _clipboardHistoryService);
         Deactivated += OnWindowDeactivated;
 
         Loaded += OnWindowLoaded;
@@ -876,6 +880,7 @@ public partial class MainWindow : Window
     private void OnClipboardUpdated()
     {
         if (_stateMachine.IsScreenshotMode) return;
+        _clipboardHistoryService.RecordCurrentClipboard();
         try
         {
             if (Clipboard.ContainsText())
@@ -2057,7 +2062,39 @@ public partial class MainWindow : Window
         IdleBatteryPercentText.Visibility = minimal ? Visibility.Collapsed : Visibility.Visible;
 
         CameraPrivacyDot.Visibility = hw.IsCameraInUse ? Visibility.Visible : Visibility.Collapsed;
+        CameraPrivacyDot.ToolTip = !string.IsNullOrEmpty(hw.ActiveCamApp)
+            ? $"Kamera aktif: {hw.ActiveCamApp} (Klik untuk detail)"
+            : "Kamera sedang aktif (Klik untuk detail)";
+
         MicPrivacyDot.Visibility = hw.IsMicrophoneInUse ? Visibility.Visible : Visibility.Collapsed;
+        MicPrivacyDot.ToolTip = !string.IsNullOrEmpty(hw.ActiveMicApp)
+            ? $"Mikrofon aktif: {hw.ActiveMicApp} (Klik untuk bisukan)"
+            : "Mikrofon sedang aktif (Klik untuk bisukan)";
+
+        // Live Privacy Badge in Expanded Dashboard Header
+        if (hw.IsCameraInUse || hw.IsMicrophoneInUse)
+        {
+            ExpandedPrivacyBadge.Visibility = Visibility.Visible;
+            ExpandedCamDot.Visibility = hw.IsCameraInUse ? Visibility.Visible : Visibility.Collapsed;
+            ExpandedMicDot.Visibility = hw.IsMicrophoneInUse ? Visibility.Visible : Visibility.Collapsed;
+
+            if (hw.IsCameraInUse && hw.IsMicrophoneInUse)
+            {
+                ExpandedPrivacyText.Text = $"Kamera & Mic ({hw.ActiveCamApp}/{hw.ActiveMicApp})";
+            }
+            else if (hw.IsCameraInUse)
+            {
+                ExpandedPrivacyText.Text = !string.IsNullOrEmpty(hw.ActiveCamApp) ? $"Kamera: {hw.ActiveCamApp}" : "Kamera Aktif";
+            }
+            else
+            {
+                ExpandedPrivacyText.Text = !string.IsNullOrEmpty(hw.ActiveMicApp) ? $"Mic: {hw.ActiveMicApp}" : "Mic Aktif";
+            }
+        }
+        else
+        {
+            ExpandedPrivacyBadge.Visibility = Visibility.Collapsed;
+        }
 
         bool hasExtraIdle = hw.IsCameraInUse ||
                             hw.IsMicrophoneInUse ||
@@ -2095,6 +2132,54 @@ public partial class MainWindow : Window
         }
 
         SysMemoryDetailText.Text = $"RAM: {hw.AppMemoryMb:0.0} MB • {(_isRenderLoopAttached ? "Active 60FPS" : "0% CPU Idle")}";
+    }
+
+    private void OnPrivacyDotClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        var hw = _hardwareService.Current;
+
+        if (hw.IsMicrophoneInUse && hw.IsCameraInUse)
+        {
+            string camName = !string.IsNullOrEmpty(hw.ActiveCamApp) ? hw.ActiveCamApp : "Aplikasi";
+            string micName = !string.IsNullOrEmpty(hw.ActiveMicApp) ? hw.ActiveMicApp : "Aplikasi";
+
+            TriggerToast(new ToastPayload(
+                Icon: "SHIELD",
+                Title: "Kamera & Mikrofon Aktif",
+                Subtitle: $"Kamera: {camName} - Mic: {micName}",
+                AccentHex: "#F97316",
+                Duration: TimeSpan.FromSeconds(3.2)));
+        }
+        else if (hw.IsMicrophoneInUse)
+        {
+            string appName = !string.IsNullOrEmpty(hw.ActiveMicApp) ? hw.ActiveMicApp : "Aplikasi";
+            TriggerToast(new ToastPayload(
+                Icon: "MIC",
+                Title: "Mikrofon Sedang Digunakan",
+                Subtitle: $"{appName} sedang merekam audio",
+                AccentHex: "#F97316",
+                Duration: TimeSpan.FromSeconds(3.0)));
+        }
+        else if (hw.IsCameraInUse)
+        {
+            string appName = !string.IsNullOrEmpty(hw.ActiveCamApp) ? hw.ActiveCamApp : "Aplikasi";
+            TriggerToast(new ToastPayload(
+                Icon: "SHIELD",
+                Title: "Kamera Sedang Digunakan",
+                Subtitle: $"{appName} sedang mengakses kamera",
+                AccentHex: "#22C55E",
+                Duration: TimeSpan.FromSeconds(3.0)));
+        }
+        else
+        {
+            TriggerToast(new ToastPayload(
+                Icon: "SHIELD",
+                Title: "Privasi Aman (Idle)",
+                Subtitle: "Tidak ada aplikasi yang sedang mengakses webcam atau mikrofon",
+                AccentHex: "#22C55E",
+                Duration: TimeSpan.FromSeconds(2.0)));
+        }
     }
 
     private void OnMediaTrackChanged(MediaTrackInfo track)
@@ -3084,6 +3169,129 @@ public partial class MainWindow : Window
     {
         _fileShelfService.Clear();
         UpdateShelfUi();
+    }
+
+    private void OnShelfModeFilesClick(object sender, RoutedEventArgs e)
+    {
+        _isShelfClipboardMode = false;
+        ShelfFilesContainer.Visibility = Visibility.Visible;
+        ShelfClipboardContainer.Visibility = Visibility.Collapsed;
+
+        var accentBrush = (Brush)FindResource("AppAccentBrush");
+        var slateBrush = new SolidColorBrush(Color.FromRgb(148, 163, 184));
+
+        ShelfModeFilesIcon.Fill = accentBrush;
+        ShelfModeFilesText.Foreground = accentBrush;
+        ShelfModeClipboardIcon.Fill = slateBrush;
+        ShelfModeClipboardText.Foreground = slateBrush;
+
+        ShelfActionButton.Content = "Bersihkan";
+        UpdateShelfUi();
+    }
+
+    private void OnShelfModeClipboardClick(object sender, RoutedEventArgs e)
+    {
+        _isShelfClipboardMode = true;
+        ShelfFilesContainer.Visibility = Visibility.Collapsed;
+        ShelfClipboardContainer.Visibility = Visibility.Visible;
+
+        var accentBrush = (Brush)FindResource("AppAccentBrush");
+        var slateBrush = new SolidColorBrush(Color.FromRgb(148, 163, 184));
+
+        ShelfModeFilesIcon.Fill = slateBrush;
+        ShelfModeFilesText.Foreground = slateBrush;
+        ShelfModeClipboardIcon.Fill = accentBrush;
+        ShelfModeClipboardText.Foreground = accentBrush;
+
+        ShelfActionButton.Content = "Hapus Semua";
+        RefreshClipboardHistoryView();
+    }
+
+    private void OnShelfActionClick(object sender, RoutedEventArgs e)
+    {
+        if (_isShelfClipboardMode)
+        {
+            _clipboardHistoryService.ClearAll();
+            RefreshClipboardHistoryView();
+            TriggerToast(new ToastPayload(
+                Icon: "FOLDER",
+                Title: "Riwayat Klip Dikosongkan",
+                Subtitle: "Semua cuplikan papan klip berhasil dihapus",
+                AccentHex: "#94A3B8",
+                Duration: TimeSpan.FromSeconds(2.0)));
+        }
+        else
+        {
+            OnClearShelfClick(sender, e);
+        }
+    }
+
+    private void OnCopyClipboardItemClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is ClipboardItemViewModel vm)
+        {
+            _clipboardHistoryService.CopyToClipboard(vm.SourceItem);
+            TriggerToast(new ToastPayload(
+                Icon: "FOLDER",
+                Title: "Tersalin ke Clipboard",
+                Subtitle: vm.PreviewText,
+                AccentHex: "#38BDF8",
+                Duration: TimeSpan.FromSeconds(2.0)));
+        }
+    }
+
+    private void OnDeleteClipboardItemClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is ClipboardItemViewModel vm)
+        {
+            _clipboardHistoryService.Remove(vm.SourceItem);
+            RefreshClipboardHistoryView();
+        }
+    }
+
+    private void OnClipboardHistoryChanged()
+    {
+        if (_isShelfClipboardMode && ShelfTabGrid.Visibility == Visibility.Visible)
+        {
+            RefreshClipboardHistoryView();
+        }
+    }
+
+    private void RefreshClipboardHistoryView()
+    {
+        var items = _clipboardHistoryService.Items;
+        if (items.Count == 0)
+        {
+            EmptyClipboardHintPanel.Visibility = Visibility.Visible;
+            ShelfHeaderCountText.Text = "Papan Klip Kosong";
+            ClipboardItemsControl.ItemsSource = null;
+            return;
+        }
+
+        EmptyClipboardHintPanel.Visibility = Visibility.Collapsed;
+        ShelfHeaderCountText.Text = $"{items.Count} Klip Tersimpan";
+
+        var viewModels = new List<ClipboardItemViewModel>();
+        foreach (var item in items)
+        {
+            Color badgeColor;
+            try
+            {
+                badgeColor = (Color)ColorConverter.ConvertFromString(item.BadgeColorHex);
+            }
+            catch
+            {
+                badgeColor = Color.FromRgb(148, 163, 184);
+            }
+
+            viewModels.Add(new ClipboardItemViewModel
+            {
+                BadgeBrush = new SolidColorBrush(badgeColor),
+                SourceItem = item
+            });
+        }
+
+        ClipboardItemsControl.ItemsSource = viewModels;
     }
 
     // --- TAB & BUTTON HANDLERS ---
@@ -4237,7 +4445,8 @@ public partial class MainWindow : Window
             tuckIsland: () => _stateMachine.SetTuckedMode(true),
             startPomodoroFocus: () => _pomodoroService.StartFocus(),
             setSmartCharge80: () => SetBatteryLimit(BatteryChargeLimitMode.SmartCharge80),
-            setFullCapacity100: () => SetBatteryLimit(BatteryChargeLimitMode.FullCapacity100));
+            setFullCapacity100: () => SetBatteryLimit(BatteryChargeLimitMode.FullCapacity100),
+            openClipboardHistory: () => SwitchToClipboardTab());
 
         RefreshSpotlightItemSelection();
 
@@ -4267,6 +4476,7 @@ public partial class MainWindow : Window
             string actionHint = item.Kind switch
             {
                 SpotlightResultKind.MathResult => "Salin",
+                SpotlightResultKind.ClipboardItem => "Salin",
                 SpotlightResultKind.SystemCommand => "Jalankan",
                 SpotlightResultKind.WebUrl => "Buka",
                 _ => "Buka"
@@ -4322,6 +4532,15 @@ public partial class MainWindow : Window
                     Title: "Hasil Disalin",
                     Subtitle: item.Title,
                     AccentHex: "#22C55E",
+                    Duration: TimeSpan.FromSeconds(2.0)));
+            }
+            else if (item.Kind == SpotlightResultKind.ClipboardItem)
+            {
+                TriggerToast(new ToastPayload(
+                    Icon: "FOLDER",
+                    Title: "Tersalin ke Clipboard",
+                    Subtitle: item.Title,
+                    AccentHex: "#38BDF8",
                     Duration: TimeSpan.FromSeconds(2.0)));
             }
         }
@@ -4444,6 +4663,32 @@ public partial class MainWindow : Window
             e.Handled = true;
         }
     }
+
+    private void SwitchToClipboardTab()
+    {
+        CloseSpotlight();
+        _stateMachine.SetTuckedMode(false);
+        if (!_stateMachine.IsPinnedExpanded)
+        {
+            _stateMachine.TogglePinnedExpanded();
+        }
+        SwitchToTab(IslandDashboardTab.FileShelf);
+        OnShelfModeClipboardClick(this, new RoutedEventArgs());
+    }
+}
+
+public sealed class ClipboardItemViewModel
+{
+    public string Id => SourceItem.Id;
+    public string BadgeLabel => SourceItem.BadgeLabel;
+    public Brush BadgeBrush { get; init; } = Brushes.SlateGray;
+    public string PreviewText => SourceItem.PreviewText;
+    public BitmapSource? ThumbnailImage => SourceItem.ThumbnailImage;
+    public Visibility TextVisibility => SourceItem.TextVisibility;
+    public Visibility ImageVisibility => SourceItem.ImageVisibility;
+    public string TimeAgoText => SourceItem.TimeAgoText;
+    public string MetadataLabel => SourceItem.MetadataLabel;
+    public ClipboardItem SourceItem { get; init; } = null!;
 }
 
 public sealed class SpotlightItemViewModel

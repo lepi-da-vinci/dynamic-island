@@ -321,13 +321,17 @@
                                      Width="7" Height="7"
                                      Fill="#22C55E"
                                      Margin="5,0,0,0"
-                                     ToolTip="Kamera sedang aktif"
+                                     Cursor="Hand"
+                                     ToolTip="Kamera sedang aktif (Klik untuk detail)"
+                                     MouseLeftButtonUp="OnPrivacyDotClick"
                                      Visibility="Collapsed"/>
                             <Ellipse x:Name="MicPrivacyDot"
                                      Width="7" Height="7"
                                      Fill="#F97316"
                                      Margin="4,0,0,0"
-                                     ToolTip="Mikrofon sedang aktif"
+                                     Cursor="Hand"
+                                     ToolTip="Mikrofon sedang aktif (Klik untuk bisukan)"
+                                     MouseLeftButtonUp="OnPrivacyDotClick"
                                      Visibility="Collapsed"/>
                         </StackPanel>
 
@@ -721,36 +725,60 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Left: Clock & Date Pill -->
-                            <Border Grid.Column="0"
-                                    Background="#12FFFFFF"
-                                    BorderBrush="#1EFFFFFF"
-                                    BorderThickness="1"
-                                    CornerRadius="9"
-                                    Padding="9,4"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock x:Name="ExpandedClockBadge"
-                                               Text="14:25"
-                                               Foreground="#F8FAFC"
-                                               FontSize="11"
-                                               FontWeight="Bold"
-                                               FontFamily="Segoe UI Variable Display, Segoe UI"
-                                               VerticalAlignment="Center"/>
-                                    <Ellipse Width="3" Height="3"
-                                             Fill="#475569"
-                                             Margin="6,0"
-                                             VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="ExpandedDateBadge"
-                                               Text="Jum, 30 Okt"
-                                               Foreground="#94A3B8"
-                                               FontSize="10.5"
-                                               FontWeight="SemiBold"
-                                               FontFamily="Segoe UI Variable Text, Segoe UI"
-                                               VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Border>
+                            <!-- Left: Clock & Date Pill + Live Privacy Indicator -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="#12FFFFFF"
+                                        BorderBrush="#1EFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="9"
+                                        Padding="9,4"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock x:Name="ExpandedClockBadge"
+                                                   Text="14:25"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   FontFamily="Segoe UI Variable Display, Segoe UI"
+                                                   VerticalAlignment="Center"/>
+                                        <Ellipse Width="3" Height="3"
+                                                 Fill="#475569"
+                                                 Margin="6,0"
+                                                 VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="ExpandedDateBadge"
+                                                   Text="Jum, 30 Okt"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold"
+                                                   FontFamily="Segoe UI Variable Text, Segoe UI"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border x:Name="ExpandedPrivacyBadge"
+                                        Background="#1C22C55E"
+                                        BorderBrush="#3522C55E"
+                                        BorderThickness="1"
+                                        CornerRadius="9"
+                                        Padding="7,3"
+                                        Margin="6,0,0,0"
+                                        Cursor="Hand"
+                                        ToolTip="Status Privasi Perangkat (Klik untuk detail / bisukan)"
+                                        MouseLeftButtonUp="OnPrivacyDotClick"
+                                        Visibility="Collapsed">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse x:Name="ExpandedCamDot" Width="6" Height="6" Fill="#22C55E" Margin="0,0,4,0" Visibility="Collapsed"/>
+                                        <Ellipse x:Name="ExpandedMicDot" Width="6" Height="6" Fill="#F97316" Margin="0,0,4,0" Visibility="Collapsed"/>
+                                        <TextBlock x:Name="ExpandedPrivacyText"
+                                                   Text="Kamera Aktif"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
 
                             <!-- Right: Wi-Fi, Bluetooth, Battery, Settings & Simpan -->
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
@@ -2123,20 +2151,57 @@
 
                                     <Grid Grid.Row="0" Margin="0,0,0,7">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Border Width="22" Height="22" CornerRadius="6.5" Background="#2038BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,7.5,0" VerticalAlignment="Center">
-                                                <Path Data="{StaticResource GeomFolderTray}"
-                                                      Width="11.5" Height="11.5"
-                                                      Stretch="Uniform"
-                                                      Fill="#38BDF8"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"/>
+                                            <!-- Sub-tab Segments: [ Rak File | Riwayat Klip ] -->
+                                            <Border Background="#14FFFFFF"
+                                                    BorderBrush="#20FFFFFF"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="2"
+                                                    Margin="0,0,8,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button x:Name="ShelfModeFilesBtn"
+                                                            Style="{StaticResource IslandIconButtonStyle}"
+                                                            Padding="7,3"
+                                                            Click="OnShelfModeFilesClick">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Path x:Name="ShelfModeFilesIcon"
+                                                                  Data="{StaticResource GeomFolderTray}"
+                                                                  Width="10" Height="10"
+                                                                  Stretch="Uniform"
+                                                                  Fill="{DynamicResource AppAccentBrush}"
+                                                                  Margin="0,0,4,0"
+                                                                  VerticalAlignment="Center"/>
+                                                            <TextBlock x:Name="ShelfModeFilesText"
+                                                                       Text="Rak File"
+                                                                       Foreground="{DynamicResource AppAccentBrush}"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold"
+                                                                       VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button x:Name="ShelfModeClipboardBtn"
+                                                            Style="{StaticResource IslandIconButtonStyle}"
+                                                            Padding="7,3"
+                                                            Click="OnShelfModeClipboardClick">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Path x:Name="ShelfModeClipboardIcon"
+                                                                  Data="{StaticResource GeomClipboard}"
+                                                                  Width="10" Height="10"
+                                                                  Stretch="Uniform"
+                                                                  Fill="#94A3B8"
+                                                                  Margin="0,0,4,0"
+                                                                  VerticalAlignment="Center"/>
+                                                            <TextBlock x:Name="ShelfModeClipboardText"
+                                                                       Text="Riwayat Klip"
+                                                                       Foreground="#94A3B8"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold"
+                                                                       VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </StackPanel>
                                             </Border>
-                                            <TextBlock Text="Rak File Sementara"
-                                                       Foreground="#F8FAFC"
-                                                       FontSize="12.5"
-                                                       FontWeight="Bold"
-                                                       Margin="0,0,8,0"
-                                                       VerticalAlignment="Center"/>
+
                                             <TextBlock x:Name="ShelfHeaderCountText"
                                                        Text="Drag Masuk &amp; Keluar"
                                                        Foreground="#94A3B8"
@@ -2144,7 +2209,9 @@
                                                        FontWeight="Medium"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
-                                        <Button Style="{StaticResource IslandIconButtonStyle}"
+
+                                        <Button x:Name="ShelfActionButton"
+                                                Style="{StaticResource IslandIconButtonStyle}"
                                                 HorizontalAlignment="Right"
                                                 Background="#14FFFFFF"
                                                 BorderBrush="#22FFFFFF"
@@ -2152,10 +2219,12 @@
                                                 Padding="8,3"
                                                 FontSize="10.5"
                                                 Content="Bersihkan"
-                                                Click="OnClearShelfClick"/>
+                                                Click="OnShelfActionClick"/>
                                     </Grid>
 
-                                    <Border Grid.Row="1"
+                                    <!-- Sub-tab 1: Temporary File Shelf -->
+                                    <Border x:Name="ShelfFilesContainer"
+                                            Grid.Row="1"
                                             Background="#0A38BDF8"
                                             BorderBrush="#2438BDF8"
                                             BorderThickness="1"
@@ -2261,6 +2330,169 @@
                                                                                    Margin="0,2,0,0"/>
                                                                     </StackPanel>
                                                                 </StackPanel>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Sub-tab 2: Mini Clipboard History Strip (Item 4 in ide.md) -->
+                                    <Border x:Name="ShelfClipboardContainer"
+                                            Grid.Row="1"
+                                            Background="#0A38BDF8"
+                                            BorderBrush="#2438BDF8"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="8"
+                                            Visibility="Collapsed">
+                                        <Grid>
+                                            <StackPanel x:Name="EmptyClipboardHintPanel"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Center"
+                                                        Margin="14,0"
+                                                        Visibility="Collapsed">
+                                                <Border Width="32" Height="32"
+                                                        CornerRadius="10"
+                                                        Background="#1838BDF8"
+                                                        BorderBrush="#2E38BDF8"
+                                                        BorderThickness="1"
+                                                        HorizontalAlignment="Center"
+                                                        Margin="0,0,0,6">
+                                                    <Path Data="{StaticResource GeomClipboard}"
+                                                          Width="15" Height="15"
+                                                          Stretch="Uniform"
+                                                          Fill="#38BDF8"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                                </Border>
+                                                <TextBlock Text="Papan klip riwayat masih kosong"
+                                                           Foreground="#CBD5E1"
+                                                           FontSize="11.5"
+                                                           FontWeight="SemiBold"
+                                                           TextAlignment="Center"/>
+                                                <TextBlock Text="Setiap teks, tautan, kode HEX, atau gambar yang Anda salin (Ctrl + C) akan tercatat di sini"
+                                                           Foreground="#64748B"
+                                                           FontSize="10"
+                                                           Margin="0,2,0,0"
+                                                           TextWrapping="Wrap"
+                                                           TextAlignment="Center"/>
+                                            </StackPanel>
+
+                                            <ScrollViewer Style="{StaticResource AppleScrollViewerStyle}"
+                                                          VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled">
+                                                <ItemsControl x:Name="ClipboardItemsControl">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Margin="0,0,0,5"
+                                                                    Background="#14FFFFFF"
+                                                                    BorderBrush="#20FFFFFF"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="9"
+                                                                    Padding="8,6">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+
+                                                                    <!-- Badge Kind -->
+                                                                    <Border Grid.Column="0"
+                                                                            Background="#18FFFFFF"
+                                                                            BorderBrush="#2EFFFFFF"
+                                                                            BorderThickness="1"
+                                                                            CornerRadius="5"
+                                                                            Padding="5,2"
+                                                                            Margin="0,0,8,0"
+                                                                            VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding BadgeLabel}"
+                                                                                   Foreground="{Binding BadgeBrush}"
+                                                                                   FontSize="9"
+                                                                                   FontWeight="Bold"/>
+                                                                    </Border>
+
+                                                                    <!-- Content -->
+                                                                    <Grid Grid.Column="1" VerticalAlignment="Center">
+                                                                        <Grid.RowDefinitions>
+                                                                            <RowDefinition Height="Auto"/>
+                                                                            <RowDefinition Height="Auto"/>
+                                                                        </Grid.RowDefinitions>
+
+                                                                        <TextBlock Grid.Row="0"
+                                                                                   Text="{Binding PreviewText}"
+                                                                                   Foreground="#F8FAFC"
+                                                                                   FontSize="11"
+                                                                                   FontWeight="Medium"
+                                                                                   TextTrimming="CharacterEllipsis"
+                                                                                   Visibility="{Binding TextVisibility}"/>
+
+                                                                        <Image Grid.Row="0"
+                                                                               Source="{Binding ThumbnailImage}"
+                                                                               MaxHeight="48"
+                                                                               MaxWidth="140"
+                                                                               Stretch="Uniform"
+                                                                               HorizontalAlignment="Left"
+                                                                               Margin="0,0,0,2"
+                                                                               Visibility="{Binding ImageVisibility}"/>
+
+                                                                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,2,0,0">
+                                                                            <TextBlock Text="{Binding TimeAgoText}"
+                                                                                       Foreground="#94A3B8"
+                                                                                       FontSize="9.5"
+                                                                                       FontWeight="Normal"/>
+                                                                            <TextBlock Text=" &#x2022; "
+                                                                                       Foreground="#64748B"
+                                                                                       FontSize="9.5"/>
+                                                                            <TextBlock Text="{Binding MetadataLabel}"
+                                                                                       Foreground="#64748B"
+                                                                                       FontSize="9.5"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+
+                                                                    <!-- Action Buttons -->
+                                                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                                        <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                                                Padding="6,3"
+                                                                                Margin="0,0,4,0"
+                                                                                Background="#1A38BDF8"
+                                                                                BorderBrush="#3038BDF8"
+                                                                                BorderThickness="1"
+                                                                                ToolTip="Salin kembali ke Clipboard (Ctrl+V)"
+                                                                                Tag="{Binding}"
+                                                                                Click="OnCopyClipboardItemClick">
+                                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                                <Path Data="{StaticResource GeomCopy}"
+                                                                                      Width="9.5" Height="9.5"
+                                                                                      Stretch="Uniform"
+                                                                                      Fill="#38BDF8"
+                                                                                      Margin="0,0,3,0"
+                                                                                      VerticalAlignment="Center"/>
+                                                                                <TextBlock Text="Salin"
+                                                                                           Foreground="#38BDF8"
+                                                                                           FontSize="9.5"
+                                                                                           FontWeight="SemiBold"
+                                                                                           VerticalAlignment="Center"/>
+                                                                            </StackPanel>
+                                                                        </Button>
+
+                                                                        <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                                                Padding="4,3"
+                                                                                Background="#14FFFFFF"
+                                                                                BorderBrush="#1EFFFFFF"
+                                                                                BorderThickness="1"
+                                                                                ToolTip="Hapus dari riwayat"
+                                                                                Tag="{Binding}"
+                                                                                Click="OnDeleteClipboardItemClick">
+                                                                            <Path Data="{StaticResource GeomTrash}"
+                                                                                  Width="9" Height="9"
+                                                                                  Stretch="Uniform"
+                                                                                  Fill="#FB7185"/>
+                                                                        </Button>
+                                                                    </StackPanel>
+                                                                </Grid>
                                                             </Border>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
@@ -2719,7 +2951,7 @@
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock x:Name="SysUpdateStatusText"
-                                                   Text="Windows Dynamic Island v1.4.1 (Terbaru)"
+                                                   Text="Windows Dynamic Island v1.9.0 (Terbaru)"
                                                    Foreground="#F8FAFC"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"

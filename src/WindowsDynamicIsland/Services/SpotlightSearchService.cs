@@ -16,7 +16,8 @@ public enum SpotlightResultKind
     Application,
     MathResult,
     SystemCommand,
-    WebUrl
+    WebUrl,
+    ClipboardItem
 }
 
 public sealed class SpotlightItem
@@ -35,13 +36,18 @@ public sealed class SpotlightSearchService
 {
     private readonly AppShortcutService _shortcutService;
     private readonly AppSettingsService _settingsService;
+    private readonly ClipboardHistoryService? _clipboardHistoryService;
     private readonly List<SpotlightItem> _cachedAppItems = new();
     private DateTime _lastAppScanUtc = DateTime.MinValue;
 
-    public SpotlightSearchService(AppShortcutService shortcutService, AppSettingsService settingsService)
+    public SpotlightSearchService(
+        AppShortcutService shortcutService,
+        AppSettingsService settingsService,
+        ClipboardHistoryService? clipboardHistoryService = null)
     {
         _shortcutService = shortcutService;
         _settingsService = settingsService;
+        _clipboardHistoryService = clipboardHistoryService;
         _shortcutService.ShortcutsChanged += InvalidateAppCache;
         RefreshAppIndexAsync();
     }
@@ -183,7 +189,8 @@ public sealed class SpotlightSearchService
         Action tuckIsland,
         Action startPomodoroFocus,
         Action? setSmartCharge80 = null,
-        Action? setFullCapacity100 = null)
+        Action? setFullCapacity100 = null,
+        Action? openClipboardHistory = null)
     {
         string q = (rawQuery ?? string.Empty).Trim();
         var results = new List<SpotlightItem>();
@@ -191,7 +198,7 @@ public sealed class SpotlightSearchService
         if (string.IsNullOrWhiteSpace(q))
         {
             // Empty query: Show smart quick commands & top apps
-            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, setSmartCharge80, setFullCapacity100));
+            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, setSmartCharge80, setFullCapacity100, openClipboardHistory));
             lock (_cachedAppItems)
             {
                 results.AddRange(_cachedAppItems.Take(4));
@@ -256,6 +263,52 @@ public sealed class SpotlightSearchService
         foreach (var m in appMatches.OrderByDescending(x => x.Score).Take(5))
         {
             results.Add(m.Item);
+        }
+
+        // 4. Clipboard History Match (Item 4 in ide.md)
+        if (_clipboardHistoryService != null && _clipboardHistoryService.Items.Count > 0)
+        {
+            bool isExplicitClip = q.Equals("clip", StringComparison.OrdinalIgnoreCase) ||
+                                  q.StartsWith("clip ", StringComparison.OrdinalIgnoreCase) ||
+                                  q.Equals("klip", StringComparison.OrdinalIgnoreCase) ||
+                                  q.StartsWith("klip ", StringComparison.OrdinalIgnoreCase) ||
+                                  q.Equals("salin", StringComparison.OrdinalIgnoreCase) ||
+                                  q.Equals("cp", StringComparison.OrdinalIgnoreCase);
+
+            string filterQuery = isExplicitClip && q.Contains(' ') ? q[(q.IndexOf(' ') + 1)..].Trim() : (isExplicitClip ? string.Empty : q);
+
+            var clipMatches = new List<ClipboardItem>();
+            foreach (var clip in _clipboardHistoryService.Items)
+            {
+                if (isExplicitClip && string.IsNullOrEmpty(filterQuery))
+                {
+                    clipMatches.Add(clip);
+                }
+                else if (!string.IsNullOrEmpty(filterQuery) &&
+                         (clip.Content.Contains(filterQuery, StringComparison.OrdinalIgnoreCase) ||
+                          clip.PreviewText.Contains(filterQuery, StringComparison.OrdinalIgnoreCase)))
+                {
+                    clipMatches.Add(clip);
+                }
+            }
+
+            int takeCount = isExplicitClip ? 6 : 2;
+            foreach (var clip in clipMatches.Take(takeCount))
+            {
+                results.Add(new SpotlightItem
+                {
+                    Title = clip.PreviewText,
+                    Subtitle = $"Papan Klip • {clip.BadgeLabel} • {clip.TimeAgoText}",
+                    Kind = SpotlightResultKind.ClipboardItem,
+                    VectorIconKey = "GeomClipboard",
+                    ActionData = clip.Content,
+                    IconImage = clip.ThumbnailImage,
+                    ExecuteAction = () =>
+                    {
+                        _clipboardHistoryService.CopyToClipboard(clip);
+                    }
+                });
+            }
         }
 
         // 4. Web URL / Google Search Fallback if no exact app matches or explicit query
@@ -344,7 +397,8 @@ public sealed class SpotlightSearchService
         Action tuckIsland,
         Action startPomodoroFocus,
         Action? setSmartCharge80 = null,
-        Action? setFullCapacity100 = null)
+        Action? setFullCapacity100 = null,
+        Action? openClipboardHistory = null)
     {
         var list = new List<SpotlightItem>
         {
@@ -451,6 +505,19 @@ public sealed class SpotlightSearchService
                 VectorIconKey = "GeomBolt",
                 ActionData = "charge 100 baterai penuh full kapasitas daya",
                 ExecuteAction = setFullCapacity100
+            });
+        }
+
+        if (openClipboardHistory != null)
+        {
+            list.Add(new SpotlightItem
+            {
+                Title = "Riwayat Papan Klip (Clipboard)",
+                Subtitle = "Lihat riwayat cuplikan teks, tautan & gambar yang baru disalin",
+                Kind = SpotlightResultKind.SystemCommand,
+                VectorIconKey = "GeomClipboard",
+                ActionData = "clipboard clip klip salin copy riwayat papan",
+                ExecuteAction = openClipboardHistory
             });
         }
 
