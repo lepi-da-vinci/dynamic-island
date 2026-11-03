@@ -101,23 +101,30 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Padding" Value="4,8"/>
+            <Setter Property="Padding" Value="4,4"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="WingBtnBorder"
-                                Background="{TemplateBinding Background}"
+                                Background="Transparent"
                                 BorderThickness="0"
-                                CornerRadius="14"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="WingBtnBorder" Property="Background" Value="#18FFFFFF"/>
+                                <Setter TargetName="WingBtnBorder" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform CenterX="26" CenterY="45" ScaleX="1.08" ScaleY="1.08"/>
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="WingBtnBorder" Property="Background" Value="#2EFFFFFF"/>
+                                <Setter TargetName="WingBtnBorder" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform CenterX="26" CenterY="45" ScaleX="0.94" ScaleY="0.94"/>
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -147,9 +154,19 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="BtnBorder" Property="Background" Value="#2EFFFFFF"/>
                                 <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#48FFFFFF"/>
+                                <Setter TargetName="BtnBorder" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform CenterX="20" CenterY="14" ScaleX="1.025" ScaleY="1.025"/>
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="BtnBorder" Property="Background" Value="#42FFFFFF"/>
+                                <Setter TargetName="BtnBorder" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform CenterX="20" CenterY="14" ScaleX="0.96" ScaleY="0.96"/>
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -318,18 +335,27 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Border x:Name="ThumbPill"
-                                Background="#38FFFFFF"
-                                CornerRadius="2.5"
-                                Margin="1,0,1,0"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"/>
+                        <Grid Background="Transparent">
+                            <Border x:Name="ThumbPill"
+                                    Background="#50FFFFFF"
+                                    CornerRadius="3"
+                                    Width="6"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Stretch"
+                                    Margin="0,0,2,0"/>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbPill" Property="Background" Value="#78FFFFFF"/>
+                                <Setter TargetName="ThumbPill" Property="Width" Value="10"/>
+                                <Setter TargetName="ThumbPill" Property="CornerRadius" Value="5"/>
+                                <Setter TargetName="ThumbPill" Property="Background" Value="#99FFFFFF"/>
+                                <Setter TargetName="ThumbPill" Property="Margin" Value="0,0,1,0"/>
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbPill" Property="Background" Value="#B0FFFFFF"/>
+                                <Setter TargetName="ThumbPill" Property="Width" Value="11"/>
+                                <Setter TargetName="ThumbPill" Property="CornerRadius" Value="5.5"/>
+                                <Setter TargetName="ThumbPill" Property="Background" Value="#CCFFFFFF"/>
+                                <Setter TargetName="ThumbPill" Property="Margin" Value="0,0,1,0"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -342,8 +368,8 @@
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Style.Triggers>
                 <Trigger Property="Orientation" Value="Vertical">
-                    <Setter Property="Width" Value="5"/>
-                    <Setter Property="MinWidth" Value="5"/>
+                    <Setter Property="Width" Value="16"/>
+                    <Setter Property="MinWidth" Value="16"/>
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="{x:Type ScrollBar}">
@@ -362,18 +388,13 @@
                                         </Track.IncreaseRepeatButton>
                                     </Track>
                                 </Grid>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Width" Value="7"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Setter.Value>
                     </Setter>
                 </Trigger>
                 <Trigger Property="Orientation" Value="Horizontal">
-                    <Setter Property="Height" Value="5"/>
-                    <Setter Property="MinHeight" Value="5"/>
+                    <Setter Property="Height" Value="14"/>
+                    <Setter Property="MinHeight" Value="14"/>
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="{x:Type ScrollBar}">
@@ -392,11 +413,6 @@
                                         </Track.IncreaseRepeatButton>
                                     </Track>
                                 </Grid>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Height" Value="7"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Setter.Value>
                     </Setter>
@@ -487,6 +503,9 @@
                                      HorizontalAlignment="Left"
                                      VerticalAlignment="Center"
                                      Margin="2.5,0,0,0">
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform x:Name="SwitchThumbTranslate" X="0"/>
+                                </Ellipse.RenderTransform>
                                 <Ellipse.Effect>
                                     <DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.45" Color="#000000"/>
                                 </Ellipse.Effect>
@@ -496,7 +515,34 @@
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="SwitchTrack" Property="Background" Value="{DynamicResource SettingsToggleActiveBgBrush}"/>
                                 <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="{DynamicResource SettingsToggleActiveBorderBrush}"/>
-                                <Setter TargetName="SwitchThumb" Property="Margin" Value="19.5,0,0,0"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="SwitchThumbTranslate"
+                                                             Storyboard.TargetProperty="X"
+                                                             To="17"
+                                                             Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuinticEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="SwitchThumbTranslate"
+                                                             Storyboard.TargetProperty="X"
+                                                             To="0"
+                                                             Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuinticEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="SwitchTrack" Property="Opacity" Value="0.92"/>
@@ -509,7 +555,8 @@
 
         <Style x:Key="AppleSidebarNavButtonStyle" TargetType="{x:Type RadioButton}">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#CBD5E1"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Margin" Value="0,1.5"/>
@@ -518,20 +565,28 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type RadioButton}">
                         <Border x:Name="NavRowBorder"
-                                Background="{TemplateBinding Background}"
+                                Background="Transparent"
+                                BorderThickness="1"
+                                BorderBrush="Transparent"
                                 CornerRadius="8"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="NavRowBorder" Property="Background" Value="#14FFFFFF"/>
+                                <Setter TargetName="NavRowBorder" Property="Background" Value="#12FFFFFF"/>
                                 <Setter Property="Foreground" Value="#F8FAFC"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="NavRowBorder" Property="Background" Value="{DynamicResource SettingsNavActiveBgBrush}"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="NavRowBorder" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.97" ScaleY="0.97" CenterX="12" CenterY="14"/>
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -552,18 +607,50 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type RadioButton}">
                         <Border x:Name="SegBorder"
-                                Background="{TemplateBinding Background}"
+                                Background="Transparent"
                                 CornerRadius="6.5"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="#E2E8F0"/>
+                                <Setter Property="Foreground" Value="#F8FAFC"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="SegBorder" Property="Background" Value="{DynamicResource SettingsSegmentActiveBgBrush}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource SettingsSegmentActiveFgBrush}"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Segmented Option with Transparent Background for Sliding Pill Host Grids -->
+        <Style x:Key="AppleSlidingSegmentOptionStyle" TargetType="{x:Type RadioButton}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Padding" Value="10,5.5"/>
+            <Setter Property="Margin" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RadioButton}">
+                        <Border x:Name="SegBorder"
+                                Background="Transparent"
+                                CornerRadius="6.5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
                             </Trigger>
                         </ControlTemplate.Triggers>

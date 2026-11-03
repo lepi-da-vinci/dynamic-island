@@ -70,13 +70,12 @@
                   VerticalAlignment="Top"
                   IsHitTestVisible="False"/>
 
-            <!-- LEFT INTEGRATED WING CONTENT (Transparent inside unified silhouette, X = 34) -->
+            <!-- LEFT INTEGRATED WING CONTENT (Seamlessly blends into island edge, no box outline) -->
             <Grid x:Name="LeftWingContainer"
                   HorizontalAlignment="Left"
                   VerticalAlignment="Top"
-                  Margin="34,52,0,0"
-                  Width="76"
-                  Height="140"
+                  Width="56"
+                  Height="120"
                   Opacity="0.0"
                   Visibility="Collapsed"
                   IsHitTestVisible="False">
@@ -90,38 +89,41 @@
                         Click="OnLeftWingClick">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Path Data="{StaticResource GeomChevronLeft}"
-                              Width="11" Height="11"
+                              Width="10" Height="10"
                               Stretch="Uniform"
                               Fill="#38BDF8"
                               Margin="0,0,0,6"
                               HorizontalAlignment="Center"/>
-                        <Border Width="36" Height="36" CornerRadius="18" Background="#1E38BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,0,6">
+                        <Grid Width="32" Height="32" Margin="0,0,0,4">
                             <Path x:Name="LeftWingIcon"
                                   Data="{StaticResource GeomMusic}"
-                                  Width="16" Height="16"
+                                  Width="18" Height="18"
                                   Stretch="Uniform"
                                   Fill="#F8FAFC"
                                   HorizontalAlignment="Center"
-                                  VerticalAlignment="Center"/>
-                        </Border>
+                                  VerticalAlignment="Center">
+                                <Path.Effect>
+                                    <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.5" Color="#000000"/>
+                                </Path.Effect>
+                            </Path>
+                        </Grid>
                         <TextBlock x:Name="LeftWingLabel"
                                    Text="Musik"
-                                   Foreground="#CBD5E1"
-                                   FontSize="10.5"
-                                   FontWeight="SemiBold"
+                                   Foreground="#94A3B8"
+                                   FontSize="10"
+                                   FontWeight="Medium"
                                    TextAlignment="Center"
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </Grid>
 
-            <!-- RIGHT INTEGRATED WING CONTENT (Transparent inside unified silhouette, X = 650) -->
+            <!-- RIGHT INTEGRATED WING CONTENT (Seamlessly blends into island edge, no box outline) -->
             <Grid x:Name="RightWingContainer"
                   HorizontalAlignment="Left"
                   VerticalAlignment="Top"
-                  Margin="650,52,0,0"
-                  Width="76"
-                  Height="140"
+                  Width="56"
+                  Height="120"
                   Opacity="0.0"
                   Visibility="Collapsed"
                   IsHitTestVisible="False">
@@ -135,25 +137,29 @@
                         Click="OnRightWingClick">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Path Data="{StaticResource GeomChevronRight}"
-                              Width="11" Height="11"
+                              Width="10" Height="10"
                               Stretch="Uniform"
                               Fill="#38BDF8"
                               Margin="0,0,0,6"
                               HorizontalAlignment="Center"/>
-                        <Border Width="36" Height="36" CornerRadius="18" Background="#1E38BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,0,6">
+                        <Grid Width="32" Height="32" Margin="0,0,0,4">
                             <Path x:Name="RightWingIcon"
                                   Data="{StaticResource GeomChecklist}"
-                                  Width="16" Height="16"
+                                  Width="18" Height="18"
                                   Stretch="Uniform"
                                   Fill="#F8FAFC"
                                   HorizontalAlignment="Center"
-                                  VerticalAlignment="Center"/>
-                        </Border>
+                                  VerticalAlignment="Center">
+                                <Path.Effect>
+                                    <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.5" Color="#000000"/>
+                                </Path.Effect>
+                            </Path>
+                        </Grid>
                         <TextBlock x:Name="RightWingLabel"
                                    Text="Tugas"
-                                   Foreground="#CBD5E1"
-                                   FontSize="10.5"
-                                   FontWeight="SemiBold"
+                                   Foreground="#94A3B8"
+                                   FontSize="10"
+                                   FontWeight="Medium"
                                    TextAlignment="Center"
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
@@ -906,7 +912,10 @@
                         <!-- Tab Content Host with Smooth Slide Animations -->
                         <Grid x:Name="TabContentContainer" Grid.Row="1" ClipToBounds="True">
                             <Grid.RenderTransform>
-                                <TranslateTransform x:Name="TabContentTranslate" X="0"/>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="TabContentScale" CenterX="250" CenterY="80" ScaleX="1.0" ScaleY="1.0"/>
+                                    <TranslateTransform x:Name="TabContentTranslate" X="0"/>
+                                </TransformGroup>
                             </Grid.RenderTransform>
 
                             <!-- TAB 0: MEDIA CONTROLLER + MODERN TIMELINE + FLOATING LYRICS STAGE -->

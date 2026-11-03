@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using WindowsDynamicIsland.Services;
 
@@ -27,6 +29,18 @@ public partial class SettingsWindow : Window
     private bool _isDraggingVol;
     private bool _isDraggingBrt;
 
+    private class SegmentedSliderGroup
+    {
+        public UniformGrid Grid { get; set; } = null!;
+        public FrameworkElement HostGrid { get; set; } = null!;
+        public Border Pill { get; set; } = null!;
+        public TranslateTransform Translate { get; set; } = null!;
+        public List<RadioButton> Buttons { get; } = [];
+    }
+
+    private readonly List<SegmentedSliderGroup> _segmentedGroups = [];
+    private bool _isSegmentedSlidersSetup;
+
     public SettingsWindow(
         AppSettingsService settings,
         UpdateCheckerService updateService,
@@ -39,6 +53,7 @@ public partial class SettingsWindow : Window
         BatteryChargeLimitService? batteryLimitService = null)
     {
         InitializeComponent();
+        SetupAllSegmentedSliders();
 
         _settings = settings;
         _updateService = updateService;
@@ -65,13 +80,33 @@ public partial class SettingsWindow : Window
         Action<BatteryChargeLimitMode> onLimitChanged = _ => Dispatcher.InvokeAsync(RefreshBatteryLimitControls);
         _batteryLimitService.LimitModeChanged += onLimitChanged;
 
+        PreviewKeyDown += OnSettingsPreviewKeyDown;
+
         Loaded += (_, _) =>
         {
             ApplyThemeToSettingsWindow();
-            RefreshSystemControlCenterCard();
             RefreshBatteryLimitControls();
-            _liveTelemetryTimer.Start();
+            PlayDropletEntranceAnimation();
+
+            // Defer pill positioning to Loaded priority so visual tree is measured
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+            {
+                if (NavGeneralBtn.IsChecked == true) AnimateNavPillTo(NavGeneralBtn);
+
+                foreach (var g in _segmentedGroups)
+                {
+                    UpdateSegmentedPill(g, animate: false);
+                }
+            });
+
+            // Defer telemetry query so the UI thread stays 100% free during the opening entrance animation
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+            {
+                RefreshSystemControlCenterCard();
+                _liveTelemetryTimer.Start();
+            });
         };
+
         Closed += (_, _) =>
         {
             _liveTelemetryTimer.Stop();
@@ -107,6 +142,7 @@ public partial class SettingsWindow : Window
         if (target != null)
         {
             target.IsChecked = true;
+            AnimateNavPillTo(target);
         }
     }
 
@@ -303,6 +339,7 @@ public partial class SettingsWindow : Window
             BatteryLimitStatusBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0x22, 0xC5, 0x5E));
             BatteryLimitStatusBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
             BatteryLimitStatusBadgeText.Text = "80% Aktif";
+            AnimateBatLimitPill(0);
         }
         else
         {
@@ -311,6 +348,7 @@ public partial class SettingsWindow : Window
             BatteryLimitStatusBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0x38, 0xBD, 0xF8));
             BatteryLimitStatusBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0x38, 0xBD, 0xF8));
             BatteryLimitStatusBadgeText.Text = "100% Aktif";
+            AnimateBatLimitPill(1);
         }
 
         if (BatteryHardwareActivationPanel != null)
@@ -336,6 +374,7 @@ public partial class SettingsWindow : Window
             ? BatteryChargeLimitMode.SmartCharge80
             : BatteryChargeLimitMode.FullCapacity100;
 
+        AnimateBatLimitPill(tag == "80" ? 0 : 1);
         await _batteryLimitService.SetLimitModeAsync(targetMode);
         RefreshBatteryLimitControls();
     }
@@ -376,6 +415,41 @@ public partial class SettingsWindow : Window
 
         if (idx == 7) RefreshWaterCard();
         if (idx == 9) RefreshBluetoothCard();
+
+        AnimateNavPillTo(rb);
+        AnimatePageContentTransition();
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            foreach (var g in _segmentedGroups)
+            {
+                UpdateSegmentedPill(g, animate: false);
+            }
+        });
+    }
+
+    private void AnimatePageContentTransition()
+    {
+        try
+        {
+            var slide = new DoubleAnimation
+            {
+                From = 14.0,
+                To = 0.0,
+                Duration = TimeSpan.FromMilliseconds(240),
+                EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
+            };
+            var fade = new DoubleAnimation
+            {
+                From = 0.25,
+                To = 1.0,
+                Duration = TimeSpan.FromMilliseconds(200),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            SettingsPageTranslate.BeginAnimation(TranslateTransform.YProperty, slide);
+            SettingsPagesHostGrid.BeginAnimation(UIElement.OpacityProperty, fade);
+        }
+        catch { }
     }
 
     private void OnSettingToggleClicked(object sender, RoutedEventArgs e)
@@ -532,7 +606,7 @@ public partial class SettingsWindow : Window
 
             SettingsSysMemoryText.Text = $"RAM: {hw.AppMemoryMb:F1} MB • CPU {hw.CpuUsagePercent}%";
 
-            // Quick Action Buttons
+            // Quick Action Buttons (Icon-only with dynamic glowing glass tint)
             SettingsMuteBtnIcon.Data = soundMuted
                 ? (TryFindResource("GeomSpeakerMuted") as Geometry ?? Geometry.Empty)
                 : (TryFindResource("GeomSpeakerOn") as Geometry ?? Geometry.Empty);
@@ -541,11 +615,11 @@ public partial class SettingsWindow : Window
                     ? (soundMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
                     : (soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248)));
             SettingsMuteBtnIcon.Fill = soundBtnBrush;
-            SettingsMuteBtnText.Text = soundMuted ? "Sound: MUTED" : "Sound: ON";
-            SettingsMuteBtnText.Foreground = new SolidColorBrush(
-                mono
-                    ? (soundMuted ? Color.FromRgb(161, 161, 170) : Color.FromRgb(244, 244, 245))
-                    : (soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(248, 250, 252)));
+            SettingsMuteBtn.ToolTip = soundMuted ? "Sound: Muted (Klik untuk Nyalakan)" : "Sound: ON (Klik untuk Mute)";
+            SettingsMuteBtnBg.Background = new SolidColorBrush(
+                soundMuted ? Color.FromArgb(0x28, 0xF8, 0x71, 0x71) : Color.FromArgb(0x20, 0x38, 0xBD, 0xF8));
+            SettingsMuteBtnBg.BorderBrush = new SolidColorBrush(
+                soundMuted ? Color.FromArgb(0x45, 0xF8, 0x71, 0x71) : Color.FromArgb(0x35, 0x38, 0xBD, 0xF8));
 
             SettingsMicBtnIcon.Data = micMuted
                 ? (TryFindResource("GeomMicMuted") as Geometry ?? Geometry.Empty)
@@ -555,10 +629,11 @@ public partial class SettingsWindow : Window
                     ? (micMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
                     : (micMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(34, 197, 94)));
             SettingsMicBtnIcon.Fill = micBtnBrush;
-            SettingsMicBtnText.Text = micMuted ? "Mic: MUTED" : "Mic: ON";
-            SettingsMicBtnText.Foreground = mono
-                ? new SolidColorBrush(micMuted ? Color.FromRgb(161, 161, 170) : Color.FromRgb(244, 244, 245))
-                : micBtnBrush;
+            SettingsMicBtn.ToolTip = micMuted ? "Mikrofon: Muted (Klik untuk Nyalakan)" : "Mikrofon: ON (Klik untuk Mute)";
+            SettingsMicBtnBg.Background = new SolidColorBrush(
+                micMuted ? Color.FromArgb(0x28, 0xF8, 0x71, 0x71) : Color.FromArgb(0x20, 0x22, 0xC5, 0x5E));
+            SettingsMicBtnBg.BorderBrush = new SolidColorBrush(
+                micMuted ? Color.FromArgb(0x45, 0xF8, 0x71, 0x71) : Color.FromArgb(0x35, 0x22, 0xC5, 0x5E));
 
             bool btOn = hw.IsBluetoothRadioOn;
             bool btConnected = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName);
@@ -574,10 +649,17 @@ public partial class SettingsWindow : Window
                 ? (TryFindResource("GeomBluetooth") as Geometry ?? Geometry.Empty)
                 : (TryFindResource("GeomBluetoothOff") as Geometry ?? Geometry.Empty);
             SettingsBtBtnIcon.Fill = btBrush;
-            SettingsBtBtnText.Text = !btOn ? "Bluetooth: OFF" : (btConnected ? "Bluetooth: Aktif" : "Bluetooth: ON");
-            SettingsBtBtnText.Foreground = mono
-                ? new SolidColorBrush(!btOn ? Color.FromRgb(161, 161, 170) : Color.FromRgb(244, 244, 245))
-                : btBrush;
+            SettingsBtBtn.ToolTip = !btOn
+                ? "Bluetooth: OFF (Klik untuk Nyalakan)"
+                : (btConnected ? $"Bluetooth: Terhubung ({hw.ConnectedBluetoothName})" : "Bluetooth: ON (Klik untuk Matikan)");
+            SettingsBtBtnBg.Background = new SolidColorBrush(
+                !btOn
+                    ? Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF)
+                    : (btConnected ? Color.FromArgb(0x25, 0x22, 0xC5, 0x5E) : Color.FromArgb(0x20, 0x38, 0xBD, 0xF8)));
+            SettingsBtBtnBg.BorderBrush = new SolidColorBrush(
+                !btOn
+                    ? Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF)
+                    : (btConnected ? Color.FromArgb(0x35, 0x22, 0xC5, 0x5E) : Color.FromArgb(0x35, 0x38, 0xBD, 0xF8)));
 
             var exitBrush = new SolidColorBrush(mono ? Color.FromRgb(161, 161, 170) : Color.FromRgb(248, 113, 113));
             SettingsExitBtnIcon.Fill = exitBrush;
@@ -694,6 +776,15 @@ public partial class SettingsWindow : Window
         if (int.TryParse(tagStr, out int sizePct))
         {
             _settings.NotchSizePercent = sizePct;
+            int col = sizePct switch
+            {
+                100 => 1,
+                115 => 2,
+                130 => 3,
+                150 => 4,
+                _ => 0
+            };
+            AnimateNotchSizePill(col);
         }
     }
 
@@ -703,6 +794,14 @@ public partial class SettingsWindow : Window
         if (int.TryParse(tagStr, out int sec))
         {
             _settings.IdleCycleSeconds = sec;
+            int col = sec switch
+            {
+                5 => 0,
+                15 => 2,
+                30 => 3,
+                _ => 1
+            };
+            AnimateTuckDelayPill(col);
         }
     }
 
@@ -1151,7 +1250,314 @@ public partial class SettingsWindow : Window
 
     private void OnCloseButtonClick(object sender, RoutedEventArgs e)
     {
-        Close();
+        CloseWithAnimation();
+    }
+
+    private void OnSettingsPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            CloseWithAnimation();
+        }
+    }
+
+    public Action? ClosedCallback { get; set; }
+
+    public void AnimateNavPillTo(RadioButton targetBtn)
+    {
+        try
+        {
+            if (targetBtn == null || NavHostGrid == null || NavActivePill == null || NavActivePillTranslate == null) return;
+
+            if (!IsLoaded)
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => AnimateNavPillTo(targetBtn));
+                return;
+            }
+
+            GeneralTransform transform = targetBtn.TransformToVisual(NavHostGrid);
+            Point p = transform.Transform(new Point(0, 0));
+            double targetY = Math.Max(0.0, p.Y);
+            double targetHeight = targetBtn.ActualHeight > 20 ? targetBtn.ActualHeight : 35.0;
+
+            var animY = new DoubleAnimation
+            {
+                To = targetY,
+                Duration = TimeSpan.FromMilliseconds(280),
+                EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            var animH = new DoubleAnimation
+            {
+                To = targetHeight,
+                Duration = TimeSpan.FromMilliseconds(280),
+                EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            NavActivePillTranslate.BeginAnimation(TranslateTransform.YProperty, animY);
+            NavActivePill.BeginAnimation(FrameworkElement.HeightProperty, animH);
+        }
+        catch { }
+    }
+
+    public void AnimateBatLimitPill(int colIndex)
+    {
+        var group = _segmentedGroups.FirstOrDefault(g => g.HostGrid == BatLimitHostGrid);
+        if (group != null) UpdateSegmentedPill(group, animate: !_isLoadingUi);
+    }
+
+    public void AnimateNotchSizePill(int colIndex)
+    {
+        var group = _segmentedGroups.FirstOrDefault(g => g.HostGrid == NotchSizeHostGrid);
+        if (group != null) UpdateSegmentedPill(group, animate: !_isLoadingUi);
+    }
+
+    public void AnimateTuckDelayPill(int colIndex)
+    {
+        var group = _segmentedGroups.FirstOrDefault(g => g.HostGrid == TuckDelayHostGrid);
+        if (group != null) UpdateSegmentedPill(group, animate: !_isLoadingUi);
+    }
+
+    private void SetupAllSegmentedSliders()
+    {
+        if (_isSegmentedSlidersSetup) return;
+        _isSegmentedSlidersSetup = true;
+
+        try
+        {
+            var uniformGrids = new List<UniformGrid>();
+            FindAllUniformGridsLogical(SettingsPagesHostGrid, uniformGrids);
+
+            foreach (var ug in uniformGrids)
+            {
+                var rbs = ug.Children.OfType<RadioButton>().ToList();
+                if (rbs.Count == 0) continue;
+
+                Grid hostGrid;
+                Border pill;
+                TranslateTransform translate;
+
+                if (ug.Parent is Grid existingGrid &&
+                    existingGrid.Children.OfType<Border>().FirstOrDefault(b => b.Name != null && b.Name.Contains("Pill")) is Border existingPill)
+                {
+                    hostGrid = existingGrid;
+                    pill = existingPill;
+                    translate = (TranslateTransform)pill.RenderTransform;
+                }
+                else if (ug.Parent is Border parentBorder)
+                {
+                    parentBorder.Child = null;
+
+                    hostGrid = new Grid
+                    {
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        VerticalAlignment = VerticalAlignment.Stretch
+                    };
+
+                    translate = new TranslateTransform(0, 0);
+                    pill = new Border
+                    {
+                        BorderBrush = new SolidColorBrush(Color.FromArgb(0x25, 0xFF, 0xFF, 0xFF)),
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(6.5),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        VerticalAlignment = VerticalAlignment.Stretch,
+                        IsHitTestVisible = false,
+                        RenderTransform = translate
+                    };
+                    pill.SetResourceReference(Border.BackgroundProperty, "SettingsSegmentActiveBgBrush");
+
+                    hostGrid.Children.Add(pill);
+                    hostGrid.Children.Add(ug);
+                    parentBorder.Child = hostGrid;
+                }
+                else
+                {
+                    continue;
+                }
+
+                var group = new SegmentedSliderGroup
+                {
+                    Grid = ug,
+                    HostGrid = hostGrid,
+                    Pill = pill,
+                    Translate = translate
+                };
+                group.Buttons.AddRange(rbs);
+                _segmentedGroups.Add(group);
+
+                hostGrid.SizeChanged += (_, _) =>
+                {
+                    UpdateSegmentedPill(group, animate: false);
+                };
+
+                foreach (var rb in rbs)
+                {
+                    rb.Checked += (_, _) =>
+                    {
+                        UpdateSegmentedPill(group, animate: !_isLoadingUi);
+                    };
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("SettingsWindow", "Failed to setup segmented sliders", ex);
+        }
+    }
+
+    private void FindAllUniformGridsLogical(DependencyObject parent, List<UniformGrid> results)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent))
+        {
+            if (child is UniformGrid ug)
+            {
+                results.Add(ug);
+            }
+            else if (child is DependencyObject dep)
+            {
+                FindAllUniformGridsLogical(dep, results);
+            }
+        }
+    }
+
+    private void UpdateSegmentedPill(SegmentedSliderGroup group, bool animate)
+    {
+        try
+        {
+            if (group.HostGrid.ActualWidth < 10 || group.HostGrid.ActualHeight < 5) return;
+
+            int cols = group.Grid.Columns;
+            if (cols <= 0) cols = group.Buttons.Count;
+
+            int rows = group.Grid.Rows;
+            if (rows <= 0) rows = (int)Math.Ceiling((double)group.Buttons.Count / cols);
+            if (rows <= 0) rows = 1;
+
+            double colW = group.HostGrid.ActualWidth / cols;
+            double rowH = group.HostGrid.ActualHeight / rows;
+
+            group.Pill.Width = colW;
+            if (rows > 1)
+            {
+                group.Pill.VerticalAlignment = VerticalAlignment.Top;
+                group.Pill.Height = rowH;
+            }
+            else
+            {
+                group.Pill.VerticalAlignment = VerticalAlignment.Stretch;
+            }
+
+            int checkedIndex = group.Buttons.FindIndex(b => b.IsChecked == true);
+            if (checkedIndex < 0) checkedIndex = 0;
+
+            int col = checkedIndex % cols;
+            int row = checkedIndex / cols;
+
+            double targetX = col * colW;
+            double targetY = row * rowH;
+
+            if (!animate)
+            {
+                group.Translate.BeginAnimation(TranslateTransform.XProperty, null);
+                group.Translate.BeginAnimation(TranslateTransform.YProperty, null);
+                group.Translate.X = targetX;
+                group.Translate.Y = targetY;
+            }
+            else
+            {
+                var animX = new DoubleAnimation
+                {
+                    To = targetX,
+                    Duration = TimeSpan.FromMilliseconds(260),
+                    EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
+                };
+                group.Translate.BeginAnimation(TranslateTransform.XProperty, animX);
+
+                if (rows > 1)
+                {
+                    var animY = new DoubleAnimation
+                    {
+                        To = targetY,
+                        Duration = TimeSpan.FromMilliseconds(260),
+                        EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
+                    };
+                    group.Translate.BeginAnimation(TranslateTransform.YProperty, animY);
+                }
+                else
+                {
+                    group.Translate.Y = 0;
+                }
+            }
+        }
+        catch { }
+    }
+
+    public void PlayDropletEntranceAnimation()
+    {
+        try
+        {
+            SettingsOuterFrame.Opacity = 0.0;
+            SettingsWindowScale.ScaleX = 0.84;
+            SettingsWindowScale.ScaleY = 0.65;
+            SettingsWindowTranslate.Y = -30.0;
+
+            var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
+            var duration = TimeSpan.FromMilliseconds(320);
+
+            var scaleXAnim = new DoubleAnimation(0.84, 1.0, duration) { EasingFunction = ease };
+            var scaleYAnim = new DoubleAnimation(0.65, 1.0, duration) { EasingFunction = ease };
+            var translateYAnim = new DoubleAnimation(-30.0, 0.0, duration) { EasingFunction = ease };
+            var opacityAnim = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(220))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            SettingsWindowScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleXAnim);
+            SettingsWindowScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleYAnim);
+            SettingsWindowTranslate.BeginAnimation(TranslateTransform.YProperty, translateYAnim);
+            SettingsOuterFrame.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
+        }
+        catch { }
+    }
+
+    private bool _isClosing;
+    public void CloseWithAnimation()
+    {
+        if (_isClosing) return;
+        _isClosing = true;
+
+        try
+        {
+            _liveTelemetryTimer.Stop();
+
+            var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+            var duration = TimeSpan.FromMilliseconds(200);
+
+            var scaleXAnim = new DoubleAnimation(0.85, duration) { EasingFunction = ease };
+            var scaleYAnim = new DoubleAnimation(0.65, duration) { EasingFunction = ease };
+            var translateYAnim = new DoubleAnimation(-30.0, duration) { EasingFunction = ease };
+            var opacityAnim = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease };
+
+            opacityAnim.Completed += (_, _) =>
+            {
+                Hide();
+                _isClosing = false;
+                ClosedCallback?.Invoke();
+            };
+
+            SettingsWindowScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleXAnim);
+            SettingsWindowScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleYAnim);
+            SettingsWindowTranslate.BeginAnimation(TranslateTransform.YProperty, translateYAnim);
+            SettingsOuterFrame.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
+        }
+        catch
+        {
+            Hide();
+            _isClosing = false;
+            ClosedCallback?.Invoke();
+        }
     }
 }
 

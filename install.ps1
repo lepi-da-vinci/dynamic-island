@@ -36,16 +36,11 @@ if ($isAdmin) {
     } catch { }
 
     try {
-        $cmd80 = "try { (Get-WmiObject -Namespace root/wmi -Class AsusAtkWmi_WMNB).DEVS(0x00120057, 80) } catch { Invoke-CimMethod -InputObject (Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB) -MethodName DEVS -Arguments @{Device_ID=[uint32]0x00120057; Control_status=[uint32]80} }"
-        $cmd100 = "try { (Get-WmiObject -Namespace root/wmi -Class AsusAtkWmi_WMNB).DEVS(0x00120057, 100) } catch { Invoke-CimMethod -InputObject (Get-CimInstance -Namespace root/wmi -ClassName AsusAtkWmi_WMNB) -MethodName DEVS -Arguments @{Device_ID=[uint32]0x00120057; Control_status=[uint32]100} }"
-        $action80 = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$cmd80`""
-        $action100 = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$cmd100`""
-        $principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
-
-        Register-ScheduledTask -TaskName "WindowsDynamicIsland-Battery80" -Action $action80 -Principal $principal -Settings $settings -Force -ErrorAction SilentlyContinue | Out-Null
-        Register-ScheduledTask -TaskName "WindowsDynamicIsland-Battery100" -Action $action100 -Principal $principal -Settings $settings -Force -ErrorAction SilentlyContinue | Out-Null
-        Write-Host "  -> Registered zero-UAC battery hardware control tasks." -ForegroundColor Green
+        $setupTasksScript = Join-Path $scriptDir "setup_battery_tasks.ps1"
+        if (Test-Path $setupTasksScript) {
+            & $setupTasksScript
+            Write-Host "  -> Registered zero-UAC battery hardware control tasks with SDDL permissions." -ForegroundColor Green
+        }
     } catch { }
 }
 
@@ -173,7 +168,7 @@ $iconRef = if (Test-Path $installedIco) { $installedIco } else { "$installedExe,
 
 Set-ItemProperty -Path $uninstallRegPath -Name "DisplayName" -Value "Windows Dynamic Island" -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "DisplayIcon" -Value $iconRef -Type String
-Set-ItemProperty -Path $uninstallRegPath -Name "DisplayVersion" -Value "1.8.0" -Type String
+Set-ItemProperty -Path $uninstallRegPath -Name "DisplayVersion" -Value "1.8.1" -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "Publisher" -Value "Lepi Da Vinci" -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "InstallLocation" -Value $installDir -Type String
 Set-ItemProperty -Path $uninstallRegPath -Name "InstallDate" -Value (Get-Date -Format "yyyyMMdd") -Type String

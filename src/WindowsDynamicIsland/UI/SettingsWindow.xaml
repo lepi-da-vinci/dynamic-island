@@ -20,7 +20,14 @@
                 BorderBrush="#26FFFFFF"
                 BorderThickness="1"
                 CornerRadius="14"
-                ClipToBounds="True">
+                ClipToBounds="True"
+                RenderTransformOrigin="0.5, 0">
+            <Border.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform x:Name="SettingsWindowScale" ScaleX="1.0" ScaleY="1.0"/>
+                    <TranslateTransform x:Name="SettingsWindowTranslate" X="0" Y="0"/>
+                </TransformGroup>
+            </Border.RenderTransform>
             <Border.Effect>
                 <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.68" Color="#000000"/>
             </Border.Effect>
@@ -100,12 +107,29 @@
                         </StackPanel>
 
                         <!-- 10 Sidebar Categories with Squircle Icon Badges -->
-                        <ScrollViewer Grid.Row="1"
+                        <ScrollViewer x:Name="NavScrollViewer"
+                                      Grid.Row="1"
                                       Style="{StaticResource AppleScrollViewerStyle}"
                                       VerticalScrollBarVisibility="Auto"
                                       Padding="10,2,10,10">
-                            <StackPanel>
-                                <!-- 0. General -->
+                            <Grid x:Name="NavHostGrid">
+                                <!-- Smooth Vertical Sliding Selection Pill -->
+                                <Border x:Name="NavActivePill"
+                                        Background="{DynamicResource SettingsNavActiveBgBrush}"
+                                        BorderBrush="#25FFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Height="35"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Top"
+                                        IsHitTestVisible="False">
+                                    <Border.RenderTransform>
+                                        <TranslateTransform x:Name="NavActivePillTranslate" Y="0"/>
+                                    </Border.RenderTransform>
+                                </Border>
+
+                                <StackPanel x:Name="NavItemsStackPanel">
+                                    <!-- 0. General -->
                                 <RadioButton x:Name="NavGeneralBtn"
                                              GroupName="SettingsNav"
                                              Style="{StaticResource AppleSidebarNavButtonStyle}"
@@ -246,6 +270,7 @@
                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
+                            </Grid>
                         </ScrollViewer>
 
                         <!-- Bottom Version & Quick Tuck Footer -->
@@ -260,7 +285,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Dynamic Island" Foreground="#E2E8F0" FontSize="11" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="SidebarVersionText" Text="v1.8.0 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
+                                    <TextBlock x:Name="SidebarVersionText" Text="v1.8.1 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -308,6 +333,9 @@
                                   VerticalScrollBarVisibility="Auto"
                                   Padding="26,2,26,24">
                         <Grid x:Name="SettingsPagesHostGrid">
+                            <Grid.RenderTransform>
+                                <TranslateTransform x:Name="SettingsPageTranslate" Y="0"/>
+                            </Grid.RenderTransform>
                             <!-- ===================================================== -->
                             <!-- PAGE 0: GENERAL & SYSTEM CONTROL CENTER               -->
                             <!-- ===================================================== -->
@@ -374,23 +402,23 @@
                                                     </Grid>
 
                                                     <Grid x:Name="SettingsVolSliderHitArea"
-                                                          Height="16"
+                                                          Height="20"
                                                           Background="Transparent"
                                                           Cursor="Hand"
                                                           MouseLeftButtonDown="OnSettingsVolumeMouseDown"
                                                           MouseMove="OnSettingsVolumeMouseMove"
                                                           MouseLeftButtonUp="OnSettingsVolumeMouseUp">
                                                         <Border x:Name="SettingsVolTrackBorder"
-                                                                Height="8"
-                                                                CornerRadius="4"
-                                                                Background="#26FFFFFF"
+                                                                Height="10"
+                                                                CornerRadius="5"
+                                                                Background="#24FFFFFF"
                                                                 ClipToBounds="True"
                                                                 VerticalAlignment="Center">
                                                             <Border x:Name="SettingsVolFillBorder"
                                                                     HorizontalAlignment="Left"
                                                                     Width="90"
-                                                                    Height="8"
-                                                                    CornerRadius="4"
+                                                                    Height="10"
+                                                                    CornerRadius="5"
                                                                     Background="#38BDF8"/>
                                                         </Border>
                                                     </Grid>
@@ -437,23 +465,23 @@
                                                     </Grid>
 
                                                     <Grid x:Name="SettingsBrtSliderHitArea"
-                                                          Height="16"
+                                                          Height="20"
                                                           Background="Transparent"
                                                           Cursor="Hand"
                                                           MouseLeftButtonDown="OnSettingsBrightnessMouseDown"
                                                           MouseMove="OnSettingsBrightnessMouseMove"
                                                           MouseLeftButtonUp="OnSettingsBrightnessMouseUp">
                                                         <Border x:Name="SettingsBrtTrackBorder"
-                                                                Height="8"
-                                                                CornerRadius="4"
-                                                                Background="#26FFFFFF"
+                                                                Height="10"
+                                                                CornerRadius="5"
+                                                                Background="#24FFFFFF"
                                                                 ClipToBounds="True"
                                                                 VerticalAlignment="Center">
                                                             <Border x:Name="SettingsBrtFillBorder"
                                                                     HorizontalAlignment="Left"
                                                                     Width="90"
-                                                                    Height="8"
-                                                                    CornerRadius="4"
+                                                                    Height="10"
+                                                                    CornerRadius="5"
                                                                     Background="#FBBF24"/>
                                                         </Border>
                                                     </Grid>
@@ -534,112 +562,131 @@
                                             </Border>
                                         </Grid>
 
-                                        <!-- Row 2: Quick Action Bar (Sound, Mic, Bluetooth, Simpan, Keluar) -->
-                                        <WrapPanel Orientation="Horizontal">
-                                            <Button Style="{StaticResource IslandIconButtonStyle}"
-                                                    Padding="10,6"
-                                                    Margin="0,0,6,0"
-                                                    ToolTip="Mute / Unmute Output Audio"
-                                                    Click="OnSettingsToggleMuteClick">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Path x:Name="SettingsMuteBtnIcon"
-                                                          Data="{StaticResource GeomSpeakerOn}"
-                                                          Width="11" Height="11"
-                                                          Stretch="Uniform"
-                                                          Fill="#38BDF8"
-                                                          Margin="0,0,5,0"
-                                                          VerticalAlignment="Center"/>
-                                                    <TextBlock x:Name="SettingsMuteBtnText"
-                                                               Text="Sound: ON"
-                                                               FontSize="11"
-                                                               FontWeight="SemiBold"
-                                                               VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Button>
+                                        <!-- Row 2: Quick Action Bar (Hardware Toggles on Left, Window Actions on Right) -->
+                                        <Grid Margin="0,4,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
 
-                                            <Button Style="{StaticResource IslandIconButtonStyle}"
-                                                    Padding="10,6"
-                                                    Margin="0,0,6,0"
-                                                    ToolTip="Mute / Unmute Mikrofon"
-                                                    Click="OnSettingsToggleMicClick">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Path x:Name="SettingsMicBtnIcon"
-                                                          Data="{StaticResource GeomMicOn}"
-                                                          Width="11" Height="11"
-                                                          Stretch="Uniform"
-                                                          Fill="#22C55E"
-                                                          Margin="0,0,5,0"
-                                                          VerticalAlignment="Center"/>
-                                                    <TextBlock x:Name="SettingsMicBtnText"
-                                                               Text="Mic: ON"
-                                                               FontSize="11"
-                                                               FontWeight="SemiBold"
-                                                               VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Button>
+                                            <!-- Hardware Toggles: Sound, Mic, Bluetooth (Icon-only with glowing glass squircle) -->
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <!-- Sound / Speaker Toggle Button -->
+                                                <Button x:Name="SettingsMuteBtn"
+                                                        Style="{StaticResource IslandIconButtonStyle}"
+                                                        Width="38" Height="38"
+                                                        Padding="0"
+                                                        Margin="0,0,8,0"
+                                                        ToolTip="Output Audio: Nyala (Klik untuk Mute)"
+                                                        Click="OnSettingsToggleMuteClick">
+                                                    <Border x:Name="SettingsMuteBtnBg"
+                                                            Background="#2038BDF8"
+                                                            BorderBrush="#3538BDF8"
+                                                            BorderThickness="1"
+                                                            CornerRadius="9"
+                                                            Width="36" Height="36">
+                                                        <Path x:Name="SettingsMuteBtnIcon"
+                                                              Data="{StaticResource GeomSpeakerOn}"
+                                                              Width="15" Height="15"
+                                                              Stretch="Uniform"
+                                                              Fill="#38BDF8"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </Button>
 
-                                            <Button Style="{StaticResource IslandIconButtonStyle}"
-                                                    Padding="10,6"
-                                                    Margin="0,0,6,0"
-                                                    ToolTip="Klik: Nyalakan / Matikan Radio Bluetooth • Klik Kanan: Buka Pengaturan Pair Bluetooth"
-                                                    Click="OnSettingsToggleBluetoothClick"
-                                                    MouseRightButtonUp="OnSettingsBluetoothRightClick">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Path x:Name="SettingsBtBtnIcon"
-                                                          Data="{StaticResource GeomBluetooth}"
-                                                          Width="11" Height="11"
-                                                          Stretch="Uniform"
-                                                          Fill="#38BDF8"
-                                                          Margin="0,0,5,0"
-                                                          VerticalAlignment="Center"/>
-                                                    <TextBlock x:Name="SettingsBtBtnText"
-                                                               Text="Bluetooth: ON"
-                                                               FontSize="11"
-                                                               FontWeight="SemiBold"
-                                                               VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Button>
+                                                <!-- Microphone Toggle Button -->
+                                                <Button x:Name="SettingsMicBtn"
+                                                        Style="{StaticResource IslandIconButtonStyle}"
+                                                        Width="38" Height="38"
+                                                        Padding="0"
+                                                        Margin="0,0,8,0"
+                                                        ToolTip="Mikrofon: Aktif (Klik untuk Mute)"
+                                                        Click="OnSettingsToggleMicClick">
+                                                    <Border x:Name="SettingsMicBtnBg"
+                                                            Background="#2022C55E"
+                                                            BorderBrush="#3522C55E"
+                                                            BorderThickness="1"
+                                                            CornerRadius="9"
+                                                            Width="36" Height="36">
+                                                        <Path x:Name="SettingsMicBtnIcon"
+                                                              Data="{StaticResource GeomMicOn}"
+                                                              Width="15" Height="15"
+                                                              Stretch="Uniform"
+                                                              Fill="#22C55E"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </Button>
 
-                                            <Button Style="{StaticResource IslandIconButtonStyle}"
-                                                    Padding="10,6"
-                                                    Margin="0,0,6,0"
-                                                    ToolTip="Lipat / Simpan Dynamic Island ke tepi atas layar"
-                                                    Click="OnSettingsTuckIslandClick">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Path Data="{StaticResource GeomChevronUp}"
-                                                          Width="10" Height="10"
-                                                          Stretch="Uniform"
-                                                          Fill="#CBD5E1"
-                                                          Margin="0,0,4.5,0"
-                                                          VerticalAlignment="Center"/>
-                                                    <TextBlock Text="Simpan"
-                                                               FontSize="11"
-                                                               FontWeight="SemiBold"
-                                                               VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Button>
+                                                <!-- Bluetooth Toggle Button -->
+                                                <Button x:Name="SettingsBtBtn"
+                                                        Style="{StaticResource IslandIconButtonStyle}"
+                                                        Width="38" Height="38"
+                                                        Padding="0"
+                                                        ToolTip="Klik: Nyalakan / Matikan Bluetooth • Klik Kanan: Pairing"
+                                                        Click="OnSettingsToggleBluetoothClick"
+                                                        MouseRightButtonUp="OnSettingsBluetoothRightClick">
+                                                    <Border x:Name="SettingsBtBtnBg"
+                                                            Background="#2038BDF8"
+                                                            BorderBrush="#3538BDF8"
+                                                            BorderThickness="1"
+                                                            CornerRadius="9"
+                                                            Width="36" Height="36">
+                                                        <Path x:Name="SettingsBtBtnIcon"
+                                                              Data="{StaticResource GeomBluetooth}"
+                                                              Width="15" Height="15"
+                                                              Stretch="Uniform"
+                                                              Fill="#38BDF8"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </Button>
+                                            </StackPanel>
 
-                                            <Button Style="{StaticResource IslandIconButtonStyle}"
-                                                    Padding="10,6"
-                                                    ToolTip="Tutup aplikasi Windows Dynamic Island"
-                                                    Click="OnSettingsExitAppClick">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Path x:Name="SettingsExitBtnIcon"
-                                                          Data="{StaticResource GeomClosePower}"
-                                                          Width="10" Height="10"
-                                                          Stretch="Uniform"
-                                                          Fill="#F87171"
-                                                          Margin="0,0,4.5,0"
-                                                          VerticalAlignment="Center"/>
-                                                    <TextBlock x:Name="SettingsExitBtnText"
-                                                               Text="Keluar"
-                                                               Foreground="#F87171"
-                                                               FontSize="11"
-                                                               FontWeight="SemiBold"
-                                                               VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Button>
-                                        </WrapPanel>
+                                            <!-- Window & App Actions: Simpan Island, Keluar -->
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                        Padding="12,7"
+                                                        Margin="0,0,8,0"
+                                                        ToolTip="Lipat / Simpan Dynamic Island ke tepi atas layar"
+                                                        Click="OnSettingsTuckIslandClick">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path Data="{StaticResource GeomChevronUp}"
+                                                              Width="10.5" Height="10.5"
+                                                              Stretch="Uniform"
+                                                              Fill="#CBD5E1"
+                                                              Margin="0,0,5,0"
+                                                              VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Simpan"
+                                                                   FontSize="11"
+                                                                   FontWeight="SemiBold"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+
+                                                <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                        Padding="12,7"
+                                                        ToolTip="Tutup aplikasi Windows Dynamic Island"
+                                                        Click="OnSettingsExitAppClick">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path x:Name="SettingsExitBtnIcon"
+                                                              Data="{StaticResource GeomClosePower}"
+                                                              Width="10.5" Height="10.5"
+                                                              Stretch="Uniform"
+                                                              Fill="#F87171"
+                                                              Margin="0,0,5,0"
+                                                              VerticalAlignment="Center"/>
+                                                        <TextBlock x:Name="SettingsExitBtnText"
+                                                                   Text="Keluar"
+                                                                   Foreground="#F87171"
+                                                                   FontSize="11"
+                                                                   FontWeight="SemiBold"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
                                     </StackPanel>
                                 </Border>
 
@@ -691,26 +738,43 @@
 
                                         <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
 
-                                        <!-- Segmented Control for 80% vs 100% -->
+                                        <!-- Segmented Control for 80% vs 100% with Animated Sliding Pill -->
                                         <Border Background="#141418"
                                                 BorderBrush="#1AFFFFFF"
                                                 BorderThickness="1"
                                                 CornerRadius="8"
-                                                Padding="2">
-                                            <UniformGrid Columns="2">
-                                                <RadioButton x:Name="BatLimit80Btn"
-                                                             GroupName="BatteryChargeLimit"
-                                                             Style="{StaticResource AppleSegmentOptionStyle}"
-                                                             Content="80% Mode Sehat (Smart Charge)"
-                                                             Tag="80"
-                                                             Click="OnBatteryLimitModeClicked"/>
-                                                <RadioButton x:Name="BatLimit100Btn"
-                                                             GroupName="BatteryChargeLimit"
-                                                             Style="{StaticResource AppleSegmentOptionStyle}"
-                                                             Content="100% Kapasitas Penuh"
-                                                             Tag="100"
-                                                             Click="OnBatteryLimitModeClicked"/>
-                                            </UniformGrid>
+                                                Padding="2"
+                                                Height="36">
+                                            <Grid x:Name="BatLimitHostGrid">
+                                                <!-- Sliding Horizontal Selection Pill -->
+                                                <Border x:Name="BatLimitActivePill"
+                                                        Background="{DynamicResource SettingsSegmentActiveBgBrush}"
+                                                        BorderBrush="#25FFFFFF"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6.5"
+                                                        HorizontalAlignment="Left"
+                                                        VerticalAlignment="Stretch"
+                                                        IsHitTestVisible="False">
+                                                    <Border.RenderTransform>
+                                                        <TranslateTransform x:Name="BatLimitPillTranslate" X="0"/>
+                                                    </Border.RenderTransform>
+                                                </Border>
+
+                                                <UniformGrid Columns="2">
+                                                    <RadioButton x:Name="BatLimit80Btn"
+                                                                 GroupName="BatteryChargeLimit"
+                                                                 Style="{StaticResource AppleSlidingSegmentOptionStyle}"
+                                                                 Content="80% Mode Sehat (Smart Charge)"
+                                                                 Tag="80"
+                                                                 Click="OnBatteryLimitModeClicked"/>
+                                                    <RadioButton x:Name="BatLimit100Btn"
+                                                                 GroupName="BatteryChargeLimit"
+                                                                 Style="{StaticResource AppleSlidingSegmentOptionStyle}"
+                                                                 Content="100% Kapasitas Penuh"
+                                                                 Tag="100"
+                                                                 Click="OnBatteryLimitModeClicked"/>
+                                                </UniformGrid>
+                                            </Grid>
                                         </Border>
 
                                         <!-- Explanatory note about ASUS Battery Care Mode physics -->
@@ -844,14 +908,31 @@
                                                 BorderBrush="#1AFFFFFF"
                                                 BorderThickness="1"
                                                 CornerRadius="8"
-                                                Padding="2">
-                                            <UniformGrid Columns="5">
-                                                <RadioButton x:Name="SizeAutoBtn" GroupName="NotchSize" Style="{StaticResource AppleSegmentOptionStyle}" Content="Auto" Tag="0" Click="OnNotchSizeClicked"/>
-                                                <RadioButton x:Name="Size100Btn" GroupName="NotchSize" Style="{StaticResource AppleSegmentOptionStyle}" Content="100%" Tag="100" Click="OnNotchSizeClicked"/>
-                                                <RadioButton x:Name="Size115Btn" GroupName="NotchSize" Style="{StaticResource AppleSegmentOptionStyle}" Content="115%" Tag="115" Click="OnNotchSizeClicked"/>
-                                                <RadioButton x:Name="Size130Btn" GroupName="NotchSize" Style="{StaticResource AppleSegmentOptionStyle}" Content="130%" Tag="130" Click="OnNotchSizeClicked"/>
-                                                <RadioButton x:Name="Size150Btn" GroupName="NotchSize" Style="{StaticResource AppleSegmentOptionStyle}" Content="150%" Tag="150" Click="OnNotchSizeClicked"/>
-                                            </UniformGrid>
+                                                Padding="2"
+                                                Height="34">
+                                            <Grid x:Name="NotchSizeHostGrid">
+                                                <!-- Sliding Horizontal Selection Pill -->
+                                                <Border x:Name="NotchSizeActivePill"
+                                                        Background="{DynamicResource SettingsSegmentActiveBgBrush}"
+                                                        BorderBrush="#25FFFFFF"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6.5"
+                                                        HorizontalAlignment="Left"
+                                                        VerticalAlignment="Stretch"
+                                                        IsHitTestVisible="False">
+                                                    <Border.RenderTransform>
+                                                        <TranslateTransform x:Name="NotchSizePillTranslate" X="0"/>
+                                                    </Border.RenderTransform>
+                                                </Border>
+
+                                                <UniformGrid Columns="5">
+                                                    <RadioButton x:Name="SizeAutoBtn" GroupName="NotchSize" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="Auto" Tag="0" Click="OnNotchSizeClicked"/>
+                                                    <RadioButton x:Name="Size100Btn" GroupName="NotchSize" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="100%" Tag="100" Click="OnNotchSizeClicked"/>
+                                                    <RadioButton x:Name="Size115Btn" GroupName="NotchSize" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="115%" Tag="115" Click="OnNotchSizeClicked"/>
+                                                    <RadioButton x:Name="Size130Btn" GroupName="NotchSize" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="130%" Tag="130" Click="OnNotchSizeClicked"/>
+                                                    <RadioButton x:Name="Size150Btn" GroupName="NotchSize" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="150%" Tag="150" Click="OnNotchSizeClicked"/>
+                                                </UniformGrid>
+                                            </Grid>
                                         </Border>
 
                                         <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
@@ -909,13 +990,30 @@
                                                 BorderThickness="1"
                                                 CornerRadius="8"
                                                 Padding="2"
+                                                Height="34"
                                                 Margin="0,10,0,0">
-                                            <UniformGrid Columns="4">
-                                                <RadioButton x:Name="Tuck5sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSegmentOptionStyle}" Content="5 Detik" Tag="5" Click="OnTuckDelayClicked"/>
-                                                <RadioButton x:Name="Tuck10sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSegmentOptionStyle}" Content="10 Detik" Tag="10" Click="OnTuckDelayClicked"/>
-                                                <RadioButton x:Name="Tuck15sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSegmentOptionStyle}" Content="15 Detik" Tag="15" Click="OnTuckDelayClicked"/>
-                                                <RadioButton x:Name="Tuck30sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSegmentOptionStyle}" Content="30 Detik" Tag="30" Click="OnTuckDelayClicked"/>
-                                            </UniformGrid>
+                                            <Grid x:Name="TuckDelayHostGrid">
+                                                <!-- Sliding Horizontal Selection Pill -->
+                                                <Border x:Name="TuckDelayActivePill"
+                                                        Background="{DynamicResource SettingsSegmentActiveBgBrush}"
+                                                        BorderBrush="#25FFFFFF"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6.5"
+                                                        HorizontalAlignment="Left"
+                                                        VerticalAlignment="Stretch"
+                                                        IsHitTestVisible="False">
+                                                    <Border.RenderTransform>
+                                                        <TranslateTransform x:Name="TuckDelayPillTranslate" X="0"/>
+                                                    </Border.RenderTransform>
+                                                </Border>
+
+                                                <UniformGrid Columns="4">
+                                                    <RadioButton x:Name="Tuck5sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="5 Detik" Tag="5" Click="OnTuckDelayClicked"/>
+                                                    <RadioButton x:Name="Tuck10sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="10 Detik" Tag="10" Click="OnTuckDelayClicked"/>
+                                                    <RadioButton x:Name="Tuck15sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="15 Detik" Tag="15" Click="OnTuckDelayClicked"/>
+                                                    <RadioButton x:Name="Tuck30sBtn" GroupName="TuckDelay" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="30 Detik" Tag="30" Click="OnTuckDelayClicked"/>
+                                                </UniformGrid>
+                                            </Grid>
                                         </Border>
 
                                         <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
@@ -1128,7 +1226,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock x:Name="SettingsUpdateTitleText"
-                                                       Text="Windows Dynamic Island v1.8.0"
+                                                       Text="Windows Dynamic Island v1.8.1"
                                                        Foreground="#F8FAFC"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"/>

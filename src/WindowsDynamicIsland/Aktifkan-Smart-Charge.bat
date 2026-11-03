@@ -20,3 +20,4 @@ echo akan langsung mengontrol arus pengisian baterai secara instan & senyap.
 echo ======================================================================
 echo.
 pause
+

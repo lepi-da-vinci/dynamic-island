@@ -166,9 +166,33 @@ public sealed class BatteryChargeLimitService
         }
     }
 
-    public bool IsHardwareTaskRegistered =>
-        File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "Tasks", "WindowsDynamicIsland-Battery80")) ||
-        File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "Tasks", "WindowsDynamicIsland-Battery100"));
+    public bool IsHardwareTaskRegistered
+    {
+        get
+        {
+            try
+            {
+                var tsType = Type.GetTypeFromProgID("Schedule.Service");
+                if (tsType == null) return false;
+                dynamic ts = Activator.CreateInstance(tsType)!;
+                ts.Connect();
+                dynamic root = ts.GetFolder(@"\");
+                try
+                {
+                    dynamic task = root.GetTask("WindowsDynamicIsland-Battery80");
+                    return task != null;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
     private static bool IsCurrentProcessElevated()
     {
@@ -240,20 +264,36 @@ public sealed class BatteryChargeLimitService
     {
         try
         {
-            var proc = Process.GetProcessesByName("AsusOptimizationStartupTask").FirstOrDefault();
-            string? exePath = null;
-            if (proc != null)
+            // 1. Signal Win32 Named Events listened by ASUSOptimization service
+            try
             {
-                try { exePath = proc.MainModule?.FileName; } catch { }
+                string eventName = limitPercent == 100
+                    ? @"Global\ASUS ASLDRSrv Battery Health Charging Full Charge Event"
+                    : @"Global\ASUS ASLDRSrv Battery Health Charging Deferred Event";
+
+                using var ev = System.Threading.EventWaitHandle.OpenExisting(eventName);
+                ev.Set();
+                AppLogger.LogInfo("BatteryChargeLimitService", $"Signaled ASUS event: {eventName}");
+            }
+            catch (Exception evEx)
+            {
+                AppLogger.LogWarning("BatteryChargeLimitService", $"Could not signal ASUS event: {evEx.Message}");
             }
 
-            if (string.IsNullOrEmpty(exePath))
+            // 2. Locate AsusOptimizationStartupTask.exe safely without Process.MainModule (which throws Win32 Access Denied)
+            string? exePath = null;
+            string driverStore = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "DriverStore", "FileRepository");
+            if (Directory.Exists(driverStore))
             {
-                string driverStore = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "DriverStore", "FileRepository");
-                if (Directory.Exists(driverStore))
+                var dirs = Directory.GetDirectories(driverStore, "asussci2.inf_*");
+                foreach (var dir in dirs)
                 {
-                    var files = Directory.GetFiles(driverStore, "AsusOptimizationStartupTask.exe", SearchOption.AllDirectories);
-                    exePath = files.FirstOrDefault();
+                    string candidate = Path.Combine(dir, "ASUSOptimization", "AsusOptimizationStartupTask.exe");
+                    if (File.Exists(candidate))
+                    {
+                        exePath = candidate;
+                        break;
+                    }
                 }
             }
 
@@ -262,19 +302,19 @@ public sealed class BatteryChargeLimitService
                 var psi = new ProcessStartInfo
                 {
                     FileName = exePath,
-                    Arguments = $"-BICustomization {limitPercent}",
+                    Arguments = $"-bicustomization {limitPercent}",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
                 };
                 using var p = Process.Start(psi);
-                p?.WaitForExit(1500);
-                AppLogger.LogInfo("BatteryChargeLimitService", $"Notified AsusOptimizationStartupTask -BICustomization {limitPercent}");
+                p?.WaitForExit(2000);
+                AppLogger.LogInfo("BatteryChargeLimitService", $"Executed AsusOptimizationStartupTask -bicustomization {limitPercent}");
             }
         }
         catch (Exception ex)
         {
-            AppLogger.LogWarning("BatteryChargeLimitService", $"AsusOptimizationStartupTask notification skipped: {ex.Message}");
+            AppLogger.LogWarning("BatteryChargeLimitService", $"NotifyAsusOptimizationService skipped: {ex.Message}");
         }
     }
 
@@ -283,29 +323,30 @@ public sealed class BatteryChargeLimitService
         try
         {
             string taskName = $"WindowsDynamicIsland-Battery{limitPercent}";
-            string taskPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "Tasks", taskName);
 
-            // Tier 1: Zero-UAC Scheduled Task (SYSTEM execution, instant & silent)
-            if (File.Exists(taskPath))
+            // Tier 1: Zero-UAC Scheduled Task (runs as SYSTEM with highest privileges)
+            var psi = new ProcessStartInfo
             {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "schtasks.exe",
-                    Arguments = $"/run /tn \"{taskName}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                };
-                using var p = Process.Start(psi);
-                p?.WaitForExit(2000);
+                FileName = "schtasks.exe",
+                Arguments = $"/run /tn \"{taskName}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            using var p = Process.Start(psi);
+            p?.WaitForExit(3000);
+            if (p != null && p.ExitCode == 0)
+            {
                 AppLogger.LogInfo("BatteryChargeLimitService", $"Dispatched zero-UAC scheduled task: {taskName}");
                 return;
             }
 
+            AppLogger.LogWarning("BatteryChargeLimitService", $"schtasks /run /tn \"{taskName}\" exited with code {p?.ExitCode}.");
+
             // Tier 2: Already elevated process
             if (IsCurrentProcessElevated())
             {
-                var psi = new ProcessStartInfo
+                var psiElevated = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
                     Arguments = $"-NoProfile -WindowStyle Hidden -Command \"try {{ Invoke-CimMethod -Namespace root/wmi -ClassName AsusAtkWmi_WMNB -MethodName DEVS -Arguments @{{Device_ID=[uint32]0x00120057; Control_status=[uint32]{limitPercent}}} }} catch {{ (Get-WmiObject -Namespace root/wmi -Class AsusAtkWmi_WMNB).DEVS(0x00120057, {limitPercent}) }}\"",
@@ -314,8 +355,8 @@ public sealed class BatteryChargeLimitService
                     WindowStyle = ProcessWindowStyle.Hidden
                 };
 
-                using var p = Process.Start(psi);
-                p?.WaitForExit(2000);
+                using var pElev = Process.Start(psiElevated);
+                pElev?.WaitForExit(2000);
                 AppLogger.LogInfo("BatteryChargeLimitService", $"Dispatched elevated ASUS WMI DEVS command: {limitPercent}%");
                 return;
             }

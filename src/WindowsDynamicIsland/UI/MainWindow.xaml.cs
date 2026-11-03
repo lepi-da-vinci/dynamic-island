@@ -1065,31 +1065,45 @@ public partial class MainWindow : Window
 
             _previousActiveTab = newTab;
 
-            double startOffset = direction * 65.0;
+            double startOffset = direction * 85.0;
 
             TabContentTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+            TabContentScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            TabContentScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
             TabContentContainer.BeginAnimation(UIElement.OpacityProperty, null);
 
             TabContentTranslate.X = startOffset;
-            TabContentContainer.Opacity = 0.25;
+            TabContentScale.ScaleX = 0.97;
+            TabContentScale.ScaleY = 0.97;
+            TabContentContainer.Opacity = 0.15;
 
             var slideAnimation = new DoubleAnimation
             {
                 From = startOffset,
                 To = 0.0,
-                Duration = TimeSpan.FromMilliseconds(260),
-                EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut }
+                Duration = TimeSpan.FromMilliseconds(280),
+                EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            var scaleAnimation = new DoubleAnimation
+            {
+                From = 0.97,
+                To = 1.0,
+                Duration = TimeSpan.FromMilliseconds(280),
+                EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
             };
 
             var fadeAnimation = new DoubleAnimation
             {
-                From = 0.25,
+                From = 0.15,
                 To = 1.0,
-                Duration = TimeSpan.FromMilliseconds(220),
+                Duration = TimeSpan.FromMilliseconds(240),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             };
 
             TabContentTranslate.BeginAnimation(TranslateTransform.XProperty, slideAnimation);
+            TabContentScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimation);
+            TabContentScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnimation);
             TabContentContainer.BeginAnimation(UIElement.OpacityProperty, fadeAnimation);
         }
         catch (Exception ex)
@@ -1162,9 +1176,9 @@ public partial class MainWindow : Window
             if (_leftWingWidth > 1.0)
             {
                 LeftWingContainer.Visibility = Visibility.Visible;
-                LeftWingContainer.Opacity = Math.Clamp((_leftWingWidth - 8.0) / 50.0, 0.0, 1.0);
-                LeftWingTranslate.X = (76.0 - _leftWingWidth) * 0.35;
-                LeftWingContainer.IsHitTestVisible = _leftWingWidth > 32.0;
+                LeftWingContainer.Opacity = Math.Clamp((_leftWingWidth - 6.0) / 45.0, 0.0, 1.0);
+                LeftWingTranslate.X = (56.0 - _leftWingWidth) * 0.35;
+                LeftWingContainer.IsHitTestVisible = _leftWingWidth > 24.0;
             }
             else
             {
@@ -1177,9 +1191,9 @@ public partial class MainWindow : Window
             if (_rightWingWidth > 1.0)
             {
                 RightWingContainer.Visibility = Visibility.Visible;
-                RightWingContainer.Opacity = Math.Clamp((_rightWingWidth - 8.0) / 50.0, 0.0, 1.0);
-                RightWingTranslate.X = (_rightWingWidth - 76.0) * 0.35;
-                RightWingContainer.IsHitTestVisible = _rightWingWidth > 32.0;
+                RightWingContainer.Opacity = Math.Clamp((_rightWingWidth - 6.0) / 45.0, 0.0, 1.0);
+                RightWingTranslate.X = (_rightWingWidth - 56.0) * 0.35;
+                RightWingContainer.IsHitTestVisible = _rightWingWidth > 24.0;
             }
             else
             {
@@ -1219,8 +1233,9 @@ public partial class MainWindow : Window
             IslandBorder.Width = bodyWidth;
             IslandBorder.Height = height;
 
-            LeftWingContainer.Margin = new Thickness(34, 52 + yTop, 0, 0);
-            RightWingContainer.Margin = new Thickness(650, 52 + yTop, 0, 0);
+            double wingY = Math.Max(0.0, yTop + (height - 120.0) / 2.0);
+            LeftWingContainer.Margin = new Thickness(contentLeft - 56.0, wingY, 0, 0);
+            RightWingContainer.Margin = new Thickness(contentLeft + bodyWidth, wingY, 0, 0);
 
             double xLeftBody = contentLeft - _leftWingWidth;
             double xRightBody = contentLeft + bodyWidth + _rightWingWidth;
@@ -2719,13 +2734,13 @@ public partial class MainWindow : Window
 
         if (_hoveredSideZone == -1)
         {
-            _targetLeftWingWidth = 76.0;
+            _targetLeftWingWidth = 56.0;
             _targetRightWingWidth = 0.0;
         }
         else if (_hoveredSideZone == 1)
         {
             _targetLeftWingWidth = 0.0;
-            _targetRightWingWidth = 76.0;
+            _targetRightWingWidth = 56.0;
         }
         else
         {
@@ -3147,7 +3162,17 @@ public partial class MainWindow : Window
 
             void SetDot(Border dot, bool isActive)
             {
-                dot.Width = isActive ? 16 : 4;
+                double targetWidth = isActive ? 18.0 : 4.5;
+                if (Math.Abs(dot.Width - targetWidth) > 0.5)
+                {
+                    var anim = new DoubleAnimation
+                    {
+                        To = targetWidth,
+                        Duration = TimeSpan.FromMilliseconds(240),
+                        EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
+                    };
+                    dot.BeginAnimation(FrameworkElement.WidthProperty, anim);
+                }
                 dot.Background = isActive ? activeDotBrush : inactiveDotBrush;
             }
         }
@@ -3727,7 +3752,11 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (_settingsWindow == null || !_settingsWindow.IsLoaded)
+            // Smoothly tuck/collapse Dynamic Island into the notch as Settings blooms out
+            _stateMachine.SetHovered(false);
+            _stateMachine.SetTuckedMode(true);
+
+            if (_settingsWindow == null)
             {
                 _settingsWindow = new SettingsWindow(
                     _settingsService,
@@ -3739,21 +3768,26 @@ public partial class MainWindow : Window
                     _fileShelfService,
                     () => OnManualTuckClick(this, new RoutedEventArgs()),
                     _batteryLimitService);
-                _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-                _settingsWindow.SelectCategory(categoryIndex);
-                _settingsWindow.Show();
-                _settingsWindow.Activate();
-            }
-            else
-            {
-                if (_settingsWindow.WindowState == WindowState.Minimized)
+
+                _settingsWindow.ClosedCallback = () =>
                 {
-                    _settingsWindow.WindowState = WindowState.Normal;
-                }
-                _settingsWindow.SelectCategory(categoryIndex);
-                _settingsWindow.Activate();
-                _settingsWindow.Focus();
+                    Dispatcher.InvokeAsync(async () =>
+                    {
+                        await Task.Delay(160);
+                        _stateMachine.SetTuckedMode(false);
+                    });
+                };
             }
+
+            if (_settingsWindow.WindowState == WindowState.Minimized)
+            {
+                _settingsWindow.WindowState = WindowState.Normal;
+            }
+            _settingsWindow.SelectCategory(categoryIndex);
+            _settingsWindow.Show();
+            _settingsWindow.Activate();
+            _settingsWindow.Focus();
+            _settingsWindow.PlayDropletEntranceAnimation();
         }
         catch (Exception ex)
         {
