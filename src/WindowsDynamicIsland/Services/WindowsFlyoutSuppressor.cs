@@ -6,8 +6,8 @@ using WindowsDynamicIsland.Core;
 namespace WindowsDynamicIsland.Services;
 
 /// <summary>
-/// Suppresses the default Windows 10/11 volume and brightness on-screen display (OSD) flyouts
-/// so that only Dynamic Island's modern HUD appears on screen.
+/// Suppresses default Windows 10/11 volume and brightness on-screen display (OSD) flyouts
+/// while strictly preserving Alt+Tab, Win+Tab (Task View), Start Menu, and Quick Settings.
 /// </summary>
 public sealed class WindowsFlyoutSuppressor : IDisposable
 {
@@ -42,6 +42,24 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
 
     private readonly WinEventDelegate _winEventDelegate;
     private IntPtr _hook;
@@ -91,7 +109,6 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
             AppLogger.LogWarning("WindowsFlyoutSuppressor", $"Could not set win event hook: {ex.Message}");
         }
 
-        // Suppress any currently visible flyouts immediately
         SuppressOnce();
     }
 
@@ -114,7 +131,6 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
     {
         try
         {
-            // Windows 10/11 common host classes
             string[] hostClasses = ["NativeHWNDHost", "XamlExplorerHostIslandWindow"];
 
             foreach (var cls in hostClasses)
@@ -122,9 +138,7 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
                 IntPtr hwnd = IntPtr.Zero;
                 while ((hwnd = FindWindowEx(IntPtr.Zero, hwnd, cls, null)) != IntPtr.Zero)
                 {
-                    // Check if child DirectUIHWND or related OSD exists
-                    IntPtr child = FindWindowEx(hwnd, IntPtr.Zero, "DirectUIHWND", null);
-                    if (child != IntPtr.Zero || cls == "XamlExplorerHostIslandWindow")
+                    if (IsVolumeOrBrightnessFlyout(hwnd, cls))
                     {
                         ShowWindow(hwnd, SW_HIDE);
                         SetWindowPos(hwnd, IntPtr.Zero, -10000, -10000, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_HIDEWINDOW);
@@ -138,6 +152,58 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
         }
     }
 
+    /// <summary>
+    /// Strict heuristic to determine whether a given window is specifically the volume or brightness OSD flyout,
+    /// and definitely NOT Alt+Tab (Task Switching), Win+Tab (Task View), Start Menu, or Notification Center.
+    /// </summary>
+    private static bool IsVolumeOrBrightnessFlyout(IntPtr hwnd, string cls)
+    {
+        if (hwnd == IntPtr.Zero) return false;
+
+        // 1. Title verification: Native volume/brightness OSDs have an empty title.
+        // Alt+Tab, Task View, Start Menu, Quick Settings, etc. all have non-empty titles.
+        if (GetWindowTextLength(hwnd) > 0) return false;
+
+        // 2. Strict dimension verification:
+        // Native volume/brightness flyout is a small horizontal pill (~180-340px wide, ~40-90px high).
+        // Alt+Tab, Task View, Start Menu, and Quick Settings are vastly larger.
+        if (!GetWindowRect(hwnd, out RECT rect)) return false;
+        int w = rect.Right - rect.Left;
+        int h = rect.Bottom - rect.Top;
+        if (w < 80 || w > 420 || h < 25 || h > 130) return false;
+
+        // 3. Process verification: must belong to Windows Shell (explorer.exe or ShellExperienceHost.exe)
+        GetWindowThreadProcessId(hwnd, out uint pid);
+        if (pid == 0) return false;
+        try
+        {
+            using var proc = Process.GetProcessById((int)pid);
+            string pname = proc.ProcessName.ToLowerInvariant();
+            if (pname != "explorer" && pname != "shellexperiencehost") return false;
+        }
+        catch
+        {
+            return false;
+        }
+
+        // 4. Child hierarchy verification:
+        if (cls == "NativeHWNDHost")
+        {
+            // Windows 10 OSD contains DirectUIHWND
+            IntPtr directUI = FindWindowEx(hwnd, IntPtr.Zero, "DirectUIHWND", null);
+            return directUI != IntPtr.Zero;
+        }
+        else if (cls == "XamlExplorerHostIslandWindow")
+        {
+            // Windows 11 OSD contains composition bridge or xaml source
+            IntPtr bridge = FindWindowEx(hwnd, IntPtr.Zero, "Windows.UI.Composition.DesktopWindowContentBridge", null);
+            IntPtr xamlSource = FindWindowEx(hwnd, IntPtr.Zero, "DesktopWindowXamlSource", null);
+            return bridge != IntPtr.Zero || xamlSource != IntPtr.Zero;
+        }
+
+        return false;
+    }
+
     private void OnWinEvent(
         IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
@@ -145,11 +211,12 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
 
         try
         {
-            var sb = new StringBuilder(128);
-            if (GetClassName(hwnd, sb, 128) > 0)
+            var sb = new StringBuilder(64);
+            if (GetClassName(hwnd, sb, 64) > 0)
             {
                 string cls = sb.ToString();
-                if (cls == "NativeHWNDHost" || cls == "XamlExplorerHostIslandWindow")
+                if ((cls == "NativeHWNDHost" || cls == "XamlExplorerHostIslandWindow") &&
+                    IsVolumeOrBrightnessFlyout(hwnd, cls))
                 {
                     ShowWindow(hwnd, SW_HIDE);
                     SetWindowPos(hwnd, IntPtr.Zero, -10000, -10000, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_HIDEWINDOW);
@@ -167,4 +234,3 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
         Stop();
     }
 }
-
