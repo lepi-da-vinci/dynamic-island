@@ -68,6 +68,7 @@ public sealed class AppSettingsData
 
     // HUD, Popups & Smart Features
     public bool VolumeBrightnessHudEnabled { get; set; } = true;
+    public bool SuppressWindowsNativeOsd { get; set; } = true;
     public bool BatteryToastEnabled { get; set; } = true;
     public bool Battery80PercentAlertEnabled { get; set; } = true;
     public bool BluetoothToastEnabled { get; set; } = true;
@@ -591,6 +592,18 @@ public sealed class AppSettingsService
         {
             if (_data.VolumeBrightnessHudEnabled == value) return;
             _data.VolumeBrightnessHudEnabled = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool SuppressWindowsNativeOsd
+    {
+        get => _data.SuppressWindowsNativeOsd;
+        set
+        {
+            if (_data.SuppressWindowsNativeOsd == value) return;
+            _data.SuppressWindowsNativeOsd = value;
             Save();
             SettingsChanged?.Invoke();
         }

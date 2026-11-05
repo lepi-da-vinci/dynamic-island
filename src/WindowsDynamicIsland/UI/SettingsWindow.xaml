@@ -285,7 +285,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Dynamic Island" Foreground="#E2E8F0" FontSize="11" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="SidebarVersionText" Text="v1.9.0 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
+                                    <TextBlock x:Name="SidebarVersionText" Text="v1.10.0 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -710,27 +710,24 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Batas Pengisian Daya (Hardware Smart Charge)"
+                                                <TextBlock Text="Kontrol Daya Sistem"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
                                                            FontWeight="SemiBold"/>
-                                                <TextBlock x:Name="BatteryChargeLimitDescText"
-                                                           Text="Kontrol arus fisik motherboard untuk memperpanjang usia baterai lithium"
+                                                <TextBlock Text="Aksi daya cepat untuk menghemat baterai atau menidurkan sistem seketika"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
                                                            Margin="0,2,0,0"/>
                                             </StackPanel>
-                                            <Border x:Name="BatteryLimitStatusBadge"
-                                                    Grid.Column="1"
-                                                    Background="#2222C55E"
-                                                    BorderBrush="#4422C55E"
+                                            <Border Grid.Column="1"
+                                                    Background="#2038BDF8"
+                                                    BorderBrush="#3538BDF8"
                                                     BorderThickness="1"
                                                     CornerRadius="6"
                                                     Padding="8,3"
                                                     VerticalAlignment="Center">
-                                                <TextBlock x:Name="BatteryLimitStatusBadgeText"
-                                                           Text="80% Aktif"
-                                                           Foreground="#22C55E"
+                                                <TextBlock Text="Siap Digunakan"
+                                                           Foreground="#38BDF8"
                                                            FontSize="10.5"
                                                            FontWeight="Bold"/>
                                             </Border>
@@ -738,109 +735,98 @@
 
                                         <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
 
-                                        <!-- Segmented Control for 80% vs 100% with Animated Sliding Pill -->
-                                        <Border Background="#141418"
-                                                BorderBrush="#1AFFFFFF"
-                                                BorderThickness="1"
-                                                CornerRadius="8"
-                                                Padding="2"
-                                                Height="36">
-                                            <Grid x:Name="BatLimitHostGrid">
-                                                <!-- Sliding Horizontal Selection Pill -->
-                                                <Border x:Name="BatLimitActivePill"
-                                                        Background="{DynamicResource SettingsSegmentActiveBgBrush}"
-                                                        BorderBrush="#25FFFFFF"
-                                                        BorderThickness="1"
-                                                        CornerRadius="6.5"
-                                                        HorizontalAlignment="Left"
-                                                        VerticalAlignment="Stretch"
-                                                        IsHitTestVisible="False">
-                                                    <Border.RenderTransform>
-                                                        <TranslateTransform x:Name="BatLimitPillTranslate" X="0"/>
-                                                    </Border.RenderTransform>
-                                                </Border>
+                                        <!-- Sleek Apple Glass Power Buttons (Sleep & Hibernate) -->
+                                        <Grid Margin="0,2,0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="12"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
 
-                                                <UniformGrid Columns="2">
-                                                    <RadioButton x:Name="BatLimit80Btn"
-                                                                 GroupName="BatteryChargeLimit"
-                                                                 Style="{StaticResource AppleSlidingSegmentOptionStyle}"
-                                                                 Content="80% Mode Sehat (Smart Charge)"
-                                                                 Tag="80"
-                                                                 Click="OnBatteryLimitModeClicked"/>
-                                                    <RadioButton x:Name="BatLimit100Btn"
-                                                                 GroupName="BatteryChargeLimit"
-                                                                 Style="{StaticResource AppleSlidingSegmentOptionStyle}"
-                                                                 Content="100% Kapasitas Penuh"
-                                                                 Tag="100"
-                                                                 Click="OnBatteryLimitModeClicked"/>
-                                                </UniformGrid>
-                                            </Grid>
-                                        </Border>
+                                            <!-- Mode Tidur (Sleep) -->
+                                            <Button Grid.Column="0"
+                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                    Background="#14FFFFFF"
+                                                    BorderBrush="#25FFFFFF"
+                                                    BorderThickness="1"
+                                                    Height="56"
+                                                    Padding="12,8"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    Click="OnSleepButtonClicked">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0"
+                                                            Width="36" Height="36"
+                                                            CornerRadius="10"
+                                                            Background="#2038BDF8"
+                                                            BorderBrush="#3538BDF8"
+                                                            BorderThickness="1"
+                                                            VerticalAlignment="Center">
+                                                        <Path Data="{StaticResource GeomMoon}"
+                                                              Width="16" Height="16"
+                                                              Stretch="Uniform"
+                                                              Fill="#38BDF8"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="Mode Tidur (Sleep)"
+                                                                   Foreground="#F8FAFC"
+                                                                   FontSize="12.5"
+                                                                   FontWeight="SemiBold"/>
+                                                        <TextBlock Text="Stand-by hemat daya"
+                                                                   Foreground="#94A3B8"
+                                                                   FontSize="10.5"
+                                                                   Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Button>
 
-                                        <!-- Explanatory note about ASUS Battery Care Mode physics -->
-                                        <Border Background="#0CFFFFFF"
-                                                BorderBrush="#15FFFFFF"
-                                                BorderThickness="1"
-                                                CornerRadius="8"
-                                                Padding="10,7"
-                                                Margin="0,8,0,0">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="18"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Path Data="{StaticResource GeomBatteryHealth}"
-                                                      Width="12" Height="12"
-                                                      Stretch="Uniform"
-                                                      Fill="#38BDF8"
-                                                      VerticalAlignment="Top"
-                                                      Margin="0,2,0,0"/>
-                                                <TextBlock Grid.Column="1"
-                                                           Text="Catatan Hardware: Jika baterai saat ini sudah di atas 80% (misal 98%), cabut charger dan gunakan laptop hingga baterai turun ke bawah 80% (misal 78%), lalu pasang kembali. Pengisian akan otomatis berhenti tepat di 80%."
-                                                           Foreground="#94A3B8"
-                                                           FontSize="10.5"
-                                                           TextWrapping="Wrap"
-                                                           LineHeight="14.5"
-                                                           Margin="6,0,0,0"/>
-                                            </Grid>
-                                        </Border>
-
-                                        <!-- Optional Setup Banner if tasks need 1-time activation -->
-                                        <Border x:Name="BatteryHardwareActivationPanel"
-                                                Visibility="Collapsed"
-                                                Background="#141E28"
-                                                BorderBrush="#2538BDF8"
-                                                BorderThickness="1"
-                                                CornerRadius="8"
-                                                Padding="10,8"
-                                                Margin="0,10,0,0">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                    <TextBlock Text="Aktivasi Kontrol Motherboard (1x Klik)"
-                                                               Foreground="#38BDF8"
-                                                               FontSize="11"
-                                                               FontWeight="SemiBold"/>
-                                                    <TextBlock Text="Diperlukan agar peralihan 80% &amp; 100% senyap tanpa popup Windows."
-                                                               Foreground="#94A3B8"
-                                                               FontSize="10"
-                                                               Margin="0,1,0,0"/>
-                                                </StackPanel>
-                                                <Button Grid.Column="1"
-                                                        Style="{StaticResource IslandIconButtonStyle}"
-                                                        Padding="10,5"
-                                                        VerticalAlignment="Center"
-                                                        Click="OnActivateBatteryHardwareTaskClick">
-                                                    <TextBlock Text="Izinkan Akses"
-                                                               Foreground="#38BDF8"
-                                                               FontSize="10.5"
-                                                               FontWeight="SemiBold"/>
-                                                </Button>
-                                            </Grid>
-                                        </Border>
+                                            <!-- Hibernasi (Hibernate) -->
+                                            <Button Grid.Column="2"
+                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                    Background="#14FFFFFF"
+                                                    BorderBrush="#25FFFFFF"
+                                                    BorderThickness="1"
+                                                    Height="56"
+                                                    Padding="12,8"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    Click="OnHibernateButtonClicked">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0"
+                                                            Width="36" Height="36"
+                                                            CornerRadius="10"
+                                                            Background="#20A855F7"
+                                                            BorderBrush="#35A855F7"
+                                                            BorderThickness="1"
+                                                            VerticalAlignment="Center">
+                                                        <Path Data="{StaticResource GeomPower}"
+                                                              Width="16" Height="16"
+                                                              Stretch="Uniform"
+                                                              Fill="#A855F7"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="Hibernasi (Hibernate)"
+                                                                   Foreground="#F8FAFC"
+                                                                   FontSize="12.5"
+                                                                   FontWeight="SemiBold"/>
+                                                        <TextBlock Text="Simpan sesi &amp; matikan"
+                                                                   Foreground="#94A3B8"
+                                                                   FontSize="10.5"
+                                                                   Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Button>
+                                        </Grid>
                                     </StackPanel>
                                 </Border>
 
@@ -1226,7 +1212,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock x:Name="SettingsUpdateTitleText"
-                                                       Text="Windows Dynamic Island v1.9.0"
+                                                       Text="Windows Dynamic Island v1.10.0"
                                                        Foreground="#F8FAFC"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"/>
@@ -2176,6 +2162,30 @@
                                                            Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkVolumeBrightnessHud"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnSettingToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Sembunyikan OSD Bawaan Windows"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="Cegah pop-up volume &amp; kecerahan bawaan Windows agar hanya Dynamic Island yang tampil"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkSuppressWindowsNativeOsd"
                                                       Grid.Column="1"
                                                       Style="{StaticResource AppleToggleSwitchStyle}"
                                                       VerticalAlignment="Center"

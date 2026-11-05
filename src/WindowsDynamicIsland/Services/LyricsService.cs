@@ -15,7 +15,8 @@ public sealed record ActiveLyricSnapshot(
     string CurrentLine,
     string NextLine,
     double LineProgressRatio,
-    bool IsSynced);
+    bool IsSynced,
+    string? CurrentRomanizedLine = null);
 
 public sealed partial class LyricsService
 {
@@ -186,7 +187,31 @@ public sealed partial class LyricsService
         }
         catch { }
 
-        // 4. Provider 2: Lyrics.ovh API (strict exact artist/title path match)
+        // 4. Provider 2: NetEase Cloud Music (music.163.com) with duration tolerance check (huge database for Asian & Western music)
+        try
+        {
+            foreach (var (qTitle, qArtist) in queryPairs.Take(2))
+            {
+                string? neteaseLrc = await FetchFromNetEaseAsync(qTitle, qArtist, durationSeconds);
+                if (reqId != Volatile.Read(ref _requestVersion)) return;
+
+                if (!string.IsNullOrWhiteSpace(neteaseLrc))
+                {
+                    var lines = ParseLrc(neteaseLrc);
+                    if (lines.Count > 0 && IsTimelineCompatibleWithDuration(lines, durationSeconds))
+                    {
+                        _currentLines = lines;
+                        StatusMessage = "Lirik sinkron (NetEase)";
+                        await TrySaveCacheAsync(cacheFile, neteaseLrc);
+                        LyricsUpdated?.Invoke();
+                        return;
+                    }
+                }
+            }
+        }
+        catch { }
+
+        // 5. Provider 3: Lyrics.ovh API (strict exact artist/title path match)
         try
         {
             foreach (var (qTitle, qArtist) in queryPairs.Take(2))
@@ -292,6 +317,8 @@ public sealed partial class LyricsService
             ? _currentLines[activeIndex + 1].Text
             : "• • •";
 
+        string? romanized = RomajiTransliterationService.Transliterate(current);
+
         double progress = 1.0;
         if (activeIndex + 1 < _currentLines.Count)
         {
@@ -310,7 +337,8 @@ public sealed partial class LyricsService
             CurrentLine: current,
             NextLine: next,
             LineProgressRatio: progress,
-            IsSynced: true);
+            IsSynced: true,
+            CurrentRomanizedLine: romanized);
     }
 
     private static List<(string Title, string Artist)> BuildCandidateQueries(string cleanTitle, string cleanArtist)
@@ -652,6 +680,87 @@ public sealed partial class LyricsService
         // Last lyric line shouldn't appear way past the actual video/song duration
         double lastLineSec = lines[^1].Timestamp.TotalSeconds;
         return lastLineSec <= durationSeconds + 25.0;
+    }
+
+    private static async Task<string?> FetchFromNetEaseAsync(string title, string artist, double durationSeconds)
+    {
+        try
+        {
+            string q = string.IsNullOrWhiteSpace(artist) ? title : $"{artist} {title}";
+            string searchUrl = $"http://music.163.com/api/cloudsearch/pc?s={Uri.EscapeDataString(q)}&type=1&offset=0&limit=5";
+
+            using var searchReq = new HttpRequestMessage(HttpMethod.Get, searchUrl);
+            searchReq.Headers.TryAddWithoutValidation("Referer", "http://music.163.com");
+            using var searchResp = await Http.SendAsync(searchReq);
+            if (!searchResp.IsSuccessStatusCode) return null;
+
+            string searchJson = await searchResp.Content.ReadAsStringAsync();
+            using var searchDoc = JsonDocument.Parse(searchJson);
+            var root = searchDoc.RootElement;
+            if (!root.TryGetProperty("result", out var resElem) ||
+                !resElem.TryGetProperty("songs", out var songsArr) ||
+                songsArr.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            long bestSongId = 0;
+            double bestDiff = double.MaxValue;
+
+            foreach (var song in songsArr.EnumerateArray())
+            {
+                if (!song.TryGetProperty("id", out var idProp)) continue;
+                long sId = idProp.GetInt64();
+
+                double sDurationSec = 0;
+                if (song.TryGetProperty("dt", out var dtProp))
+                {
+                    sDurationSec = dtProp.GetInt64() / 1000.0;
+                }
+
+                if (durationSeconds > 15 && sDurationSec > 0)
+                {
+                    double diff = Math.Abs(sDurationSec - durationSeconds);
+                    if (diff < bestDiff && diff <= 6.0)
+                    {
+                        bestDiff = diff;
+                        bestSongId = sId;
+                    }
+                }
+                else if (bestSongId == 0)
+                {
+                    bestSongId = sId;
+                }
+            }
+
+            if (bestSongId == 0) return null;
+
+            string lyricUrl = $"http://music.163.com/api/song/lyric?id={bestSongId}&lv=1&kv=1&tv=1";
+            using var lyricReq = new HttpRequestMessage(HttpMethod.Get, lyricUrl);
+            lyricReq.Headers.TryAddWithoutValidation("Referer", "http://music.163.com");
+            using var lyricResp = await Http.SendAsync(lyricReq);
+            if (!lyricResp.IsSuccessStatusCode) return null;
+
+            string lyricJson = await lyricResp.Content.ReadAsStringAsync();
+            using var lyricDoc = JsonDocument.Parse(lyricJson);
+            var lrcRoot = lyricDoc.RootElement;
+
+            if (lrcRoot.TryGetProperty("lrc", out var lrcObj) &&
+                lrcObj.TryGetProperty("lyric", out var lyricProp))
+            {
+                string? lrcText = lyricProp.GetString();
+                if (!string.IsNullOrWhiteSpace(lrcText) && lrcText.Contains('['))
+                {
+                    return lrcText;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogWarning("LyricsService", $"NetEase fetch skipped: {ex.Message}");
+        }
+
+        return null;
     }
 
     private static async Task<string?> FetchFromLyricsOvhAsync(string title, string artist)

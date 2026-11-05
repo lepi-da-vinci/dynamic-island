@@ -1217,6 +1217,16 @@
                                                 <ScaleTransform x:Name="ActiveLyricScale" ScaleX="1.0" ScaleY="1.0"/>
                                             </TextBlock.RenderTransform>
                                         </TextBlock>
+                                        <TextBlock x:Name="CurrentLyricRomanizedText"
+                                                   Text=""
+                                                   Foreground="#94A3B8"
+                                                   FontSize="10.5"
+                                                   FontWeight="Normal"
+                                                   FontFamily="Segoe UI Variable Text, Segoe UI"
+                                                   TextAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Margin="0,-1,0,2.5"
+                                                   Visibility="Collapsed"/>
 
                                         <TextBlock x:Name="NextLyricLineText"
                                                    Text="Sinkronisasi lirik terverifikasi otomatis"
@@ -2701,6 +2711,335 @@
                         </Grid>
 
                         <!-- TAB 4: SYSTEM CONTROL CENTER (macOS Sequoia Control Center Bento Grid) -->
+                        <!-- TAB 3: KALENDER & JADWAL KEGIATAN (Monthly Grid + Daily Schedule Agenda) -->
+                        <Grid x:Name="CalendarScheduleTabGrid" Grid.Row="1" Visibility="Collapsed" Height="190">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Apple Mini Month Calendar Card -->
+                            <Border Grid.Column="0"
+                                    Background="#0EFFFFFF"
+                                    BorderBrush="#1CFFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="13"
+                                    Padding="10,8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Month Header -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,6">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomCalendar}"
+                                                  Width="11" Height="11"
+                                                  Stretch="Uniform"
+                                                  Fill="#38BDF8"
+                                                  Margin="0,0,5,0"
+                                                  VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CalendarMonthTitleText"
+                                                       Text="November 2026"
+                                                       Foreground="#F8FAFC"
+                                                       FontSize="11.5"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Day of Week Headers -->
+                                    <UniformGrid Grid.Row="1" Columns="7" Margin="0,0,0,4">
+                                        <TextBlock Text="M" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="S" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="S" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="R" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="K" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="J" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="S" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    </UniformGrid>
+
+                                    <!-- Dynamic 5-6 Rows Calendar Days Matrix -->
+                                    <UniformGrid Grid.Row="2" x:Name="CalendarDaysMatrix" Columns="7"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right: Daily Schedule & Agenda Card -->
+                            <Border Grid.Column="2"
+                                    Background="#0EFFFFFF"
+                                    BorderBrush="#1CFFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="13"
+                                    Padding="10,8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Agenda Header -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Jadwal &amp; Agenda Hari Ini"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="11.5"
+                                                   FontWeight="Bold"
+                                                   VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1"
+                                                x:Name="QuickAddScheduleBtn"
+                                                Style="{StaticResource IslandIconButtonStyle}"
+                                                Padding="7,2"
+                                                Click="OnQuickAddScheduleClick">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="{StaticResource GeomPlus}" Width="9" Height="9" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Tambah" FontSize="9.5" Foreground="#38BDF8" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Schedule List -->
+                                    <ScrollViewer Grid.Row="1" Style="{StaticResource AppleScrollViewerStyle}">
+                                        <StackPanel x:Name="ScheduleItemsStack" Margin="0,0,4,0"/>
+                                    </ScrollViewer>
+
+                                    <!-- Quick Input Row -->
+                                    <Border Grid.Row="2"
+                                            x:Name="ScheduleAddInputPanel"
+                                            Visibility="Collapsed"
+                                            Background="#181822"
+                                            BorderBrush="#25FFFFFF"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="6,4"
+                                            Margin="0,4,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="70"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="ScheduleInputTitleText"
+                                                     Background="Transparent"
+                                                     Foreground="#F8FAFC"
+                                                     BorderThickness="0"
+                                                     FontSize="10.5"
+                                                     VerticalAlignment="Center"
+                                                     KeyDown="OnScheduleInputKeyDown"/>
+                                            <TextBox x:Name="ScheduleInputTimeText"
+                                                     Grid.Column="1"
+                                                     Background="Transparent"
+                                                     Foreground="#94A3B8"
+                                                     BorderThickness="0"
+                                                     FontSize="10"
+                                                     Text="09:00"
+                                                     Margin="4,0"
+                                                     VerticalAlignment="Center"/>
+                                            <Button Grid.Column="2"
+                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                    Padding="6,2"
+                                                    Click="OnSaveScheduleItemClick">
+                                                <TextBlock Text="Simpan" Foreground="#22C55E" FontSize="9.5" FontWeight="Bold"/>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- TAB 4: WIDGET CUACA (Open-Meteo Real-time Weather & 5-Hour Forecast) -->
+                        <Grid x:Name="WeatherTabGrid" Grid.Row="1" Visibility="Collapsed" Height="190">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Top Main Weather Glass Card -->
+                            <Border Grid.Row="0"
+                                    Background="#0EFFFFFF"
+                                    BorderBrush="#1CFFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="13"
+                                    Padding="14,10"
+                                    Margin="0,0,0,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Large Temperature Display -->
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock x:Name="WeatherTempLargeText"
+                                                       Text="32Â°"
+                                                       Foreground="#F8FAFC"
+                                                       FontSize="34"
+                                                       FontWeight="Bold"
+                                                       FontFamily="Segoe UI Variable Display, Segoe UI"
+                                                       VerticalAlignment="Center"/>
+                                            <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock x:Name="WeatherConditionText"
+                                                           Text="Cerah Berawan"
+                                                           Foreground="#38BDF8"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="WeatherCityText"
+                                                           Text="Jakarta, Indonesia"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="10.5"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Middle Details -->
+                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock x:Name="WeatherFeelsLikeText"
+                                                   Text="Terasa: 36Â°C"
+                                                   Foreground="#CBD5E1"
+                                                   FontSize="10.5"
+                                                   HorizontalAlignment="Right"/>
+                                        <TextBlock x:Name="WeatherStatsDetailText"
+                                                   Text="Kelembapan: 50% â€¢ Angin: 1.6 km/j"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="10"
+                                                   Margin="0,2,0,0"
+                                                   HorizontalAlignment="Right"/>
+                                    </StackPanel>
+
+                                    <!-- Right: Big Weather Icon + Refresh Button -->
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path x:Name="WeatherMainIconPath"
+                                              Data="{StaticResource GeomWeatherSunCloud}"
+                                              Width="38" Height="38"
+                                              Stretch="Uniform"
+                                              Fill="#38BDF8"
+                                              Margin="0,0,8,0"
+                                              VerticalAlignment="Center"/>
+                                        <Button x:Name="WeatherRefreshBtn"
+                                                Style="{StaticResource IslandIconButtonStyle}"
+                                                Padding="6,6"
+                                                ToolTip="Perbarui Data Cuaca"
+                                                Click="OnWeatherRefreshClick">
+                                            <Path Data="{StaticResource GeomRefresh}" Width="11" Height="11" Stretch="Uniform" Fill="#94A3B8"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Bottom: Hourly Forecast 5-Hour Glass Strip -->
+                            <Border Grid.Row="1"
+                                    Background="#0EFFFFFF"
+                                    BorderBrush="#1CFFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="13"
+                                    Padding="10,6">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0"
+                                               Text="PRAKIRAAN CUACA PER JAM"
+                                               Foreground="#64748B"
+                                               FontSize="9.5"
+                                               FontWeight="Bold"
+                                               Margin="4,0,0,4"/>
+                                    <UniformGrid Grid.Row="1" x:Name="WeatherHourlyUniformGrid" Columns="5"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- TAB 5: RIWAYAT NOTIFIKASI SESI (In-Memory Ephemeral Notification Center) -->
+                        <Grid x:Name="NotificationHistoryTabGrid" Grid.Row="1" Visibility="Collapsed" Height="190">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header Bar: Bell Icon, Count Badge & Clear Button -->
+                            <Grid Grid.Row="0" Margin="2,0,2,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Path Data="{StaticResource GeomBellNotif}"
+                                          Width="12" Height="12"
+                                          Stretch="Uniform"
+                                          Fill="#38BDF8"
+                                          Margin="0,0,6,0"
+                                          VerticalAlignment="Center"/>
+                                    <TextBlock Text="Riwayat Notifikasi"
+                                               Foreground="#F8FAFC"
+                                               FontSize="12"
+                                               FontWeight="Bold"
+                                               VerticalAlignment="Center"/>
+                                    <Border Background="#2038BDF8"
+                                            BorderBrush="#3538BDF8"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="6,1.5"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock x:Name="NotifCountBadgeText"
+                                                   Text="0 Sesi Ini"
+                                                   Foreground="#38BDF8"
+                                                   FontSize="9.5"
+                                                   FontWeight="SemiBold"/>
+                                    </Border>
+                                </StackPanel>
+
+                                <Button Grid.Column="1"
+                                        Style="{StaticResource IslandIconButtonStyle}"
+                                        Padding="8,3"
+                                        ToolTip="Bersihkan riwayat notifikasi sesi ini"
+                                        Click="OnClearNotifHistoryClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource GeomTrash}" Width="9" Height="9" Stretch="Uniform" Fill="#94A3B8" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Bersihkan" FontSize="9.5" Foreground="#94A3B8" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <!-- Notification Cards List -->
+                            <Grid Grid.Row="1">
+                                <ScrollViewer Style="{StaticResource AppleScrollViewerStyle}">
+                                    <StackPanel x:Name="NotificationHistoryStack" Margin="0,0,4,0"/>
+                                </ScrollViewer>
+
+                                <!-- Empty State -->
+                                <StackPanel x:Name="EmptyNotifHistoryPanel"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <Path Data="{StaticResource GeomBellNotif}"
+                                          Width="24" Height="24"
+                                          Stretch="Uniform"
+                                          Fill="#30FFFFFF"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,6"/>
+                                    <TextBlock Text="Belum Ada Notifikasi Sesi Ini"
+                                               Foreground="#94A3B8"
+                                               FontSize="11.5"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Notifikasi yang masuk akan otomatis dicatat di sini"
+                                               Foreground="#64748B"
+                                               FontSize="10"
+                                               Margin="0,2,0,0"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
                         <Grid x:Name="SystemTabGrid" Grid.Row="1" Visibility="Collapsed">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -2951,7 +3290,7 @@
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock x:Name="SysUpdateStatusText"
-                                                   Text="Windows Dynamic Island v1.9.0 (Terbaru)"
+                                                   Text="Windows Dynamic Island v1.10.0 (Terbaru)"
                                                    Foreground="#F8FAFC"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
@@ -3191,6 +3530,9 @@
                                 <Border x:Name="PageDot0" Width="16" Height="3.5" CornerRadius="2" Background="#38BDF8" Margin="3,0" Cursor="Hand" ToolTip="Musik" MouseLeftButtonUp="OnDot0Click"/>
                                 <Border x:Name="PageDot1" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Tugas" MouseLeftButtonUp="OnDot1Click"/>
                                 <Border x:Name="PageDot2" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Fokus" MouseLeftButtonUp="OnDot2Click"/>
+                                <Border x:Name="PageDotCal" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Kalender &amp; Jadwal" MouseLeftButtonUp="OnDotCalClick"/>
+                                <Border x:Name="PageDotWeather" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Cuaca" MouseLeftButtonUp="OnDotWeatherClick"/>
+                                <Border x:Name="PageDotNotif" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Riwayat Notifikasi" MouseLeftButtonUp="OnDotNotifClick"/>
                                 <Border x:Name="PageDotShortcuts" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Pintasan Aplikasi" MouseLeftButtonUp="OnDotShortcutsClick"/>
                                 <Border x:Name="PageDotPerf" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Monitor Performa" MouseLeftButtonUp="OnDotPerfClick"/>
                                 <Border x:Name="PageDot3" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Rak File" MouseLeftButtonUp="OnDot3Click"/>
@@ -3257,6 +3599,39 @@
                                             ToolTip="Timer Fokus &amp; Hidrasi"
                                             Click="OnTabPomodoroClick">
                                         <Path Data="{StaticResource GeomFocusTimer}"
+                                              Width="12.5" Height="12.5"
+                                              Stretch="Uniform"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              VerticalAlignment="Center"/>
+                                    </Button>
+
+                                    <Button x:Name="TabCalendarBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Kalender &amp; Jadwal"
+                                            Click="OnTabCalendarClick">
+                                        <Path Data="{StaticResource GeomCalendar}"
+                                              Width="12.5" Height="12.5"
+                                              Stretch="Uniform"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              VerticalAlignment="Center"/>
+                                    </Button>
+
+                                    <Button x:Name="TabWeatherBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Cuaca Real-time"
+                                            Click="OnTabWeatherClick">
+                                        <Path Data="{StaticResource GeomWeatherSunCloud}"
+                                              Width="12.5" Height="12.5"
+                                              Stretch="Uniform"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              VerticalAlignment="Center"/>
+                                    </Button>
+
+                                    <Button x:Name="TabNotifBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Riwayat Notifikasi"
+                                            Click="OnTabNotifClick">
+                                        <Path Data="{StaticResource GeomBellNotif}"
                                               Width="12.5" Height="12.5"
                                               Stretch="Uniform"
                                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"

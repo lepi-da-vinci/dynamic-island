@@ -188,8 +188,8 @@ public sealed class SpotlightSearchService
         Action openSettings,
         Action tuckIsland,
         Action startPomodoroFocus,
-        Action? setSmartCharge80 = null,
-        Action? setFullCapacity100 = null,
+        Action? sleepSystem = null,
+        Action? hibernateSystem = null,
         Action? openClipboardHistory = null)
     {
         string q = (rawQuery ?? string.Empty).Trim();
@@ -198,7 +198,7 @@ public sealed class SpotlightSearchService
         if (string.IsNullOrWhiteSpace(q))
         {
             // Empty query: Show smart quick commands & top apps
-            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, setSmartCharge80, setFullCapacity100, openClipboardHistory));
+            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory));
             lock (_cachedAppItems)
             {
                 results.AddRange(_cachedAppItems.Take(4));
@@ -232,7 +232,7 @@ public sealed class SpotlightSearchService
         }
 
         // 2. System Commands Match
-        var commands = GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, setSmartCharge80, setFullCapacity100);
+        var commands = GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory);
         foreach (var cmd in commands)
         {
             if (cmd.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ||
@@ -396,8 +396,8 @@ public sealed class SpotlightSearchService
         Action openSettings,
         Action tuckIsland,
         Action startPomodoroFocus,
-        Action? setSmartCharge80 = null,
-        Action? setFullCapacity100 = null,
+        Action? sleepSystem = null,
+        Action? hibernateSystem = null,
         Action? openClipboardHistory = null)
     {
         var list = new List<SpotlightItem>
@@ -482,29 +482,29 @@ public sealed class SpotlightSearchService
             }
         };
 
-        if (setSmartCharge80 != null)
+        if (sleepSystem != null)
         {
             list.Add(new SpotlightItem
             {
-                Title = "Smart Charge 80% (Mode Sehat Baterai)",
-                Subtitle = "Batasi pengisian fisik ke 80% untuk usia baterai optimal",
+                Title = "Mode Tidur (Sleep)",
+                Subtitle = "Masuk ke mode tidur / stand-by untuk menghemat daya",
                 Kind = SpotlightResultKind.SystemCommand,
-                VectorIconKey = "GeomBatteryHealth",
-                ActionData = "smart charge 80 baterai battery hemat awet limit batas daya",
-                ExecuteAction = setSmartCharge80
+                VectorIconKey = "GeomMoon",
+                ActionData = "sleep tidur standby daya suspend",
+                ExecuteAction = sleepSystem
             });
         }
 
-        if (setFullCapacity100 != null)
+        if (hibernateSystem != null)
         {
             list.Add(new SpotlightItem
             {
-                Title = "Pengisian Baterai Penuh (100%)",
-                Subtitle = "Buka batas pengisian daya hingga 100% kapasitas penuh",
+                Title = "Hibernasi (Hibernate)",
+                Subtitle = "Simpan sesi ke penyimpanan dan matikan komputer",
                 Kind = SpotlightResultKind.SystemCommand,
-                VectorIconKey = "GeomBolt",
-                ActionData = "charge 100 baterai penuh full kapasitas daya",
-                ExecuteAction = setFullCapacity100
+                VectorIconKey = "GeomPower",
+                ActionData = "hibernate hibernasi daya hemat",
+                ExecuteAction = hibernateSystem
             });
         }
 

@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -35,7 +35,11 @@ public partial class MainWindow : Window
     private readonly TodoAndWaterService _todoAndWaterService = new();
     private readonly UpdateCheckerService _updateService = new();
     private readonly AppSettingsService _settingsService = new();
-    private readonly BatteryChargeLimitService _batteryLimitService = new();
+        private readonly BatteryChargeLimitService _batteryLimitService = new();
+    private readonly NotificationHistoryService _notificationHistoryService = new();
+    private readonly WeatherService _weatherService = new();
+    private readonly CalendarScheduleService _calendarService = new();
+    private WindowsFlyoutSuppressor? _flyoutSuppressor;
 
     private readonly DispatcherTimer _oneSecondTimer;
     private readonly DispatcherTimer _fastUpdateTimer;
@@ -236,7 +240,23 @@ public partial class MainWindow : Window
                 Duration: TimeSpan.FromSeconds(4.5)));
         });
 
-        _batteryLimitService.LimitModeChanged += _ => Dispatcher.InvokeAsync(UpdateHardwareUi);
+                _batteryLimitService.LimitModeChanged += _ => Dispatcher.InvokeAsync(UpdateHardwareUi);
+        _notificationHistoryService.HistoryChanged += () => Dispatcher.InvokeAsync(RefreshNotificationHistoryUi);
+        _weatherService.WeatherUpdated += _ => Dispatcher.InvokeAsync(RefreshWeatherUi);
+        _calendarService.ScheduleChanged += () => Dispatcher.InvokeAsync(RefreshScheduleUi);
+        _flyoutSuppressor = new WindowsFlyoutSuppressor(_settingsService.SuppressWindowsNativeOsd);
+        _settingsService.SettingsChanged += () =>
+        {
+            if (_flyoutSuppressor != null)
+            {
+                _flyoutSuppressor.IsEnabled = _settingsService.SuppressWindowsNativeOsd;
+            }
+        };
+
+        RefreshCalendarMonthGrid();
+        RefreshScheduleUi();
+        RefreshNotificationHistoryUi();
+        _ = _weatherService.GetWeatherAsync();
 
         // Subscribe to external keyboard Volume / Mute / Mic Mute / Brightness key events
         _audioService.SpeakerVolumeOrMuteChanged += (vol, muted, muteToggled) =>
@@ -384,6 +404,7 @@ public partial class MainWindow : Window
         _mediaService.Dispose();
         _hardwareService.Dispose();
         _updateService.Dispose();
+        _flyoutSuppressor?.Dispose();
         Microsoft.Win32.SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         DpiChanged -= OnDpiChanged;
@@ -992,6 +1013,9 @@ public partial class MainWindow : Window
         ShortcutsTabGrid.Visibility = tab == IslandDashboardTab.AppShortcuts ? Visibility.Visible : Visibility.Collapsed;
         PerformanceTabGrid.Visibility = tab == IslandDashboardTab.PerformanceMonitor ? Visibility.Visible : Visibility.Collapsed;
         ShelfTabGrid.Visibility = tab == IslandDashboardTab.FileShelf ? Visibility.Visible : Visibility.Collapsed;
+                CalendarScheduleTabGrid.Visibility = tab == IslandDashboardTab.CalendarSchedule ? Visibility.Visible : Visibility.Collapsed;
+        WeatherTabGrid.Visibility = tab == IslandDashboardTab.Weather ? Visibility.Visible : Visibility.Collapsed;
+        NotificationHistoryTabGrid.Visibility = tab == IslandDashboardTab.NotificationHistory ? Visibility.Visible : Visibility.Collapsed;
         SystemTabGrid.Visibility = tab == IslandDashboardTab.SystemStatus ? Visibility.Visible : Visibility.Collapsed;
 
         if (state == IslandVisualState.ExpandedDashboard)
@@ -1132,6 +1156,9 @@ public partial class MainWindow : Window
         SetTabVisual(TabShortcutsBtn, _stateMachine.ActiveTab == IslandDashboardTab.AppShortcuts);
         SetTabVisual(TabPerformanceBtn, _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor);
         SetTabVisual(TabShelfBtn, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
+                SetTabVisual(TabCalendarBtn, _stateMachine.ActiveTab == IslandDashboardTab.CalendarSchedule);
+        SetTabVisual(TabWeatherBtn, _stateMachine.ActiveTab == IslandDashboardTab.Weather);
+        SetTabVisual(TabNotifBtn, _stateMachine.ActiveTab == IslandDashboardTab.NotificationHistory);
         SetTabVisual(TabSystemBtn, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
 
         UpdatePaginationDots();
@@ -2392,7 +2419,19 @@ public partial class MainWindow : Window
         {
             _lastAnimatedLyricIndex = lyricSnap.LineIndex;
             PrevLyricLineText.Text = lyricSnap.PreviousLine;
-            CurrentLyricLineText.Text = lyricSnap.CurrentLine;
+                        CurrentLyricLineText.Text = lyricSnap.CurrentLine;
+            if (CurrentLyricRomanizedText != null)
+            {
+                if (!string.IsNullOrWhiteSpace(lyricSnap.CurrentRomanizedLine))
+                {
+                    CurrentLyricRomanizedText.Text = lyricSnap.CurrentRomanizedLine;
+                    CurrentLyricRomanizedText.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    CurrentLyricRomanizedText.Visibility = Visibility.Collapsed;
+                }
+            }
             NextLyricLineText.Text = lyricSnap.NextLine;
 
             AnimateExpandedLyricsTransition();
@@ -2432,6 +2471,18 @@ public partial class MainWindow : Window
 
     public void TriggerToast(ToastPayload toast)
     {
+        if (_settingsService.SuppressWindowsNativeOsd &&
+            toast.SliderKind is ToastSliderKind.Volume or ToastSliderKind.Brightness)
+        {
+            WindowsFlyoutSuppressor.SuppressOnce();
+        }
+
+        if (toast.SliderKind == ToastSliderKind.None &&
+            !toast.Icon.Equals("VOLUME", StringComparison.OrdinalIgnoreCase) &&
+            !toast.Icon.Equals("BRIGHTNESS", StringComparison.OrdinalIgnoreCase))
+        {
+            _notificationHistoryService.Add(toast.Title, toast.Title, toast.Subtitle, MapToastIconToGeom(toast.Icon), toast.AccentHex);
+        }
         if (_stateMachine.IsScreenshotMode)
         {
             return;
@@ -2983,6 +3034,9 @@ public partial class MainWindow : Window
         IslandDashboardTab.AppShortcuts => ("GeomAppGrid", "Pintasan"),
         IslandDashboardTab.PerformanceMonitor => ("GeomCpuPulse", "Performa"),
         IslandDashboardTab.FileShelf => ("GeomFolderTray", "Rak File"),
+                IslandDashboardTab.CalendarSchedule => ("GeomCalendar", "Kalender"),
+        IslandDashboardTab.Weather => ("GeomWeatherSunCloud", "Cuaca"),
+        IslandDashboardTab.NotificationHistory => ("GeomBellNotif", "Notifikasi"),
         IslandDashboardTab.SystemStatus => ("GeomSliders", "Sistem"),
         _ => ("GeomMusic", "Musik")
     };
@@ -3366,6 +3420,9 @@ public partial class MainWindow : Window
             SetDot(PageDotShortcuts, _stateMachine.ActiveTab == IslandDashboardTab.AppShortcuts);
             SetDot(PageDotPerf, _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor);
             SetDot(PageDot3, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
+                        SetDot(PageDotCal, _stateMachine.ActiveTab == IslandDashboardTab.CalendarSchedule);
+            SetDot(PageDotWeather, _stateMachine.ActiveTab == IslandDashboardTab.Weather);
+            SetDot(PageDotNotif, _stateMachine.ActiveTab == IslandDashboardTab.NotificationHistory);
             SetDot(PageDot4, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
 
             void SetDot(Border dot, bool isActive)
@@ -4167,6 +4224,7 @@ public partial class MainWindow : Window
             UpdatePerformanceUi();
             UpdateSystemUpdateUi(_updateService.LastResult);
             _settingsWindow?.ApplyThemeToSettingsWindow();
+            if (_flyoutSuppressor != null) _flyoutSuppressor.IsEnabled = _settingsService.SuppressWindowsNativeOsd;
             EnsureRenderLoopRunning();
         }
         catch (Exception ex)
@@ -4444,8 +4502,8 @@ public partial class MainWindow : Window
             openSettings: () => OpenSettingsWindow(0),
             tuckIsland: () => _stateMachine.SetTuckedMode(true),
             startPomodoroFocus: () => _pomodoroService.StartFocus(),
-            setSmartCharge80: () => SetBatteryLimit(BatteryChargeLimitMode.SmartCharge80),
-            setFullCapacity100: () => SetBatteryLimit(BatteryChargeLimitMode.FullCapacity100),
+                        sleepSystem: () => SystemPowerService.Sleep(),
+            hibernateSystem: () => SystemPowerService.Hibernate(),
             openClipboardHistory: () => SwitchToClipboardTab());
 
         RefreshSpotlightItemSelection();
@@ -4674,6 +4732,424 @@ public partial class MainWindow : Window
         }
         SwitchToTab(IslandDashboardTab.FileShelf);
         OnShelfModeClipboardClick(this, new RoutedEventArgs());
+    }
+
+
+private void OnTabCalendarClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.CalendarSchedule);
+    private void OnTabWeatherClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.Weather);
+    private void OnTabNotifClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.NotificationHistory);
+
+    private void OnDotCalClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.CalendarSchedule);
+    private void OnDotWeatherClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.Weather);
+    private void OnDotNotifClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.NotificationHistory);
+
+    private void OnSystemSleepClick(object sender, RoutedEventArgs e) => SystemPowerService.Sleep();
+    private void OnSystemHibernateClick(object sender, RoutedEventArgs e) => SystemPowerService.Hibernate();
+
+    private void OnWeatherRefreshClick(object sender, RoutedEventArgs e) => _ = _weatherService.GetWeatherAsync(forceRefresh: true);
+    private void OnClearNotifHistoryClick(object sender, RoutedEventArgs e) => _notificationHistoryService.Clear();
+
+    private void OnQuickAddScheduleClick(object sender, RoutedEventArgs e)
+    {
+        if (ScheduleAddInputPanel == null) return;
+        ScheduleAddInputPanel.Visibility = ScheduleAddInputPanel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+        if (ScheduleAddInputPanel.Visibility == Visibility.Visible)
+        {
+            ScheduleInputTitleText.Focus();
+        }
+    }
+
+    private void OnSaveScheduleItemClick(object sender, RoutedEventArgs e)
+    {
+        SaveCurrentScheduleInput();
+    }
+
+    private void OnScheduleInputKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            SaveCurrentScheduleInput();
+        }
+        else if (e.Key == Key.Escape)
+        {
+            if (ScheduleAddInputPanel != null) ScheduleAddInputPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void SaveCurrentScheduleInput()
+    {
+        if (ScheduleInputTitleText == null || ScheduleInputTimeText == null) return;
+        string title = ScheduleInputTitleText.Text.Trim();
+        string time = ScheduleInputTimeText.Text.Trim();
+        if (!string.IsNullOrWhiteSpace(title))
+        {
+            _calendarService.AddScheduleItem(title, time, "Kuliah");
+            ScheduleInputTitleText.Text = string.Empty;
+            if (ScheduleAddInputPanel != null) ScheduleAddInputPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private static string MapToastIconToGeom(string icon) => (icon ?? "").ToUpperInvariant() switch
+    {
+        "BELL" or "NOTIF" => "GeomBellNotif",
+        "WIFI" => "GeomWifi",
+        "BLUETOOTH" => "GeomBluetooth",
+        "BATTERY" or "BATTERY_HEALTH" => "GeomBatteryHealth",
+        "BOLT" => "GeomBolt",
+        "CLIPBOARD" => "GeomClipboard",
+        "MIC" or "MIC_MUTED" => "GeomMicOn",
+        "VOLUME" => "GeomSpeakerOn",
+        _ => "GeomBellNotif"
+    };
+
+    private void RefreshCalendarMonthGrid()
+    {
+        if (CalendarDaysMatrix == null || CalendarMonthTitleText == null) return;
+
+        var now = DateTime.Now;
+        CalendarMonthTitleText.Text = now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("id-ID"));
+
+        CalendarDaysMatrix.Children.Clear();
+        var cells = _calendarService.GenerateCurrentMonthGrid();
+
+        foreach (var cell in cells)
+        {
+            var border = new Border
+            {
+                Width = 26,
+                Height = 22,
+                CornerRadius = new CornerRadius(cell.IsToday ? 7 : 4),
+                Margin = new Thickness(1),
+                Background = cell.IsToday
+                    ? new SolidColorBrush(Color.FromRgb(0x38, 0xBD, 0xF8))
+                    : Brushes.Transparent,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var tb = new TextBlock
+            {
+                Text = cell.DayNumber.ToString(),
+                FontSize = 10,
+                FontWeight = cell.IsToday ? FontWeights.Bold : FontWeights.Normal,
+                Foreground = cell.IsToday
+                    ? Brushes.Black
+                    : (cell.IsCurrentMonth
+                        ? new SolidColorBrush(Color.FromRgb(0xF8, 0xFA, 0xFC))
+                        : new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69))),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            border.Child = tb;
+            CalendarDaysMatrix.Children.Add(border);
+        }
+    }
+
+    private void RefreshScheduleUi()
+    {
+        if (ScheduleItemsStack == null) return;
+        ScheduleItemsStack.Children.Clear();
+
+        if (_calendarService.ScheduleItems.Count == 0)
+        {
+            ScheduleItemsStack.Children.Add(new TextBlock
+            {
+                Text = "Belum ada agenda hari ini. Klik '+ Tambah' untuk membuat jadwal.",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8)),
+                FontSize = 10.5,
+                Margin = new Thickness(0, 10, 0, 0),
+                TextWrapping = TextWrapping.Wrap
+            });
+            return;
+        }
+
+        foreach (var item in _calendarService.ScheduleItems)
+        {
+            var card = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(9),
+                Padding = new Thickness(9, 6, 9, 6),
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var leftStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            var topRow = new StackPanel { Orientation = Orientation.Horizontal };
+
+            var catBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x22, 0x38, 0xBD, 0xF8)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x40, 0x38, 0xBD, 0xF8)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(5, 1, 5, 1),
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            catBorder.Child = new TextBlock
+            {
+                Text = item.Category,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x38, 0xBD, 0xF8)),
+                FontSize = 9,
+                FontWeight = FontWeights.Bold
+            };
+            topRow.Children.Add(catBorder);
+
+            topRow.Children.Add(new TextBlock
+            {
+                Text = item.Time,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8)),
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            leftStack.Children.Add(topRow);
+
+            var titleTb = new TextBlock
+            {
+                Text = item.Title,
+                Foreground = item.IsCompleted
+                    ? new SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B))
+                    : new SolidColorBrush(Color.FromRgb(0xF8, 0xFA, 0xFC)),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 3, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            if (item.IsCompleted) titleTb.TextDecorations = TextDecorations.Strikethrough;
+            leftStack.Children.Add(titleTb);
+
+            grid.Children.Add(leftStack);
+            Grid.SetColumn(leftStack, 0);
+
+            var actionsStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+            var checkBtn = new Button
+            {
+                Style = TryFindResource("IslandIconButtonStyle") as Style,
+                Padding = new Thickness(5, 3, 5, 3),
+                Margin = new Thickness(0, 0, 4, 0),
+                ToolTip = item.IsCompleted ? "Tandai Belum Selesai" : "Tandai Selesai"
+            };
+            checkBtn.Click += (_, _) => _calendarService.ToggleScheduleItem(item.Id);
+            checkBtn.Content = new Path
+            {
+                Data = TryFindResource(item.IsCompleted ? "GeomCheckCircle" : "GeomCircleOutline") as Geometry,
+                Width = 11,
+                Height = 11,
+                Stretch = Stretch.Uniform,
+                Fill = item.IsCompleted
+                    ? new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E))
+                    : new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8))
+            };
+            actionsStack.Children.Add(checkBtn);
+
+            var delBtn = new Button
+            {
+                Style = TryFindResource("IslandIconButtonStyle") as Style,
+                Padding = new Thickness(5, 3, 5, 3),
+                ToolTip = "Hapus Jadwal"
+            };
+            delBtn.Click += (_, _) => _calendarService.DeleteScheduleItem(item.Id);
+            delBtn.Content = new Path
+            {
+                Data = TryFindResource("GeomTrash") as Geometry,
+                Width = 10,
+                Height = 10,
+                Stretch = Stretch.Uniform,
+                Fill = new SolidColorBrush(Color.FromRgb(0xFB, 0x71, 0x85))
+            };
+            actionsStack.Children.Add(delBtn);
+
+            grid.Children.Add(actionsStack);
+            Grid.SetColumn(actionsStack, 1);
+
+            card.Child = grid;
+            ScheduleItemsStack.Children.Add(card);
+        }
+    }
+
+    private async void RefreshWeatherUi()
+    {
+        var w = await _weatherService.GetWeatherAsync();
+        if (w == null || WeatherTempLargeText == null) return;
+
+        WeatherTempLargeText.Text = $"{Math.Round(w.TempC)}°";
+        WeatherConditionText.Text = w.ConditionText;
+        WeatherCityText.Text = $"{w.City}, Indonesia";
+        WeatherFeelsLikeText.Text = $"Terasa: {Math.Round(w.ApparentTempC)}°C";
+        WeatherStatsDetailText.Text = $"Kelembapan: {w.Humidity}% • Angin: {w.WindSpeedKmh} km/j";
+        WeatherMainIconPath.Data = TryFindResource(w.IconKey) as Geometry ?? (TryFindResource("GeomWeatherSunCloud") as Geometry);
+
+        WeatherHourlyUniformGrid.Children.Clear();
+        foreach (var h in w.HourlyForecast)
+        {
+            var hCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x1C, 0xFF, 0xFF, 0xFF)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(4, 5, 4, 5),
+                Margin = new Thickness(3, 0, 3, 0)
+            };
+
+            var hStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            hStack.Children.Add(new TextBlock
+            {
+                Text = h.HourText,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8)),
+                FontSize = 9.5,
+                FontWeight = FontWeights.Medium,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            var hIcon = new Path
+            {
+                Data = TryFindResource(h.IconKey) as Geometry ?? (TryFindResource("GeomWeatherSunCloud") as Geometry),
+                Width = 15,
+                Height = 15,
+                Stretch = Stretch.Uniform,
+                Fill = new SolidColorBrush(Color.FromRgb(0x38, 0xBD, 0xF8)),
+                Margin = new Thickness(0, 4, 0, 4),
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            hStack.Children.Add(hIcon);
+
+            hStack.Children.Add(new TextBlock
+            {
+                Text = $"{Math.Round(h.TempC)}°",
+                Foreground = new SolidColorBrush(Color.FromRgb(0xF8, 0xFA, 0xFC)),
+                FontSize = 10.5,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            hCard.Child = hStack;
+            WeatherHourlyUniformGrid.Children.Add(hCard);
+        }
+    }
+
+    private void RefreshNotificationHistoryUi()
+    {
+        if (NotificationHistoryStack == null || NotifCountBadgeText == null || EmptyNotifHistoryPanel == null) return;
+
+        int count = _notificationHistoryService.Items.Count;
+        NotifCountBadgeText.Text = $"{count} Sesi Ini";
+        NotificationHistoryStack.Children.Clear();
+
+        if (count == 0)
+        {
+            EmptyNotifHistoryPanel.Visibility = Visibility.Visible;
+            return;
+        }
+
+        EmptyNotifHistoryPanel.Visibility = Visibility.Collapsed;
+
+        foreach (var it in _notificationHistoryService.Items)
+        {
+            var card = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(10, 7, 10, 7),
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var iconBorder = new Border
+            {
+                Width = 28,
+                Height = 28,
+                CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(Color.FromArgb(0x20, 0x38, 0xBD, 0xF8)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0x35, 0x38, 0xBD, 0xF8)),
+                BorderThickness = new Thickness(1),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 9, 0)
+            };
+            iconBorder.Child = new Path
+            {
+                Data = TryFindResource(it.IconKey) as Geometry ?? (TryFindResource("GeomBellNotif") as Geometry),
+                Width = 13,
+                Height = 13,
+                Stretch = Stretch.Uniform,
+                Fill = new SolidColorBrush(Color.FromRgb(0x38, 0xBD, 0xF8)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            grid.Children.Add(iconBorder);
+            Grid.SetColumn(iconBorder, 0);
+
+            var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            var headerRow = new StackPanel { Orientation = Orientation.Horizontal };
+            headerRow.Children.Add(new TextBlock
+            {
+                Text = it.AppName,
+                Foreground = new SolidColorBrush(Color.FromRgb(0xF8, 0xFA, 0xFC)),
+                FontSize = 11,
+                FontWeight = FontWeights.Bold
+            });
+            headerRow.Children.Add(new TextBlock
+            {
+                Text = $" • {it.RelativeTime}",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B)),
+                FontSize = 9.5,
+                Margin = new Thickness(4, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            textStack.Children.Add(headerRow);
+
+            if (!string.IsNullOrWhiteSpace(it.Message))
+            {
+                textStack.Children.Add(new TextBlock
+                {
+                    Text = it.Message,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1)),
+                    FontSize = 10,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 2, 0, 0),
+                    LineHeight = 13.5
+                });
+            }
+
+            grid.Children.Add(textStack);
+            Grid.SetColumn(textStack, 1);
+
+            var dismissBtn = new Button
+            {
+                Style = TryFindResource("IslandIconButtonStyle") as Style,
+                Padding = new Thickness(5, 3, 5, 3),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Hapus Notifikasi"
+            };
+            dismissBtn.Click += (_, _) => _notificationHistoryService.Remove(it);
+            dismissBtn.Content = new Path
+            {
+                Data = TryFindResource("GeomClosePower") as Geometry,
+                Width = 8,
+                Height = 8,
+                Stretch = Stretch.Uniform,
+                Fill = new SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B))
+            };
+            grid.Children.Add(dismissBtn);
+            Grid.SetColumn(dismissBtn, 2);
+
+            card.Child = grid;
+            NotificationHistoryStack.Children.Add(card);
+        }
     }
 }
 

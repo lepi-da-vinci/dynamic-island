@@ -17,10 +17,13 @@ public enum IslandDashboardTab
     MediaLyrics = 0,
     TodoAndWater = 1,
     Pomodoro = 2,
-    AppShortcuts = 3,
-    PerformanceMonitor = 4,
-    FileShelf = 5,
-    SystemStatus = 6
+    CalendarSchedule = 3,
+    Weather = 4,
+    NotificationHistory = 5,
+    AppShortcuts = 6,
+    PerformanceMonitor = 7,
+    FileShelf = 8,
+    SystemStatus = 9
 }
 
 public enum ToastSliderKind

@@ -293,6 +293,7 @@ public partial class SettingsWindow : Window
 
             // Page 9: HUD & popups
             ChkVolumeBrightnessHud.IsChecked = _settings.VolumeBrightnessHudEnabled;
+            ChkSuppressWindowsNativeOsd.IsChecked = _settings.SuppressWindowsNativeOsd;
             ChkBatteryToast.IsChecked = _settings.BatteryToastEnabled;
             ChkBluetoothToast.IsChecked = _settings.BluetoothToastEnabled;
             ChkSystemNotifToast.IsChecked = _settings.SystemNotificationToastEnabled;
@@ -314,69 +315,19 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void OnSleepButtonClicked(object sender, RoutedEventArgs e)
+    {
+        SystemPowerService.Sleep();
+    }
+
+    private void OnHibernateButtonClicked(object sender, RoutedEventArgs e)
+    {
+        SystemPowerService.Hibernate();
+    }
+
     private void RefreshBatteryLimitControls()
     {
-        if (BatteryLimitStatusBadge == null || BatLimit80Btn == null || BatLimit100Btn == null) return;
-
-        if (!_batteryLimitService.IsSupported)
-        {
-            BatteryChargeLimitDescText.Text = "Kontrol hardware tidak didukung oleh motherboard laptop ini";
-            BatLimit80Btn.IsEnabled = false;
-            BatLimit100Btn.IsEnabled = false;
-            BatteryLimitStatusBadge.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        BatLimit80Btn.IsEnabled = true;
-        BatLimit100Btn.IsEnabled = true;
-        BatteryLimitStatusBadge.Visibility = Visibility.Visible;
-
-        bool is80 = _batteryLimitService.CurrentMode == BatteryChargeLimitMode.SmartCharge80;
-        if (is80)
-        {
-            BatLimit80Btn.IsChecked = true;
-            BatteryLimitStatusBadge.Background = new SolidColorBrush(Color.FromArgb(0x22, 0x22, 0xC5, 0x5E));
-            BatteryLimitStatusBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0x22, 0xC5, 0x5E));
-            BatteryLimitStatusBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
-            BatteryLimitStatusBadgeText.Text = "80% Aktif";
-            AnimateBatLimitPill(0);
-        }
-        else
-        {
-            BatLimit100Btn.IsChecked = true;
-            BatteryLimitStatusBadge.Background = new SolidColorBrush(Color.FromArgb(0x22, 0x38, 0xBD, 0xF8));
-            BatteryLimitStatusBadge.BorderBrush = new SolidColorBrush(Color.FromArgb(0x44, 0x38, 0xBD, 0xF8));
-            BatteryLimitStatusBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0x38, 0xBD, 0xF8));
-            BatteryLimitStatusBadgeText.Text = "100% Aktif";
-            AnimateBatLimitPill(1);
-        }
-
-        if (BatteryHardwareActivationPanel != null)
-        {
-            BatteryHardwareActivationPanel.Visibility =
-                _batteryLimitService.IsHardwareTaskRegistered ? Visibility.Collapsed : Visibility.Visible;
-        }
-    }
-
-    private async void OnActivateBatteryHardwareTaskClick(object sender, RoutedEventArgs e)
-    {
-        await Task.Run(() => BatteryChargeLimitService.RegisterHardwareTasksOneTime());
-        RefreshBatteryLimitControls();
-    }
-
-    private async void OnBatteryLimitModeClicked(object sender, RoutedEventArgs e)
-    {
-        if (_isLoadingUi) return;
-        if (sender is not RadioButton rb || rb.Tag == null) return;
-        string tag = rb.Tag.ToString() ?? "";
-
-        var targetMode = tag == "80"
-            ? BatteryChargeLimitMode.SmartCharge80
-            : BatteryChargeLimitMode.FullCapacity100;
-
-        AnimateBatLimitPill(tag == "80" ? 0 : 1);
-        await _batteryLimitService.SetLimitModeAsync(targetMode);
-        RefreshBatteryLimitControls();
+        // Replaced by System Power Control (Sleep & Hibernate)
     }
 
     private void OnNavCategoryChecked(object sender, RoutedEventArgs e)
@@ -475,6 +426,7 @@ public partial class SettingsWindow : Window
         _settings.ShowPomodoroOnIdle = ChkShowPomodoroOnIdle.IsChecked == true;
         _settings.AutoOpenShelfOnDrag = ChkAutoOpenShelf.IsChecked == true;
         _settings.VolumeBrightnessHudEnabled = ChkVolumeBrightnessHud.IsChecked == true;
+        _settings.SuppressWindowsNativeOsd = ChkSuppressWindowsNativeOsd.IsChecked == true;
         _settings.BatteryToastEnabled = ChkBatteryToast.IsChecked == true;
         _settings.BluetoothToastEnabled = ChkBluetoothToast.IsChecked == true;
         _settings.SystemNotificationToastEnabled = ChkSystemNotifToast.IsChecked == true;
@@ -1303,8 +1255,6 @@ public partial class SettingsWindow : Window
 
     public void AnimateBatLimitPill(int colIndex)
     {
-        var group = _segmentedGroups.FirstOrDefault(g => g.HostGrid == BatLimitHostGrid);
-        if (group != null) UpdateSegmentedPill(group, animate: !_isLoadingUi);
     }
 
     public void AnimateNotchSizePill(int colIndex)
