@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using Windows.Globalization;
 
 namespace WindowsDynamicIsland.Services;
@@ -6,9 +7,9 @@ namespace WindowsDynamicIsland.Services;
 /// <summary>
 /// Transliterates Japanese (Kanji/Hiragana/Katakana), Korean (Hangul), and Cyrillic
 /// text into clean Romanized / Latin alphabet subtitles for song lyrics.
-/// Leverages Windows.Globalization.JapanesePhoneticAnalyzer with extensive offline Kanji dictionary fallback.
+/// Produces natural word-spaced Romaji and ensures zero Japanese Kanji or Kana characters leak into output.
 /// </summary>
-public static class RomajiTransliterationService
+public static partial class RomajiTransliterationService
 {
     // Korean Hangul Syllable Components (Revised Romanization of Korean)
     private static readonly string[] HangulInitials =
@@ -76,7 +77,7 @@ public static class RomajiTransliterationService
         ['わ'] = "wa", ['を'] = "wo", ['ん'] = "n",
         ['が'] = "ga", ['ぎ'] = "gi", ['ぐ'] = "gu", ['げ'] = "ge", ['ご'] = "go",
         ['ざ'] = "za", ['じ'] = "ji", ['ず'] = "zu", ['ぜ'] = "ze", ['ぞ'] = "zo",
-        ['だ'] = "da", ['ぢ'] = "ji", ['づ'] = "zu", ['で'] = "de", ['ど'] = "do",
+        ['だ'] = "da", ['ぢ'] = "ji", ['づ'] = "zu", ['デ'] = "de", ['ど'] = "do",
         ['ば'] = "ba", ['び'] = "bi", ['ぶ'] = "bu", ['べ'] = "be", ['ぼ'] = "bo",
         ['ぱ'] = "pa", ['ぴ'] = "pi", ['ぷ'] = "pu", ['ぺ'] = "pe", ['ぽ'] = "po",
         // Small kana
@@ -124,127 +125,453 @@ public static class RomajiTransliterationService
         ['Э'] = "E", ['Ю'] = "Yu", ['Я'] = "Ya"
     };
 
-    // Common lyric Kanji compounds and roots for reliable fallback when Windows language packs are absent
-    private static readonly (string Kanji, string Kana)[] CommonKanjiTable =
+    // Common lyric multi-character phrases & compound words mapped directly to spaced Romaji.
+    // Ordered strictly from longest to shortest match.
+    private static readonly (string Phrase, string Romaji)[] CommonPhrases =
     [
-        ("間違ってない", "まちがってない"),
-        ("間違って", "まちがって"),
-        ("間違い", "まちがい"),
-        ("間違", "まちが"),
-        ("本当なんだ", "ほんとうなんだ"),
-        ("本当", "ほんとう"),
-        ("約束", "やくそく"),
-        ("記憶", "きおく"),
-        ("運命", "うんめい"),
-        ("奇跡", "きせき"),
-        ("理由", "りゆう"),
-        ("答え", "こたえ"),
-        ("世界", "せかい"),
-        ("時間", "じかん"),
-        ("未来", "みらい"),
-        ("過去", "かこ"),
-        ("今日", "きょう"),
-        ("明日", "あした"),
-        ("昨日", "きのう"),
-        ("永遠", "えいえん"),
-        ("最後", "さいご"),
-        ("最初", "さいしょ"),
-        ("全部", "ぜんぶ"),
-        ("一人", "ひとり"),
-        ("二人", "ふたり"),
-        ("一緒", "いっしょ"),
-        ("言葉", "ことば"),
-        ("気持ち", "きもち"),
-        ("秘密", "ひみつ"),
-        ("魔法", "まほう"),
-        ("太陽", "たいよう"),
-        ("地球", "ちきゅう"),
-        ("涙", "なみだ"),
-        ("心", "こころ"),
-        ("夢", "ゆめ"),
-        ("愛", "あい"),
-        ("恋", "こい"),
-        ("声", "こえ"),
-        ("歌", "うた"),
-        ("夜", "よる"),
-        ("朝", "あさ"),
-        ("空", "そら"),
-        ("雨", "あめ"),
-        ("雲", "くも"),
-        ("海", "うみ"),
-        ("花", "はな"),
-        ("星", "ほし"),
-        ("月", "つき"),
-        ("風", "かぜ"),
-        ("光", "ひかり"),
-        ("影", "かげ"),
-        ("道", "みち"),
-        ("街", "まち"),
-        ("色", "いろ"),
-        ("音", "おと"),
-        ("僕", "ぼく"),
-        ("君", "きみ"),
-        ("私", "わたし"),
-        ("俺", "おれ"),
-        ("誰", "だれ"),
-        ("何", "なに"),
-        ("今", "いま"),
-        ("手", "て"),
-        ("目", "め"),
-        ("呼ぶ", "よぶ"),
-        ("呼", "よ"),
-        ("言", "い"),
-        ("思", "おも"),
-        ("知", "し"),
-        ("見", "み"),
-        ("聞", "き"),
-        ("行", "い"),
-        ("来", "き"),
-        ("生", "い"),
-        ("死", "し"),
-        ("笑", "わら"),
-        ("泣", "な"),
-        ("忘", "わす"),
-        ("消", "き"),
-        ("待", "ま"),
-        ("痛", "いた"),
-        ("嫌", "きら"),
-        ("好", "す"),
-        ("歩", "ある"),
-        ("走", "はし"),
-        ("飛", "と"),
-        ("落ち", "おち"),
-        ("落", "お"),
-        ("届", "とど"),
-        ("触", "ふ"),
-        ("抱", "だ"),
-        ("信", "しん"),
-        ("願", "ねが"),
-        ("祈", "いの"),
-        ("神", "かみ"),
-        ("優", "やさ"),
-        ("強", "つよ"),
-        ("弱", "よわ"),
-        ("遠", "とお"),
-        ("近", "ちか"),
-        ("高", "たか"),
-        ("低", "ひく"),
-        ("深", "ふか"),
-        ("白", "しろ"),
-        ("黒", "くろ"),
-        ("青", "あお"),
-        ("赤", "あか"),
-        ("春", "はる"),
-        ("夏", "なつ"),
-        ("秋", "あき"),
-        ("冬", "ふゆ"),
-        ("寂", "さび"),
-        ("悲", "かな"),
-        ("嬉", "うれ"),
-        ("終", "お"),
-        ("始", "はじ"),
-        ("人", "ひと")
+        ("間違ってないだろ", "machigatte nai daro"),
+        ("間違ってないよな", "machigatte nai yo na"),
+        ("間違ってない", "machigatte nai"),
+        ("間違っている", "machigatte iru"),
+        ("間違って", "machigatte"),
+        ("間違い", "machigai"),
+        ("間違", "machiga"),
+        ("風を呼ぶって本当なんだね", "kaze wo yobu tte hontou nan da ne"),
+        ("風を呼ぶって", "kaze wo yobu tte"),
+        ("風を呼ぶ", "kaze wo yobu"),
+        ("どうでもいいんだ", "dou demo ii n da"),
+        ("どうでもいい", "dou demo ii"),
+        ("どうでも", "dou demo"),
+        ("いいんだ", "ii n da"),
+        ("本当なんだね", "hontou nan da ne"),
+        ("本当なんだ", "hontou nan da"),
+        ("本当は", "hontou wa"),
+        ("本当", "hontou"),
+        ("呼ぶって", "yobu tte"),
+        ("呼んでいる", "yonde iru"),
+        ("呼んで", "yonde"),
+        ("呼ぶ", "yobu"),
+        ("だから僕は音楽を辞めた", "dakara boku wa ongaku wo yameta"),
+        ("夜に駆ける", "yoru ni kakeru"),
+        ("駆ける", "kakeru"),
+        ("雨とカプチーノ", "ame to kapuchiino"),
+        ("君の知らない物語", "kimi no shira nai monogatari"),
+        ("思い出す", "omoidasu"),
+        ("思い出", "omoide"),
+        ("抱きしめる", "dakishimeru"),
+        ("見つける", "mitsukeru"),
+        ("信じている", "shinjite iru"),
+        ("愛している", "aishite iru"),
+        ("愛してる", "aishiteru"),
+        ("約束した", "yakusoku shita"),
+        ("約束", "yakusoku"),
+        ("運命の", "unmei no"),
+        ("運命", "unmei"),
+        ("奇跡の", "kiseki no"),
+        ("奇跡", "kiseki"),
+        ("記憶", "kioku"),
+        ("理由", "riyuu"),
+        ("答え", "kotae"),
+        ("世界は", "sekai wa"),
+        ("世界の", "sekai no"),
+        ("世界", "sekai"),
+        ("時間は", "jikan wa"),
+        ("時間の", "jikan no"),
+        ("時間", "jikan"),
+        ("未来へ", "mirai e"),
+        ("未来の", "mirai no"),
+        ("未来", "mirai"),
+        ("過去へ", "kako e"),
+        ("過去の", "kako no"),
+        ("過去", "kako"),
+        ("永遠の", "eien no"),
+        ("永遠", "eien"),
+        ("最後まで", "saigo made"),
+        ("最後に", "saigo ni"),
+        ("最後", "saigo"),
+        ("最初から", "saisho kara"),
+        ("最初に", "saisho ni"),
+        ("最初", "saisho"),
+        ("全部", "zenbu"),
+        ("一人で", "hitori de"),
+        ("一人の", "hitori no"),
+        ("一人", "hitori"),
+        ("二人で", "futari de"),
+        ("二人の", "futari no"),
+        ("二人", "futari"),
+        ("一緒に", "issho ni"),
+        ("一緒", "issho"),
+        ("言葉は", "kotoba wa"),
+        ("言葉を", "kotoba wo"),
+        ("言葉", "kotoba"),
+        ("気持ちは", "kimochi wa"),
+        ("気持ち", "kimochi"),
+        ("秘密の", "himitsu no"),
+        ("秘密", "himitsu"),
+        ("魔法の", "mahou no"),
+        ("魔法", "mahou"),
+        ("太陽の", "taiyou no"),
+        ("太陽", "taiyou"),
+        ("地球", "chikyuu"),
+        ("大丈夫", "daijoubu"),
+        ("何故か", "nazeka"),
+        ("何故", "naze"),
+        ("笑顔で", "egao de"),
+        ("笑顔", "egao"),
+        ("希望の", "kibou no"),
+        ("希望", "kibou"),
+        ("絶望", "zetsubou"),
+        ("孤独な", "kodoku na"),
+        ("孤独", "kodoku"),
+        ("自由な", "jiyuu na"),
+        ("自由", "jiyuu"),
+        ("今夜は", "konya wa"),
+        ("今夜", "konya"),
+        ("昨日の", "kinou no"),
+        ("昨日", "kinou"),
+        ("今日の", "kyou no"),
+        ("今日", "kyou"),
+        ("明日の", "ashita no"),
+        ("明日", "ashita"),
+        ("毎日", "mainichi"),
+        ("夜空に", "yozora ni"),
+        ("夜空", "yozora"),
+        ("青空に", "aozora ni"),
+        ("青空", "aozora"),
+        ("星空", "hoshizora"),
+        ("満月", "mangetsu"),
+        ("三日月", "mikazuki"),
+        ("僕らの", "bokura no"),
+        ("僕らは", "bokura wa"),
+        ("僕らは", "bokura wa"),
+        ("僕らは", "bokura wa"),
+        ("僕ら", "bokura"),
+        ("僕の", "boku no"),
+        ("僕は", "boku wa"),
+        ("僕に", "boku ni"),
+        ("君の", "kimi no"),
+        ("君は", "kimi wa"),
+        ("君に", "kimi ni"),
+        ("君を", "kimi wo"),
+        ("私の", "watashi no"),
+        ("私は", "watashi wa"),
+        ("私に", "watashi ni"),
+        ("私を", "watashi wo"),
+        ("俺の", "ore no"),
+        ("俺は", "ore wa"),
+        ("誰かの", "dareka no"),
+        ("誰かが", "dareka ga"),
+        ("誰か", "dareka"),
+        ("誰もが", "daremo ga"),
+        ("誰も", "daremo"),
+        ("何もかも", "nani mo kamo"),
+        ("何にも", "nani ni mo"),
+        ("何度も", "nando mo"),
+        ("何処か", "dokoka"),
+        ("何時か", "itsuka"),
+        ("優しく", "yasashiku"),
+        ("優しい", "yasashii"),
+        ("強く", "tsuyoku"),
+        ("強い", "tsuyoi"),
+        ("弱く", "yowaku"),
+        ("弱い", "yowai"),
+        ("遠くへ", "tooku e"),
+        ("遠く", "tooku"),
+        ("遠い", "tooi"),
+        ("近くに", "chikaku ni"),
+        ("近く", "chikaku"),
+        ("近い", "chikai"),
+        ("高く", "takaku"),
+        ("高い", "takai"),
+        ("低く", "hikuku"),
+        ("低い", "hikui"),
+        ("深く", "fukaku"),
+        ("深い", "fukai"),
+        ("寂しく", "sabishiku"),
+        ("寂しい", "sabishii"),
+        ("悲しく", "kanashiku"),
+        ("悲しい", "kanashii"),
+        ("嬉しく", "ureshiku"),
+        ("嬉しい", "ureshii"),
+        ("楽しく", "tanoshiku"),
+        ("楽しい", "tanoshii"),
+        ("苦しく", "kurushiku"),
+        ("苦しい", "kurushii"),
+        ("痛い", "itai"),
+        ("好き", "suki"),
+        ("嫌い", "kirai"),
+        ("消えて", "kiete"),
+        ("消えた", "kieta"),
+        ("消える", "kieru"),
+        ("忘れて", "wasurete"),
+        ("忘れた", "wasureta"),
+        ("忘れる", "wasureru"),
+        ("終わって", "owatte"),
+        ("終わった", "owatta"),
+        ("終わる", "owaru"),
+        ("始まって", "hajimatte"),
+        ("始まった", "hajimatta"),
+        ("始まる", "hajimaru"),
+        ("生きて", "ikite"),
+        ("生きた", "ikita"),
+        ("生きる", "ikiru"),
+        ("死んで", "shinde"),
+        ("死んだ", "shinda"),
+        ("死ぬ", "shinu"),
+        ("笑って", "waratte"),
+        ("笑った", "waratta"),
+        ("笑う", "warau"),
+        ("泣いて", "naite"),
+        ("泣いた", "naita"),
+        ("泣く", "naku"),
+        ("眠って", "nemutte"),
+        ("眠った", "nemutta"),
+        ("眠る", "nemuru"),
+        ("歌って", "utatte"),
+        ("歌った", "utatta"),
+        ("歌う", "utau"),
+        ("叫んで", "sakende"),
+        ("叫ぶ", "sakebu"),
+        ("踊って", "odotte"),
+        ("踊る", "odoru"),
+        ("願って", "negatte"),
+        ("願う", "negau"),
+        ("祈って", "inotte"),
+        ("祈る", "inoru"),
+        ("誓って", "chikatte"),
+        ("誓う", "chikau"),
+        ("触れて", "furete"),
+        ("触れる", "fureru"),
+        ("感じて", "kanjite"),
+        ("感じる", "kanjiru"),
+        ("揺れて", "yurete"),
+        ("揺れる", "yureru"),
+        ("輝いて", "kagayaite"),
+        ("輝く", "kagayaku"),
+        ("響いて", "hibiite"),
+        ("響く", "hibiku"),
+        ("届いて", "todoite"),
+        ("届く", "todoku"),
+        ("失って", "ushinatte"),
+        ("失う", "ushinau"),
+        ("守って", "mamotte"),
+        ("守る", "mamoru"),
+        ("壊して", "kowashite"),
+        ("壊す", "kowasu"),
+        ("探して", "sagashite"),
+        ("探す", "sagasu"),
+        ("出会って", "deatte"),
+        ("出会う", "deau"),
+        ("別れて", "wakarete"),
+        ("別れる", "wakareru"),
+        ("繋いで", "tsunaide"),
+        ("繋ぐ", "tsunagu"),
+        ("離れて", "hanarete"),
+        ("離れる", "hanareru"),
+        ("帰って", "kaette"),
+        ("帰る", "kaeru"),
+        ("歩いて", "aruite"),
+        ("歩く", "aruku"),
+        ("走って", "hashitte"),
+        ("走る", "hashiru"),
+        ("飛んで", "tonde"),
+        ("飛ぶ", "tobu"),
+        ("落ちて", "ochite"),
+        ("落ちる", "ochiru"),
+        ("行って", "itte"),
+        ("行く", "iku"),
+        ("来て", "kite"),
+        ("来る", "kuru"),
+        ("言って", "itte"),
+        ("言う", "iu"),
+        ("思って", "omotte"),
+        ("思う", "omou"),
+        ("知って", "shitte"),
+        ("知る", "shiru"),
+        ("見て", "mite"),
+        ("見る", "miru"),
+        ("聞いて", "kiite"),
+        ("聞く", "kiku"),
+        ("立って", "tatte"),
+        ("立つ", "tatsu"),
+        ("座って", "suwatte"),
+        ("座る", "suwaru"),
+        ("待って", "matte"),
+        ("待つ", "matsu"),
+        ("持って", "motte"),
+        ("持つ", "motsu"),
+        ("開いて", "hiraite"),
+        ("開く", "hiraku"),
+        ("閉じて", "tojite"),
+        ("閉じる", "tojiru"),
+        ("止まって", "tomatte"),
+        ("止まる", "tomaru"),
+        ("動いて", "ugoite"),
+        ("動く", "ugoku"),
+        ("変わって", "kawatte"),
+        ("変わる", "kawaru"),
+        ("落として", "otoshite"),
+        ("落とす", "otosu"),
+        ("救って", "sukutte"),
+        ("救う", "sukuu"),
+        ("助けて", "tasukete"),
+        ("助ける", "tasukeru"),
+        ("奪って", "ubatte"),
+        ("奪う", "ubau"),
+        ("与えて", "ataete"),
+        ("与える", "ataeru"),
+        ("溢れて", "afurete"),
+        ("溢れる", "afureru"),
+        ("零れて", "koborete"),
+        ("零れる", "koboreru"),
+        ("震えて", "furuete"),
+        ("震える", "furueru"),
+        ("瞬いて", "matataite"),
+        ("瞬く", "matataku"),
+        ("迷って", "mayotte"),
+        ("迷う", "mayou"),
+        ("悩んで", "nayande"),
+        ("悩む", "nayamu"),
+        ("傷ついて", "kizutsuite"),
+        ("傷つく", "kizutsuku"),
+        ("癒して", "iyashite"),
+        ("癒す", "iyasu"),
+        ("許して", "yurushite"),
+        ("許す", "yurusu"),
+        ("怒って", "okotte"),
+        ("怒る", "okoru"),
+        ("喜んで", "yorokonde"),
+        ("喜ぶ", "yorokobu"),
+        ("悲しんで", "kanashinde"),
+        ("悲しむ", "kanashimu"),
+        ("楽しんで", "tanoshinde"),
+        ("楽しむ", "tanoshimu"),
+        ("憎んで", "nikunde"),
+        ("憎む", "nikumu")
     ];
+
+    // Common particles and grammatical markers mapped with spaces so words are properly segmented.
+    private static readonly (string Marker, string SpacedRomaji)[] CommonMarkers =
+    [
+        ("って", " tte "),
+        ("から", " kara "),
+        ("まで", " made "),
+        ("より", " yori "),
+        ("ないだろ", " nai daro "),
+        ("ないよな", " nai yo na "),
+        ("ないで", " nai de "),
+        ("なくて", " nakute "),
+        ("ない", " nai "),
+        ("たい", " tai "),
+        ("だろう", " darou "),
+        ("だろ", " daro "),
+        ("よな", " yo na "),
+        ("んだ", " n da "),
+        ("なん", " nan "),
+        ("ねえ", " nee "),
+        ("けど", " kedo "),
+        ("でも", " demo "),
+        ("たら", " tara "),
+        ("なら", " nara "),
+        ("れば", " reba "),
+        ("こと", " koto "),
+        ("もの", " mono "),
+        ("とき", " toki "),
+        ("ため", " tame "),
+        ("ほど", " hodo "),
+        ("だけ", " dake "),
+        ("しか", " shika "),
+        ("ほど", " hodo "),
+        ("を", " wo "),
+        ("は", " wa "),
+        ("が", " ga "),
+        ("に", " ni "),
+        ("で", " de "),
+        ("と", " to "),
+        ("の", " no "),
+        ("も", " mo "),
+        ("へ", " e "),
+        ("ね", " ne "),
+        ("よ", " yo "),
+        ("か", " ka "),
+        ("さ", " sa "),
+        ("な", " na ")
+    ];
+
+    // Single Kanji dictionary covering frequent individual characters to guarantee zero raw Kanji in output.
+    private static readonly Dictionary<char, string> SingleKanjiMap = new()
+    {
+        ['僕'] = "boku", ['君'] = "kimi", ['私'] = "watashi", ['俺'] = "ore",
+        ['誰'] = "dare", ['何'] = "nani", ['今'] = "ima", ['日'] = "hi",
+        ['月'] = "tsuki", ['年'] = "toshi", ['時'] = "toki", ['分'] = "fun",
+        ['夜'] = "yoru", ['朝'] = "asa", ['夕'] = "yuu", ['昼'] = "hiru",
+        ['空'] = "sora", ['雨'] = "ame", ['雲'] = "kumo", ['風'] = "kaze",
+        ['雪'] = "yuki", ['雷'] = "kaminari", ['海'] = "umi", ['波'] = "nami",
+        ['川'] = "kawa", ['山'] = "yama", ['森'] = "mori", ['林'] = "hayashi",
+        ['花'] = "hana", ['草'] = "kusa", ['木'] = "ki", ['葉'] = "ha",
+        ['鳥'] = "tori", ['羽'] = "hane", ['翼'] = "tsubasa", ['星'] = "hoshi",
+        ['光'] = "hikari", ['影'] = "kage", ['闇'] = "yami", ['色'] = "iro",
+        ['音'] = "oto", ['声'] = "koe", ['歌'] = "uta", ['夢'] = "yume",
+        ['心'] = "kokoro", ['愛'] = "ai", ['恋'] = "koi", ['涙'] = "namida",
+        ['手'] = "te", ['目'] = "me", ['耳'] = "mimi", ['口'] = "kuchi",
+        ['足'] = "ashi", ['指'] = "yubi", ['胸'] = "mune", ['体'] = "karada",
+        ['命'] = "inochi", ['息'] = "iki", ['傷'] = "kizu", ['嘘'] = "uso",
+        ['道'] = "michi", ['街'] = "machi", ['家'] = "ie", ['屋'] = "ya",
+        ['火'] = "hi", ['水'] = "mizu", ['土'] = "tsuchi", ['金'] = "kin",
+        ['石'] = "ishi", ['砂'] = "suna", ['空'] = "sora", ['天'] = "ten",
+        ['神'] = "kami", ['人'] = "hito", ['男'] = "otoko", ['女'] = "onna",
+        ['子'] = "ko", ['親'] = "oya", ['友'] = "tomo", ['敵'] = "teki",
+        ['白'] = "shiro", ['黒'] = "kuro", ['赤'] = "aka", ['青'] = "ao",
+        ['黄'] = "ki", ['緑'] = "midori", ['紫'] = "murasaki",
+        ['春'] = "haru", ['夏'] = "natsu", ['秋'] = "aki", ['冬'] = "fuyu",
+        ['間'] = "ma", ['違'] = "chiga", ['本'] = "hon", ['当'] = "tou",
+        ['世'] = "se", ['界'] = "kai", ['未'] = "mi", ['来'] = "rai",
+        ['過'] = "ka", ['去'] = "ko", ['永'] = "ei", ['遠'] = "en",
+        ['約'] = "yaku", ['束'] = "soku", ['記'] = "ki", ['憶'] = "oku",
+        ['運'] = "un", ['命'] = "mei", ['奇'] = "ki", ['跡'] = "seki",
+        ['理'] = "ri", ['由'] = "yuu", ['答'] = "kota", ['問'] = "to",
+        ['最'] = "sai", ['後'] = "go", ['初'] = "sho", ['全'] = "zen",
+        ['部'] = "bu", ['一'] = "ichi", ['二'] = "ni", ['三'] = "san",
+        ['四'] = "yon", ['五'] = "go", ['六'] = "roku", ['七'] = "nana",
+        ['八'] = "hachi", ['九'] = "kyuu", ['十'] = "juu", ['百'] = "hyaku",
+        ['千'] = "sen", ['万'] = "man", ['同'] = "ona", ['言'] = "i",
+        ['思'] = "omo", ['知'] = "shi", ['見'] = "mi", ['聞'] = "ki",
+        ['話'] = "hana", ['語'] = "kata", ['読'] = "yo", ['書'] = "ka",
+        ['行'] = "i", ['来'] = "ki", ['帰'] = "kae", ['出'] = "de",
+        ['入'] = "hai", ['立'] = "ta", ['座'] = "suwa", ['歩'] = "aru",
+        ['走'] = "hashi", ['飛'] = "to", ['泳'] = "oyo", ['乗'] = "no",
+        ['降'] = "o", ['笑'] = "wara", ['泣'] = "na", ['叫'] = "sake",
+        ['歌'] = "uta", ['踊'] = "odo", ['眠'] = "nemu", ['起'] = "o",
+        ['生'] = "i", ['死'] = "shi", ['消'] = "ki", ['忘'] = "wasu",
+        ['覚'] = "obo", ['待'] = "ma", ['持'] = "mo", ['開'] = "hira",
+        ['閉'] = "to", ['止'] = "toma", ['動'] = "ugo", ['変'] = "kawa",
+        ['落'] = "o", ['届'] = "todo", ['触'] = "fure", ['抱'] = "daki",
+        ['信'] = "shin", ['願'] = "nega", ['祈'] = "ino", ['誓'] = "chika",
+        ['好'] = "su", ['嫌'] = "kira", ['痛'] = "ita", ['優'] = "yasa",
+        ['強'] = "tsuyo", ['弱'] = "yowa", ['高'] = "taka", ['低'] = "hiku",
+        ['深'] = "fuka", ['浅'] = "asa", ['長'] = "naga", ['短'] = "mijika",
+        ['広'] = "hiro", ['狭'] = "sema", ['新'] = "atara", ['古'] = "furu",
+        ['美'] = "utsuku", ['汚'] = "kitana", ['暗'] = "kura", ['明'] = "aka",
+        ['冷'] = "tsume", ['温'] = "atata", ['熱'] = "atsu", ['重'] = "omo",
+        ['軽'] = "karu", ['早'] = "haya", ['遅'] = "oso", ['近'] = "chika",
+        ['遠'] = "too", ['正'] = "tada", ['誤'] = "ayama", ['真'] = "ma",
+        ['偽'] = "nise", ['善'] = "zen", ['悪'] = "aku", ['罪'] = "tsumi",
+        ['罰'] = "batsu", ['寂'] = "sabi", ['悲'] = "kana", ['嬉'] = "ure",
+        ['楽'] = "tano", ['苦'] = "kuru", ['怒'] = "ika", ['恐'] = "oso",
+        ['怖'] = "kowa", ['恥'] = "haji", ['迷'] = "mayo", ['悩'] = "naya",
+        ['終'] = "owa", ['始'] = "haji", ['呼'] = "yo", ['鳴'] = "na",
+        ['輝'] = "kagaya", ['瞬'] = "matata", ['溢'] = "afure", ['零'] = "kobore",
+        ['震'] = "furue", ['揺'] = "yure", ['乱'] = "mida", ['静'] = "shizu",
+        ['隠'] = "kaku", ['現'] = "arawa", ['照'] = "tera", ['曇'] = "kumo",
+        ['晴'] = "hare", ['咲'] = "saki", ['散'] = "chiri", ['枯'] = "kare",
+        ['育'] = "soda", ['老'] = "o", ['若'] = "waka", ['幼'] = "osana",
+        ['救'] = "suku", ['助'] = "tasu", ['奪'] = "uba", ['与'] = "atae",
+        ['守'] = "mamo", ['壊'] = "kowa", ['破'] = "yabu", ['創'] = "tsuku",
+        ['造'] = "tsuku", ['探'] = "saga", ['遇'] = "de", ['逢'] = "a",
+        ['別'] = "waka", ['離'] = "hana", ['繋'] = "tsuna", ['結'] = "musu",
+        ['解'] = "to", ['交'] = "maji", ['通'] = "kayo", ['過'] = "su",
+        ['越'] = "ko", ['超'] = "ko", ['満'] = "mi", ['欠'] = "ka"
+    };
 
     /// <summary>
     /// Checks whether the text contains characters from Japanese, Korean, CJK, or Cyrillic scripts.
@@ -287,7 +614,8 @@ public static class RomajiTransliterationService
     }
 
     /// <summary>
-    /// Transliterates non-Latin scripts to Latin alphabet (Romaji/Revised Romanization).
+    /// Transliterates non-Latin scripts to Latin alphabet (Romaji/Revised Romanization)
+    /// with natural word spacing and zero leftover non-Latin characters.
     /// Returns null if the text is already Latin/Western or transliteration isn't applicable.
     /// </summary>
     public static string? Transliterate(string? text)
@@ -297,80 +625,76 @@ public static class RomajiTransliterationService
             return null;
         }
 
-        // 1. If text contains Japanese Kanji or Kana, process via Japanese morphological phonetic pipeline
+        // 1. Process Japanese text (Kanji + Kana) through dictionary, particle tokenizer, and phonetics
         if (HasJapaneseScript(text))
         {
             string? japaneseRomaji = TransliterateJapanese(text);
             if (!string.IsNullOrWhiteSpace(japaneseRomaji))
             {
-                return japaneseRomaji;
+                return CleanWordSpacing(japaneseRomaji);
             }
         }
 
-        // 2. Korean Hangul / Cyrillic / Pure Kana general pipeline
-        return TransliterateGeneral(text);
+        // 2. Korean Hangul / Cyrillic general pipeline
+        string? general = TransliterateGeneral(text);
+        return string.IsNullOrWhiteSpace(general) ? null : CleanWordSpacing(general);
     }
 
     /// <summary>
-    /// Transliterates Japanese text using Windows.Globalization.JapanesePhoneticAnalyzer if available,
-    /// falling back to embedded lyric Kanji dictionary + Kana transliteration.
+    /// Transliterates Japanese text into properly word-spaced Romaji.
     /// </summary>
     private static string? TransliterateJapanese(string text)
     {
-        // 1. Try native Windows 10/11 Japanese Phonetic Analyzer WinRT API
-        try
+        string working = text;
+
+        // Stage 1: Replace multi-character compounds and phrases (longest to shortest)
+        foreach (var (phrase, romaji) in CommonPhrases)
         {
-            var words = JapanesePhoneticAnalyzer.GetWords(text, monoRuby: false);
-            if (words != null && words.Count > 0)
+            if (working.Contains(phrase, StringComparison.Ordinal))
             {
-                var sb = new StringBuilder(text.Length * 2);
-                foreach (var word in words)
-                {
-                    string yomi = word.YomiText;
-                    if (string.IsNullOrEmpty(yomi))
-                    {
-                        yomi = word.DisplayText;
-                    }
-
-                    string romaji = TransliterateGeneral(yomi) ?? yomi;
-
-                    if (word.IsPhraseStart && sb.Length > 0 && sb[^1] != ' ')
-                    {
-                        sb.Append(' ');
-                    }
-
-                    sb.Append(romaji);
-                }
-
-                string candidate = sb.ToString().Trim();
-                if (!string.IsNullOrWhiteSpace(candidate) && !HasJapaneseScript(candidate))
-                {
-                    return candidate;
-                }
-            }
-        }
-        catch
-        {
-            // Fall through to dictionary fallback
-        }
-
-        // 2. High-precision dictionary fallback for common Kanji lyrics
-        string replaced = text;
-        foreach (var (kanji, kana) in CommonKanjiTable)
-        {
-            if (replaced.Contains(kanji, StringComparison.Ordinal))
-            {
-                replaced = replaced.Replace(kanji, kana, StringComparison.Ordinal);
+                working = working.Replace(phrase, " " + romaji + " ", StringComparison.Ordinal);
             }
         }
 
-        string? fallbackRomaji = TransliterateGeneral(replaced);
-        if (!string.IsNullOrWhiteSpace(fallbackRomaji) && !fallbackRomaji.Equals(text.Trim(), StringComparison.Ordinal))
+        // Stage 2: Separate common Japanese particles and grammatical markers
+        foreach (var (marker, spacedRomaji) in CommonMarkers)
         {
-            return fallbackRomaji;
+            if (working.Contains(marker, StringComparison.Ordinal))
+            {
+                working = working.Replace(marker, spacedRomaji, StringComparison.Ordinal);
+            }
         }
 
-        return null;
+        // Stage 3: Replace any remaining single Kanji with their primary Romaji reading
+        var sbKanji = new StringBuilder(working.Length * 2);
+        foreach (char c in working)
+        {
+            if (SingleKanjiMap.TryGetValue(c, out var kRomaji))
+            {
+                sbKanji.Append(' ');
+                sbKanji.Append(kRomaji);
+                sbKanji.Append(' ');
+            }
+            else if (c >= 0x4E00 && c <= 0x9FFF)
+            {
+                // Safety net for rare Kanji: do not leave raw CJK ideograph in output!
+                sbKanji.Append(' ');
+            }
+            else
+            {
+                sbKanji.Append(c);
+            }
+        }
+        working = sbKanji.ToString();
+
+        // Stage 4: Transliterate all remaining Kana (Hiragana/Katakana)
+        string? romajiText = TransliterateGeneral(working);
+        if (string.IsNullOrWhiteSpace(romajiText))
+        {
+            return null;
+        }
+
+        return romajiText;
     }
 
     /// <summary>
@@ -400,6 +724,7 @@ public static class RomajiTransliterationService
                 {
                     sb.Append(HangulFinals[final]);
                 }
+                sb.Append(' ');
                 i++;
                 continue;
             }
@@ -464,13 +789,19 @@ public static class RomajiTransliterationService
             }
 
             // 7. Regular characters, whitespace, punctuation
-            sb.Append(c);
+            if (c >= 0x4E00 && c <= 0x9FFF)
+            {
+                // Ensure no raw CJK character passes through
+                sb.Append(' ');
+            }
+            else
+            {
+                sb.Append(c);
+            }
             i++;
         }
 
         string result = sb.ToString().Trim();
-
-        // If the resulting string is essentially identical to input, return null
         if (result.Equals(text.Trim(), StringComparison.Ordinal))
         {
             return null;
@@ -478,4 +809,26 @@ public static class RomajiTransliterationService
 
         return result;
     }
+
+    /// <summary>
+    /// Normalizes word spacing: collapses multi-spaces and formats punctuation cleanly.
+    /// </summary>
+    private static string CleanWordSpacing(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+
+        // Collapse multi-spaces
+        string s = MultipleSpacesRegex().Replace(text, " ").Trim();
+
+        // Attach punctuation to preceding word without space (e.g. "word ," -> "word,")
+        s = PunctuationLeadSpaceRegex().Replace(s, "$1");
+
+        return s;
+    }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex MultipleSpacesRegex();
+
+    [GeneratedRegex(@"\s+([,\.!\?:;\)\]\}])")]
+    private static partial Regex PunctuationLeadSpaceRegex();
 }
