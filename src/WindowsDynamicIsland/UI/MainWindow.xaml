@@ -527,8 +527,8 @@
 
                         <!-- Mini Album Cover -->
                         <Border Grid.Column="0"
-                                Width="25" Height="25"
-                                CornerRadius="7"
+                                Width="26" Height="26"
+                                CornerRadius="7.5"
                                 Background="#181822"
                                 BorderBrush="#26FFFFFF"
                                 BorderThickness="1"
@@ -551,20 +551,27 @@
                                 Margin="11,0,11,0"
                                 VerticalAlignment="Center"
                                 ClipToBounds="True"
-                                Height="24">
-                            <Canvas VerticalAlignment="Center" Height="24" ClipToBounds="True">
-                                <TextBlock x:Name="CompactSongTitleText"
-                                           Canvas.Left="0"
-                                           Canvas.Top="3"
-                                           Text="Memuat lirik lagu..."
-                                           Foreground="#F8FAFC"
-                                           FontSize="12.5"
-                                           FontWeight="SemiBold"
-                                           RenderTransformOrigin="0.5,0.5">
-                                    <TextBlock.RenderTransform>
+                                Height="34">
+                            <Canvas x:Name="CompactLyricCanvas" VerticalAlignment="Center" Height="34" ClipToBounds="True">
+                                <StackPanel x:Name="CompactLyricStack" Canvas.Left="0" Canvas.Top="8" Orientation="Vertical">
+                                    <StackPanel.RenderTransform>
                                         <TranslateTransform x:Name="CompactLyricTranslate" X="0" Y="0"/>
-                                    </TextBlock.RenderTransform>
-                                </TextBlock>
+                                    </StackPanel.RenderTransform>
+                                    <TextBlock x:Name="CompactSongTitleText"
+                                               Text="Memuat lirik lagu..."
+                                               Foreground="#F8FAFC"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="None"/>
+                                    <TextBlock x:Name="CompactSongRomanizedText"
+                                               Text=""
+                                               Foreground="#94A3B8"
+                                               FontSize="9.5"
+                                               FontWeight="Medium"
+                                               FontFamily="Segoe UI Variable Text, Segoe UI"
+                                               Margin="0,0.5,0,0"
+                                               Visibility="Collapsed"/>
+                                </StackPanel>
                             </Canvas>
                         </Border>
 

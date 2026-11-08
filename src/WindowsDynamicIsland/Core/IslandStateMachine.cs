@@ -61,6 +61,7 @@ public sealed class IslandStateMachine
     public bool IsAutoTuckEnabled { get; private set; } = true;
     public bool IsAutoTucked { get; private set; } = false;
     public bool IsMinimalNotch { get; private set; } = false;
+    public bool HasCompactRomanizedSubtitle { get; set; } = false;
 
     // Dynamic content sizing inputs so the notch breathes organically
     public double DynamicCompactWidth { get; private set; } = 320;
@@ -113,7 +114,12 @@ public sealed class IslandStateMachine
         {
             IslandVisualState.IdlePill => (DynamicIdleWidth, 37.0, 17.0, 13.0, 0.18),
             IslandVisualState.PinnedPerformancePill => (268.0, 37.0, 17.0, 13.0, 0.22),
-            IslandVisualState.CompactMedia => (DynamicCompactWidth, 40.0, 18.0, 14.0, 0.35),
+            IslandVisualState.CompactMedia => (
+                DynamicCompactWidth,
+                HasCompactRomanizedSubtitle ? 48.0 : 40.0,
+                HasCompactRomanizedSubtitle ? 20.0 : 18.0,
+                14.0,
+                0.35),
             IslandVisualState.ToastNotification => (388.0, 52.0, 22.0, 15.0, 0.48),
             IslandVisualState.ExpandedDashboard => (540.0, 268.0, 26.0, 18.0, 0.48),
             IslandVisualState.SpotlightSearch => (540.0, DynamicSpotlightHeight, 26.0, 18.0, 0.55),
@@ -150,7 +156,8 @@ public sealed class IslandStateMachine
 
     public void UpdateDynamicCompactWidth(int lyricCharLength)
     {
-        double target = Math.Clamp(254 + lyricCharLength * 4.2, 286, 408);
+        double baseW = HasCompactRomanizedSubtitle ? 282.0 : 254.0;
+        double target = Math.Clamp(baseW + lyricCharLength * 4.2, 288.0, 420.0);
         if (Math.Abs(target - DynamicCompactWidth) >= 6.0)
         {
             DynamicCompactWidth = target;

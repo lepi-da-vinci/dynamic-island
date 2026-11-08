@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 
 namespace WindowsDynamicIsland.Services;
 
-public sealed record LyricLine(TimeSpan Timestamp, string Text);
+public sealed record LyricLine(TimeSpan Timestamp, string Text, string? RomanizedText = null);
 
 public sealed record ActiveLyricSnapshot(
     int LineIndex,
@@ -192,12 +192,12 @@ public sealed partial class LyricsService
         {
             foreach (var (qTitle, qArtist) in queryPairs.Take(2))
             {
-                string? neteaseLrc = await FetchFromNetEaseAsync(qTitle, qArtist, durationSeconds);
+                var (neteaseLrc, neteaseRomaLrc) = await FetchFromNetEaseAsync(qTitle, qArtist, durationSeconds);
                 if (reqId != Volatile.Read(ref _requestVersion)) return;
 
                 if (!string.IsNullOrWhiteSpace(neteaseLrc))
                 {
-                    var lines = ParseLrc(neteaseLrc);
+                    var lines = ParseLrc(neteaseLrc, neteaseRomaLrc);
                     if (lines.Count > 0 && IsTimelineCompatibleWithDuration(lines, durationSeconds))
                     {
                         _currentLines = lines;
@@ -317,7 +317,7 @@ public sealed partial class LyricsService
             ? _currentLines[activeIndex + 1].Text
             : "• • •";
 
-        string? romanized = RomajiTransliterationService.Transliterate(current);
+        string? romanized = _currentLines[activeIndex].RomanizedText ?? RomajiTransliterationService.Transliterate(current);
 
         double progress = 1.0;
         if (activeIndex + 1 < _currentLines.Count)
@@ -682,7 +682,7 @@ public sealed partial class LyricsService
         return lastLineSec <= durationSeconds + 25.0;
     }
 
-    private static async Task<string?> FetchFromNetEaseAsync(string title, string artist, double durationSeconds)
+    private static async Task<(string? Lrc, string? RomaLrc)> FetchFromNetEaseAsync(string title, string artist, double durationSeconds)
     {
         try
         {
@@ -692,7 +692,7 @@ public sealed partial class LyricsService
             using var searchReq = new HttpRequestMessage(HttpMethod.Get, searchUrl);
             searchReq.Headers.TryAddWithoutValidation("Referer", "http://music.163.com");
             using var searchResp = await Http.SendAsync(searchReq);
-            if (!searchResp.IsSuccessStatusCode) return null;
+            if (!searchResp.IsSuccessStatusCode) return (null, null);
 
             string searchJson = await searchResp.Content.ReadAsStringAsync();
             using var searchDoc = JsonDocument.Parse(searchJson);
@@ -701,7 +701,7 @@ public sealed partial class LyricsService
                 !resElem.TryGetProperty("songs", out var songsArr) ||
                 songsArr.ValueKind != JsonValueKind.Array)
             {
-                return null;
+                return (null, null);
             }
 
             long bestSongId = 0;
@@ -733,26 +733,35 @@ public sealed partial class LyricsService
                 }
             }
 
-            if (bestSongId == 0) return null;
+            if (bestSongId == 0) return (null, null);
 
             string lyricUrl = $"http://music.163.com/api/song/lyric?id={bestSongId}&lv=1&kv=1&tv=1";
             using var lyricReq = new HttpRequestMessage(HttpMethod.Get, lyricUrl);
             lyricReq.Headers.TryAddWithoutValidation("Referer", "http://music.163.com");
             using var lyricResp = await Http.SendAsync(lyricReq);
-            if (!lyricResp.IsSuccessStatusCode) return null;
+            if (!lyricResp.IsSuccessStatusCode) return (null, null);
 
             string lyricJson = await lyricResp.Content.ReadAsStringAsync();
             using var lyricDoc = JsonDocument.Parse(lyricJson);
             var lrcRoot = lyricDoc.RootElement;
 
+            string? lrcText = null;
             if (lrcRoot.TryGetProperty("lrc", out var lrcObj) &&
                 lrcObj.TryGetProperty("lyric", out var lyricProp))
             {
-                string? lrcText = lyricProp.GetString();
-                if (!string.IsNullOrWhiteSpace(lrcText) && lrcText.Contains('['))
-                {
-                    return lrcText;
-                }
+                lrcText = lyricProp.GetString();
+            }
+
+            string? romaText = null;
+            if (lrcRoot.TryGetProperty("romalrc", out var romaObj) &&
+                romaObj.TryGetProperty("lyric", out var romaProp))
+            {
+                romaText = romaProp.GetString();
+            }
+
+            if (!string.IsNullOrWhiteSpace(lrcText) && lrcText.Contains('['))
+            {
+                return (lrcText, romaText);
             }
         }
         catch (Exception ex)
@@ -760,7 +769,7 @@ public sealed partial class LyricsService
             AppLogger.LogWarning("LyricsService", $"NetEase fetch skipped: {ex.Message}");
         }
 
-        return null;
+        return (null, null);
     }
 
     private static async Task<string?> FetchFromLyricsOvhAsync(string title, string artist)
@@ -861,7 +870,9 @@ public sealed partial class LyricsService
         for (int i = 0; i < rawLines.Count; i++)
         {
             double sec = intro + (i * lineInterval);
-            result.Add(new LyricLine(TimeSpan.FromSeconds(sec), rawLines[i]));
+            string lineText = rawLines[i];
+            string? romanized = RomajiTransliterationService.Transliterate(lineText);
+            result.Add(new LyricLine(TimeSpan.FromSeconds(sec), lineText, romanized));
         }
 
         return result;
@@ -889,10 +900,31 @@ public sealed partial class LyricsService
         }
     }
 
-    private static List<LyricLine> ParseLrc(string lrcContent)
+    private static List<LyricLine> ParseLrc(string lrcContent, string? romalrcContent = null)
     {
         var lines = new List<LyricLine>();
         var regex = LrcLineRegex();
+
+        Dictionary<int, string>? romaDict = null;
+        if (!string.IsNullOrWhiteSpace(romalrcContent))
+        {
+            romaDict = [];
+            foreach (string rawLine in romalrcContent.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+            {
+                var match = regex.Match(rawLine);
+                if (!match.Success) continue;
+                int m = int.Parse(match.Groups[1].Value);
+                int s = int.Parse(match.Groups[2].Value);
+                string fStr = match.Groups[3].Value;
+                int ms = fStr.Length == 2 ? int.Parse(fStr) * 10 : int.Parse(fStr.PadRight(3, '0')[..3]);
+                int centisec = (m * 60 + s) * 10 + (ms / 100);
+                string rText = match.Groups[4].Value.Trim();
+                if (!string.IsNullOrWhiteSpace(rText))
+                {
+                    romaDict[centisec] = rText;
+                }
+            }
+        }
 
         foreach (string rawLine in lrcContent.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
@@ -912,7 +944,26 @@ public sealed partial class LyricsService
                 text = "• • •";
             }
 
-            lines.Add(new LyricLine(new TimeSpan(0, 0, minutes, seconds, milliseconds), text));
+            var ts = new TimeSpan(0, 0, minutes, seconds, milliseconds);
+            string? romanized = null;
+
+            if (romaDict != null && romaDict.Count > 0)
+            {
+                int centisec = (minutes * 60 + seconds) * 10 + (milliseconds / 100);
+                for (int delta = 0; delta <= 5; delta++)
+                {
+                    if (romaDict.TryGetValue(centisec + delta, out var r) ||
+                        (delta > 0 && romaDict.TryGetValue(centisec - delta, out r)))
+                    {
+                        romanized = r;
+                        break;
+                    }
+                }
+            }
+
+            romanized ??= RomajiTransliterationService.Transliterate(text);
+
+            lines.Add(new LyricLine(ts, text, romanized));
         }
 
         lines.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));

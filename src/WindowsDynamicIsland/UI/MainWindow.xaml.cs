@@ -67,6 +67,7 @@ public partial class MainWindow : Window
     // Lyric animation & slow one-way pan tracking
     private int _lastAnimatedLyricIndex = -999;
     private string _lastDisplayedCompactText = string.Empty;
+    private string? _lastDisplayedCompactRomanizedText;
     private double _currentLyricLineProgress;
     private double _currentPanX;
     private int _topBezelHoldTicks;
@@ -260,7 +261,14 @@ public partial class MainWindow : Window
 
         // Subscribe to external keyboard Volume / Mute / Mic Mute / Brightness key events
         _audioService.SpeakerVolumeOrMuteChanged += (vol, muted, muteToggled) =>
+        {
+            if (_settingsService.SuppressWindowsNativeOsd)
+            {
+                WindowsFlyoutSuppressor.TriggerSuppressionBurst(durationMs: 700, intervalMs: 20);
+                WindowsFlyoutSuppressor.SuppressOnce();
+            }
             Dispatcher.InvokeAsync(() => ShowVolumeToast(vol, muted, muteToggled));
+        };
 
         _audioService.MicrophoneMuteChanged += micMuted =>
             Dispatcher.InvokeAsync(() => ShowMicMuteToast(micMuted));
@@ -273,7 +281,14 @@ public partial class MainWindow : Window
             });
 
         _brightnessService.BrightnessChanged += brt =>
+        {
+            if (_settingsService.SuppressWindowsNativeOsd)
+            {
+                WindowsFlyoutSuppressor.TriggerSuppressionBurst(durationMs: 700, intervalMs: 20);
+                WindowsFlyoutSuppressor.SuppressOnce();
+            }
             Dispatcher.InvokeAsync(() => ShowBrightnessToast(brt));
+        };
 
         Microsoft.Win32.SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
@@ -1449,6 +1464,10 @@ public partial class MainWindow : Window
     private void UpdateCompactLyricSlowPan(double dt)
     {
         double textWidth = CompactSongTitleText.ActualWidth;
+        if (CompactSongRomanizedText != null && CompactSongRomanizedText.Visibility == Visibility.Visible)
+        {
+            textWidth = Math.Max(textWidth, CompactSongRomanizedText.ActualWidth);
+        }
         double viewportWidth = CompactLyricViewport.ActualWidth;
 
         if (viewportWidth <= 10 || textWidth <= viewportWidth + 2)
@@ -2382,9 +2401,11 @@ public partial class MainWindow : Window
         LyricLineProgressFill.Width = 160.0 * Math.Clamp(lyricSnap.LineProgressRatio, 0.0, 1.0);
 
         string compactTargetText;
+        string? compactRomanized = null;
         if (_settingsService.LyricsEnabled && lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.CurrentLine) && lyricSnap.CurrentLine != "• • •")
         {
             compactTargetText = lyricSnap.CurrentLine;
+            compactRomanized = lyricSnap.CurrentRomanizedLine;
         }
         else if (_settingsService.LyricsEnabled && lyricSnap.IsSynced && !string.IsNullOrWhiteSpace(lyricSnap.NextLine))
         {
@@ -2397,22 +2418,54 @@ public partial class MainWindow : Window
                 : track.Title;
         }
 
-        if (compactTargetText != _lastDisplayedCompactText)
+        bool hasRomanized = !string.IsNullOrWhiteSpace(compactRomanized);
+        if (_stateMachine.HasCompactRomanizedSubtitle != hasRomanized)
+        {
+            _stateMachine.HasCompactRomanizedSubtitle = hasRomanized;
+            if (_stateMachine.CurrentState == IslandVisualState.CompactMedia)
+            {
+                OnIslandStateChanged(_stateMachine.CurrentState, _stateMachine.ActiveTab);
+            }
+        }
+
+        if (CompactSongRomanizedText != null)
+        {
+            if (hasRomanized)
+            {
+                CompactSongRomanizedText.Text = compactRomanized!;
+                CompactSongRomanizedText.Visibility = Visibility.Visible;
+                Canvas.SetTop(CompactLyricStack, 1.0);
+            }
+            else
+            {
+                CompactSongRomanizedText.Text = string.Empty;
+                CompactSongRomanizedText.Visibility = Visibility.Collapsed;
+                Canvas.SetTop(CompactLyricStack, 8.0);
+            }
+        }
+
+        if (compactTargetText != _lastDisplayedCompactText || compactRomanized != _lastDisplayedCompactRomanizedText)
         {
             _lastDisplayedCompactText = compactTargetText;
+            _lastDisplayedCompactRomanizedText = compactRomanized;
             CompactSongTitleText.Text = compactTargetText;
             _currentPanX = 0;
             CompactLyricTranslate.X = 0;
 
-            _stateMachine.UpdateDynamicCompactWidth(compactTargetText.Length);
+            int charCount = Math.Max(compactTargetText.Length, compactRomanized?.Length ?? 0);
+            _stateMachine.UpdateDynamicCompactWidth(charCount);
 
-            var slideUp = new DoubleAnimation(12.0, 0.0, TimeSpan.FromMilliseconds(340))
+            var slideUp = new DoubleAnimation(10.0, 0.0, TimeSpan.FromMilliseconds(320))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             };
-            var fadeIn = new DoubleAnimation(0.20, 1.0, TimeSpan.FromMilliseconds(300));
+            var fadeIn = new DoubleAnimation(0.20, 1.0, TimeSpan.FromMilliseconds(280));
             CompactLyricTranslate.BeginAnimation(TranslateTransform.YProperty, slideUp);
             CompactSongTitleText.BeginAnimation(OpacityProperty, fadeIn);
+            if (CompactSongRomanizedText != null && hasRomanized)
+            {
+                CompactSongRomanizedText.BeginAnimation(OpacityProperty, fadeIn);
+            }
         }
 
         if (lyricSnap.LineIndex != _lastAnimatedLyricIndex || CurrentLyricLineText.Text != lyricSnap.CurrentLine)
@@ -2474,6 +2527,7 @@ public partial class MainWindow : Window
         if (_settingsService.SuppressWindowsNativeOsd &&
             toast.SliderKind is ToastSliderKind.Volume or ToastSliderKind.Brightness)
         {
+            WindowsFlyoutSuppressor.TriggerSuppressionBurst(durationMs: 700, intervalMs: 20);
             WindowsFlyoutSuppressor.SuppressOnce();
         }
 
