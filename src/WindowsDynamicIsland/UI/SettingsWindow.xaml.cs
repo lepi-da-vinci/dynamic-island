@@ -152,6 +152,15 @@ public partial class SettingsWindow : Window
         try
         {
             // Page 0: General
+            if (_settings.AppLanguage == "en")
+            {
+                LangEnBtn.IsChecked = true;
+            }
+            else
+            {
+                LangIdBtn.IsChecked = true;
+            }
+
             ChkStartWithWindows.IsChecked = _settings.StartWithWindows;
             ChkMinimalNotch.IsChecked = _settings.MinimalNotchEnabled;
             ChkAutoTuck.IsChecked = _settings.AutoTuckEnabled;
@@ -308,6 +317,8 @@ public partial class SettingsWindow : Window
 
             // Battery Limit & Smart Charge
             RefreshBatteryLimitControls();
+
+            ApplyLocalization();
         }
         finally
         {
@@ -330,6 +341,73 @@ public partial class SettingsWindow : Window
         // Replaced by System Power Control (Sleep & Hibernate)
     }
 
+    private void OnLanguageClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string tagStr) return;
+        _settings.AppLanguage = tagStr;
+        LocalizationService.Instance.SetLanguage(tagStr);
+        var group = _segmentedGroups.FirstOrDefault(g => g.HostGrid == LanguageHostGrid);
+        if (group != null) UpdateSegmentedPill(group, animate: !_isLoadingUi);
+        ApplyLocalization();
+    }
+
+    public void ApplyLocalization()
+    {
+        try
+        {
+            var loc = LocalizationService.Instance;
+            Title = loc.Get("Settings_Title", "Pengaturan — Windows Dynamic Island");
+
+            if (NavText0 != null) NavText0.Text = loc.Get("Nav_General");
+            if (NavText1 != null) NavText1.Text = loc.Get("Nav_Display");
+            if (NavText2 != null) NavText2.Text = loc.Get("Nav_Appearance");
+            if (NavText3 != null) NavText3.Text = loc.Get("Nav_Music");
+            if (NavText4 != null) NavText4.Text = loc.Get("Nav_Todo");
+            if (NavText5 != null) NavText5.Text = loc.Get("Nav_Calendar");
+            if (NavText6 != null) NavText6.Text = loc.Get("Nav_Pomodoro");
+            if (NavText7 != null) NavText7.Text = loc.Get("Nav_Water");
+            if (NavText8 != null) NavText8.Text = loc.Get("Nav_Shelf");
+            if (NavText9 != null) NavText9.Text = loc.Get("Nav_Hud");
+
+            if (SettingsDoneBtnText != null) SettingsDoneBtnText.Text = loc.IsEnglish ? "Done" : "Selesai";
+            if (SettingsExitBtnText != null) SettingsExitBtnText.Text = loc.Get("Status_Exit");
+            if (SettingsUpdateTitleText != null) SettingsUpdateTitleText.Text = loc.IsEnglish ? "Windows Dynamic Island v2.0.2 (Up to date)" : "Windows Dynamic Island v2.0.2 (Terbaru)";
+
+            if (SettingsLangHeader != null) SettingsLangHeader.Text = loc.IsEnglish ? "Language & Localization" : "Bahasa & Lokalisasi";
+            if (SettingsLangTitle != null) SettingsLangTitle.Text = loc.Get("Settings_Language");
+            if (SettingsLangSub != null) SettingsLangSub.Text = loc.Get("Settings_LanguageSub");
+
+            int currentCategory = 0;
+            if (NavDisplayBtn?.IsChecked == true) currentCategory = 1;
+            else if (NavAppearanceBtn?.IsChecked == true) currentCategory = 2;
+            else if (NavMusicBtn?.IsChecked == true) currentCategory = 3;
+            else if (NavTodoBtn?.IsChecked == true) currentCategory = 4;
+            else if (NavCalendarBtn?.IsChecked == true) currentCategory = 5;
+            else if (NavPomodoroBtn?.IsChecked == true) currentCategory = 6;
+            else if (NavWaterBtn?.IsChecked == true) currentCategory = 7;
+            else if (NavShelfBtn?.IsChecked == true) currentCategory = 8;
+            else if (NavHudBtn?.IsChecked == true) currentCategory = 9;
+
+            if (PageHeaderTitleText != null)
+            {
+                PageHeaderTitleText.Text = currentCategory switch
+                {
+                    1 => loc.Get("Nav_Display"),
+                    2 => loc.Get("Nav_Appearance"),
+                    3 => loc.Get("Nav_Music"),
+                    4 => loc.Get("Nav_Todo"),
+                    5 => loc.Get("Nav_Calendar"),
+                    6 => loc.Get("Nav_Pomodoro"),
+                    7 => loc.Get("Nav_Water"),
+                    8 => loc.Get("Nav_Shelf"),
+                    9 => loc.Get("Nav_Hud"),
+                    _ => loc.Get("Nav_General")
+                };
+            }
+        }
+        catch { }
+    }
+
     private void OnNavCategoryChecked(object sender, RoutedEventArgs e)
     {
         if (PageGeneral == null || sender is not RadioButton rb || rb.Tag is not string tagStr)
@@ -349,19 +427,19 @@ public partial class SettingsWindow : Window
         PageShelf.Visibility = idx == 8 ? Visibility.Visible : Visibility.Collapsed;
         PageHud.Visibility = idx == 9 ? Visibility.Visible : Visibility.Collapsed;
 
+        var loc = LocalizationService.Instance;
         PageHeaderTitleText.Text = idx switch
         {
-            0 => "General",
-            1 => "Display",
-            2 => "Appearance",
-            3 => "Music and lyrics",
-            4 => "To-do",
-            5 => "Calendar",
-            6 => "Pomodoro",
-            7 => "Water",
-            8 => "Shelf",
-            9 => "HUD & popups",
-            _ => "General"
+            1 => loc.Get("Nav_Display"),
+            2 => loc.Get("Nav_Appearance"),
+            3 => loc.Get("Nav_Music"),
+            4 => loc.Get("Nav_Todo"),
+            5 => loc.Get("Nav_Calendar"),
+            6 => loc.Get("Nav_Pomodoro"),
+            7 => loc.Get("Nav_Water"),
+            8 => loc.Get("Nav_Shelf"),
+            9 => loc.Get("Nav_Hud"),
+            _ => loc.Get("Nav_General")
         };
 
         if (idx == 7) RefreshWaterCard();

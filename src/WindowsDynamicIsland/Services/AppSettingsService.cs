@@ -6,6 +6,9 @@ namespace WindowsDynamicIsland.Services;
 
 public sealed class AppSettingsData
 {
+    // General - Language
+    public string AppLanguage { get; set; } = "id"; // "id" (Bahasa Indonesia), "en" (English)
+
     // General - Startup
     public bool StartWithWindows { get; set; } = true;
 
@@ -91,6 +94,19 @@ public sealed class AppSettingsService
     public event Action? SettingsChanged;
 
     public AppSettingsData Data => _data;
+
+    public string AppLanguage
+    {
+        get => _data.AppLanguage;
+        set
+        {
+            if (_data.AppLanguage == value) return;
+            _data.AppLanguage = value;
+            LocalizationService.Instance.SetLanguage(value);
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
 
     public bool StartWithWindows
     {
@@ -715,6 +731,7 @@ public sealed class AppSettingsService
                 if (loaded != null)
                 {
                     _data = loaded;
+                    LocalizationService.Instance.SetLanguage(_data.AppLanguage);
                 }
             }
             else

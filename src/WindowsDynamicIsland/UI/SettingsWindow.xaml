@@ -140,7 +140,7 @@
                                         <Border x:Name="NavBadge0" Width="22" Height="22" CornerRadius="6" Background="#64748B" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomSettingsGear}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="General" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText0" Text="General" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -154,7 +154,7 @@
                                         <Border x:Name="NavBadge1" Width="22" Height="22" CornerRadius="6" Background="#8B5CF6" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomDisplayMonitor}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="Display" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText1" Text="Display" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -168,7 +168,7 @@
                                         <Border x:Name="NavBadge2" Width="22" Height="22" CornerRadius="6" Background="#475569" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomAppearanceSparkle}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="Appearance" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText2" Text="Appearance" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -182,7 +182,7 @@
                                         <Border x:Name="NavBadge3" Width="22" Height="22" CornerRadius="6" Background="#F43F5E" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomMusic}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="Music and lyrics" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText3" Text="Music and lyrics" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -196,7 +196,7 @@
                                         <Border x:Name="NavBadge4" Width="22" Height="22" CornerRadius="6" Background="#22C55E" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomChecklist}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="To-do" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText4" Text="To-do" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -210,7 +210,7 @@
                                         <Border x:Name="NavBadge5" Width="22" Height="22" CornerRadius="6" Background="#EF4444" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomCalendar}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="Calendar" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText5" Text="Calendar" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -224,7 +224,7 @@
                                         <Border x:Name="NavBadge6" Width="22" Height="22" CornerRadius="6" Background="#F97316" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomFocusTimer}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="Pomodoro" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText6" Text="Pomodoro" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -238,7 +238,7 @@
                                         <Border x:Name="NavBadge7" Width="22" Height="22" CornerRadius="6" Background="#3B82F6" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomWaterDrop}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="Water" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText7" Text="Water" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -252,7 +252,7 @@
                                         <Border x:Name="NavBadge8" Width="22" Height="22" CornerRadius="6" Background="#F59E0B" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomFolderTray}" Width="11.5" Height="11.5" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="Shelf" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText8" Text="Shelf" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
 
@@ -266,7 +266,7 @@
                                         <Border x:Name="NavBadge9" Width="22" Height="22" CornerRadius="6" Background="#0EA5E9" Margin="0,0,10,0">
                                             <Path Data="{StaticResource GeomHudLayers}" Width="12" Height="12" Stretch="Uniform" Fill="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
-                                        <TextBlock Text="HUD &amp; popups" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="NavText9" Text="HUD &amp; popups" FontSize="12.5" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
@@ -283,9 +283,9 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                     <TextBlock Text="Dynamic Island" Foreground="#E2E8F0" FontSize="11" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="SidebarVersionText" Text="v2.0.1 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
+                                    <TextBlock x:Name="SidebarVersionText" Text="v2.0.2 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -322,7 +322,7 @@
                                     Style="{StaticResource IslandIconButtonStyle}"
                                     Padding="10,5"
                                     Click="OnCloseButtonClick">
-                                <TextBlock Text="Selesai" Foreground="#94A3B8" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="SettingsDoneBtnText" Text="Selesai" Foreground="#94A3B8" FontSize="11" FontWeight="SemiBold"/>
                             </Button>
                         </Grid>
                     </Border>
@@ -523,7 +523,8 @@
                                                                Text="Wi-Fi Terhubung"
                                                                Foreground="#94A3B8"
                                                                FontSize="10.5"
-                                                               Margin="0,2,0,0"
+                                                               TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"
                                                                TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
                                             </Border>
@@ -556,7 +557,8 @@
                                                                Text="RAM: 26 MB • 0% CPU Idle"
                                                                Foreground="#94A3B8"
                                                                FontSize="10.5"
-                                                               Margin="0,2,0,0"
+                                                               TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"
                                                                TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
                                             </Border>
@@ -709,7 +711,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Kontrol Daya Sistem"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -717,7 +719,8 @@
                                                 <TextBlock Text="Aksi daya cepat untuk menghemat baterai atau menidurkan sistem seketika"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <Border Grid.Column="1"
                                                     Background="#2038BDF8"
@@ -749,7 +752,7 @@
                                                     Background="#14FFFFFF"
                                                     BorderBrush="#25FFFFFF"
                                                     BorderThickness="1"
-                                                    Height="56"
+                                                    MinHeight="56"
                                                     Padding="12,8"
                                                     HorizontalContentAlignment="Stretch"
                                                     Click="OnSleepButtonClicked">
@@ -780,7 +783,8 @@
                                                         <TextBlock Text="Stand-by hemat daya"
                                                                    Foreground="#94A3B8"
                                                                    FontSize="10.5"
-                                                                   Margin="0,2,0,0"/>
+                                                                   TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                                     </StackPanel>
                                                 </Grid>
                                             </Button>
@@ -791,7 +795,7 @@
                                                     Background="#14FFFFFF"
                                                     BorderBrush="#25FFFFFF"
                                                     BorderThickness="1"
-                                                    Height="56"
+                                                    MinHeight="56"
                                                     Padding="12,8"
                                                     HorizontalContentAlignment="Stretch"
                                                     Click="OnHibernateButtonClicked">
@@ -822,11 +826,77 @@
                                                         <TextBlock Text="Simpan sesi &amp; matikan"
                                                                    Foreground="#94A3B8"
                                                                    FontSize="10.5"
-                                                                   Margin="0,2,0,0"/>
+                                                                   TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                                     </StackPanel>
                                                 </Grid>
                                             </Button>
                                         </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Language Selection Card -->
+                                <TextBlock x:Name="SettingsLangHeader"
+                                           Text="Bahasa &amp; Lokalisasi"
+                                           Foreground="#64748B"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,0,6"/>
+
+                                <Border Background="#1F1F25"
+                                        BorderBrush="#1AFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="16,14"
+                                        Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
+                                                <TextBlock x:Name="SettingsLangTitle"
+                                                           Text="Bahasa Antarmuka"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="SettingsLangSub"
+                                                           Text="Pilih bahasa tampilan untuk Dynamic Island dan Pengaturan"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Border Background="#141418"
+                                                BorderBrush="#1AFFFFFF"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="2"
+                                                Height="34">
+                                            <Grid x:Name="LanguageHostGrid">
+                                                <!-- Sliding Horizontal Selection Pill -->
+                                                <Border x:Name="LanguageActivePill"
+                                                        Background="{DynamicResource SettingsSegmentActiveBgBrush}"
+                                                        BorderBrush="#25FFFFFF"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6.5"
+                                                        HorizontalAlignment="Left"
+                                                        VerticalAlignment="Stretch"
+                                                        IsHitTestVisible="False">
+                                                    <Border.RenderTransform>
+                                                        <TranslateTransform x:Name="LanguagePillTranslate" X="0"/>
+                                                    </Border.RenderTransform>
+                                                </Border>
+
+                                                <UniformGrid Columns="2">
+                                                    <RadioButton x:Name="LangIdBtn" GroupName="AppLanguageGroup" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="Bahasa Indonesia" Tag="id" Click="OnLanguageClicked"/>
+                                                    <RadioButton x:Name="LangEnBtn" GroupName="AppLanguageGroup" Style="{StaticResource AppleSlidingSegmentOptionStyle}" Content="English" Tag="en" Click="OnLanguageClicked"/>
+                                                </UniformGrid>
+                                            </Grid>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
 
@@ -848,7 +918,7 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                             <TextBlock Text="Start with Windows"
                                                        Foreground="#F8FAFC"
                                                        FontSize="13"
@@ -856,7 +926,8 @@
                                             <TextBlock Text="Jalankan Dynamic Island otomatis saat Windows menyala"
                                                        Foreground="#94A3B8"
                                                        FontSize="11"
-                                                       Margin="0,2,0,0"/>
+                                                       TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <CheckBox x:Name="ChkStartWithWindows"
                                                   Grid.Column="1"
@@ -929,7 +1000,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Minimal notch"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -937,7 +1008,8 @@
                                                 <TextBlock Text="A smaller pill when nothing is playing"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkMinimalNotch"
                                                       Grid.Column="1"
@@ -954,7 +1026,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Auto-Simpan (Auto-Tuck)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -962,7 +1034,8 @@
                                                 <TextBlock Text="Otomatis simpan ke atas setelah tampilan normal muncul"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkAutoTuck"
                                                       Grid.Column="1"
@@ -1010,7 +1083,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Mode Screenshot (Simpan &amp; Kunci Sentuh)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1018,7 +1091,8 @@
                                                 <TextBlock Text="Otomatis masuk mode simpan &amp; tidak bisa disentuh saat melakukan screenshot"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkScreenshotMode"
                                                       Grid.Column="1"
@@ -1049,7 +1123,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Tab Musik"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1057,7 +1131,8 @@
                                                 <TextBlock Text="Tampilkan tab pemutar media &amp; panggung lirik lagu di Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkTabMedia"
                                                       Grid.Column="1"
@@ -1074,7 +1149,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Tab Tugas (To-do)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1082,7 +1157,8 @@
                                                 <TextBlock Text="Tampilkan tab daftar tugas harian di Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkTabTodo"
                                                       Grid.Column="1"
@@ -1099,7 +1175,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Tab Fokus (Pomodoro &amp; Air)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1107,7 +1183,8 @@
                                                 <TextBlock Text="Tampilkan tab timer fokus Pomodoro &amp; target hidrasi di Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkTabPomodoro"
                                                       Grid.Column="1"
@@ -1124,7 +1201,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Tab Pintasan Aplikasi (App Shortcuts)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1132,7 +1209,8 @@
                                                 <TextBlock Text="Tampilkan tab Launchpad pintasan cepat untuk membuka aplikasi tanpa Start Menu"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkTabShortcuts"
                                                       Grid.Column="1"
@@ -1149,7 +1227,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Tab Monitor Performa (CPU / GPU / RAM)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1157,7 +1235,8 @@
                                                 <TextBlock Text="Tampilkan tab pemantau performa perangkat real-time (CPU, GPU, RAM, Disk, Network)"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkTabPerformance"
                                                       Grid.Column="1"
@@ -1174,7 +1253,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Tab Rak File (Shelf)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1182,7 +1261,8 @@
                                                 <TextBlock Text="Tampilkan tab penyimpanan file drag-and-drop sementara di Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkTabShelf"
                                                       Grid.Column="1"
@@ -1210,9 +1290,9 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                             <TextBlock x:Name="SettingsUpdateTitleText"
-                                                       Text="Windows Dynamic Island v2.0.1"
+                                                       Text="Windows Dynamic Island v2.0.2"
                                                        Foreground="#F8FAFC"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"/>
@@ -1220,7 +1300,8 @@
                                                        Text="Memeriksa pembaruan otomatis dari GitHub Releases"
                                                        Foreground="#94A3B8"
                                                        FontSize="11"
-                                                       Margin="0,2,0,0"/>
+                                                       TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Button x:Name="SettingsCheckUpdateBtn"
@@ -1265,7 +1346,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Auto-hide in Fullscreen"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1273,7 +1354,8 @@
                                                 <TextBlock Text="Sembunyikan Dynamic Island otomatis saat bermain game atau video layar penuh"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkAutoHideFullScreen"
                                                       Grid.Column="1"
@@ -1289,7 +1371,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Sembunyikan dari Hasil Tangkapan Layar (Capture Shield)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1297,7 +1379,8 @@
                                                 <TextBlock Text="Gunakan proteksi DWM agar Dynamic Island tidak pernah terekam di gambar screenshot"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkExcludeFromCapture"
                                                       Grid.Column="1"
@@ -1539,7 +1622,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Glass Contour Rim"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1547,7 +1630,8 @@
                                                 <TextBlock Text="Tampilkan garis kilau kaca tipis pada tepi kurva Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkShowContourRim"
                                                       Grid.Column="1"
@@ -1580,7 +1664,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Synchronized Live Lyrics"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1588,7 +1672,8 @@
                                                 <TextBlock Text="Tampilkan lirik lagu real-time di Compact Pill dan tab Musik"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkLyricsEnabled"
                                                       Grid.Column="1"
@@ -1604,7 +1689,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Smooth Lyric Panning"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1612,7 +1697,8 @@
                                                 <TextBlock Text="Animasi geser teks lirik halus mengikuti ketukan lagu"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkSlowLyricPan"
                                                       Grid.Column="1"
@@ -1628,7 +1714,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Track Change Popup"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1636,7 +1722,8 @@
                                                 <TextBlock Text="Tampilkan notifikasi judul &amp; artis saat lagu berganti"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkTrackChangeToast"
                                                       Grid.Column="1"
@@ -1652,7 +1739,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="WASAPI Audio Spectrum Visualizer"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1660,7 +1747,8 @@
                                                 <TextBlock Text="Animasi 5-bar gelombang frekuensi suara langsung dari output audio"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkAudioVisualizer"
                                                       Grid.Column="1"
@@ -1676,7 +1764,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Mixer Audio Per Aplikasi"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1684,7 +1772,8 @@
                                                 <TextBlock Text="Aktifkan tombol alih Mixer di tab Musik untuk mengontrol volume Spotify, browser, dan game secara mandiri"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkAppVolumeMixer"
                                                       Grid.Column="1"
@@ -1717,7 +1806,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Show Active Task Badge on Notch"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1725,7 +1814,8 @@
                                                 <TextBlock Text="Tampilkan badge jumlah tugas aktif di tampilan awal Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkShowTodoBadge"
                                                       Grid.Column="1"
@@ -1741,7 +1831,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Bersihkan Tugas Selesai"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1749,7 +1839,8 @@
                                                 <TextBlock Text="Hapus seluruh tugas yang sudah ditandai selesai dari daftar"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <Button Grid.Column="1"
                                                     Style="{StaticResource IslandIconButtonStyle}"
@@ -1783,7 +1874,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Show Date on Idle Pill"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1791,7 +1882,8 @@
                                                 <TextBlock Text="Tampilkan tanggal hari ini (mis. 28 Okt) di sebelah kiri jam"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkShowDateOnIdle"
                                                       Grid.Column="1"
@@ -1807,7 +1899,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Format Waktu 24-Jam"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1815,7 +1907,8 @@
                                                 <TextBlock Text="Gunakan format 24-jam (16:30) alih-alih 12-jam"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkUse24HourClock"
                                                       Grid.Column="1"
@@ -1831,7 +1924,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Show Seconds on Clock"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1839,7 +1932,8 @@
                                                 <TextBlock Text="Tampilkan detik berjalan pada indikator waktu utama"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkShowSeconds"
                                                       Grid.Column="1"
@@ -1919,7 +2013,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Live Countdown on Idle Pill"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1927,7 +2021,8 @@
                                                 <TextBlock Text="Tampilkan cincin progres &amp; waktu mundur di notch saat timer aktif"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkShowPomodoroOnIdle"
                                                       Grid.Column="1"
@@ -1985,7 +2080,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Tambah &amp; Reset Air Harian"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -1994,7 +2089,8 @@
                                                            Text="Progres hari ini: 0.0 / 1.5 L"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button Style="{StaticResource IslandIconButtonStyle}"
@@ -2035,7 +2131,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Auto-open Shelf on File Drag"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2043,7 +2139,8 @@
                                                 <TextBlock Text="Buka Rak File otomatis saat menarik file ke area Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkAutoOpenShelf"
                                                       Grid.Column="1"
@@ -2059,7 +2156,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Bersihkan Rak File"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2067,7 +2164,8 @@
                                                 <TextBlock Text="Kosongkan seluruh file sementara dari Rak File Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <Button Grid.Column="1"
                                                     Style="{StaticResource IslandIconButtonStyle}"
@@ -2103,7 +2201,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock x:Name="BtStatusTitleText"
                                                            Text="Bluetooth Radio: ON"
                                                            Foreground="#F8FAFC"
@@ -2151,7 +2249,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Volume &amp; Brightness HUD"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2159,7 +2257,8 @@
                                                 <TextBlock Text="Popup slider interaktif saat menekan tombol volume atau kecerahan"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkVolumeBrightnessHud"
                                                       Grid.Column="1"
@@ -2175,7 +2274,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Sembunyikan OSD Bawaan Windows"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2183,7 +2282,8 @@
                                                 <TextBlock Text="Cegah pop-up volume &amp; kecerahan bawaan Windows agar hanya Dynamic Island yang tampil"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkSuppressWindowsNativeOsd"
                                                       Grid.Column="1"
@@ -2199,7 +2299,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Battery &amp; Charger Popup"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2207,7 +2307,8 @@
                                                 <TextBlock Text="Notifikasi visual baterai saat charger dipasang atau dilepas"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkBatteryToast"
                                                       Grid.Column="1"
@@ -2223,7 +2324,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Bluetooth Connection Popup"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2231,7 +2332,8 @@
                                                 <TextBlock Text="Popup otomatis saat perangkat Bluetooth terhubung atau terputus"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkBluetoothToast"
                                                       Grid.Column="1"
@@ -2247,7 +2349,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="System &amp; App Notifications"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2255,7 +2357,8 @@
                                                 <TextBlock Text="Tampilkan notifikasi WhatsApp &amp; sistem di Dynamic Island"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkSystemNotifToast"
                                                       Grid.Column="1"
@@ -2271,7 +2374,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Spotlight Quick Launcher (Alt + Spasi)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2279,7 +2382,8 @@
                                                 <TextBlock Text="Buka command launcher cepat untuk mencari aplikasi, perhitungan matematika, dan perintah sistem"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkSpotlightHotkey"
                                                       Grid.Column="1"
@@ -2295,7 +2399,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock Text="Notifikasi Baterai 80% (Smart Charge Limit)"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
@@ -2303,7 +2407,8 @@
                                                 <TextBlock Text="Beri notifikasi saat pengisian baterai mencapai 80% untuk melindungi kesehatan baterai"
                                                            Foreground="#94A3B8"
                                                            FontSize="11"
-                                                           Margin="0,2,0,0"/>
+                                                           TextWrapping="Wrap"
+                                                   Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkBattery80Alert"
                                                       Grid.Column="1"

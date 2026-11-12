@@ -50,6 +50,7 @@ public sealed class NotificationListenerService
     private long _lastSeenOrder = -1;
     private bool _baselineCaptured;
     private DateTime _lastPollUtc = DateTime.MinValue;
+    private DateTime _lastDbWriteTimeUtc = DateTime.MinValue;
 
     public event Action<ToastPayload>? NotificationReceived;
 
@@ -117,7 +118,22 @@ public sealed class NotificationListenerService
         if (!_baselineCaptured)
         {
             CaptureBaseline();
+            try { _lastDbWriteTimeUtc = File.GetLastWriteTimeUtc(_wpnDbPath); } catch { }
             return;
+        }
+
+        try
+        {
+            DateTime curWriteTime = File.GetLastWriteTimeUtc(_wpnDbPath);
+            if (curWriteTime <= _lastDbWriteTimeUtc)
+            {
+                return;
+            }
+            _lastDbWriteTimeUtc = curWriteTime;
+        }
+        catch
+        {
+            // If file check fails, fall through to query
         }
 
         IntPtr db = IntPtr.Zero;

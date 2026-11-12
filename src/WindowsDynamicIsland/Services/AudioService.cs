@@ -518,7 +518,14 @@ public sealed class AudioService
         {
             for (int i = 0; i < barHeights.Length; i++)
             {
-                barHeights[i] += (minBarHeight - barHeights[i]) * 0.35;
+                if (Math.Abs(barHeights[i] - minBarHeight) > 0.05)
+                {
+                    barHeights[i] += (minBarHeight - barHeights[i]) * 0.35;
+                }
+                else
+                {
+                    barHeights[i] = minBarHeight;
+                }
             }
             _latestRealtimePeak = 0f;
             return;
@@ -543,6 +550,16 @@ public sealed class AudioService
             double target = minBarHeight + (maxBarHeight - minBarHeight) * Math.Clamp(bandLevel, 0.0, 1.0);
             barHeights[i] = target;
         }
+    }
+
+    public bool AreBarsResting(ReadOnlySpan<double> barHeights, double tolerance = 0.1)
+    {
+        const double minBarHeight = 3.5;
+        for (int i = 0; i < barHeights.Length; i++)
+        {
+            if (Math.Abs(barHeights[i] - minBarHeight) > tolerance) return false;
+        }
+        return true;
     }
 
     public int GetMasterVolumePercent()

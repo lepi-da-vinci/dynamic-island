@@ -551,9 +551,9 @@
                                 Margin="11,0,11,0"
                                 VerticalAlignment="Center"
                                 ClipToBounds="True"
-                                Height="34">
-                            <Canvas x:Name="CompactLyricCanvas" VerticalAlignment="Center" Height="34" ClipToBounds="True">
-                                <StackPanel x:Name="CompactLyricStack" Canvas.Left="0" Canvas.Top="8" Orientation="Vertical">
+                                Height="38">
+                            <Canvas x:Name="CompactLyricCanvas" VerticalAlignment="Center" Height="38" ClipToBounds="True">
+                                <StackPanel x:Name="CompactLyricStack" Canvas.Left="0" Canvas.Top="2" Orientation="Vertical">
                                     <StackPanel.RenderTransform>
                                         <TranslateTransform x:Name="CompactLyricTranslate" X="0" Y="0"/>
                                     </StackPanel.RenderTransform>
@@ -938,7 +938,7 @@
                                               Fill="#CBD5E1"
                                               Margin="0,0,3.5,0"
                                               VerticalAlignment="Center"/>
-                                        <TextBlock Text="Simpan" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TopHeaderTuckText" Text="Simpan" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -1026,9 +1026,16 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <Grid Margin="0,4,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
                                             <!-- Real-time Active Audio Destination Pill (Vector Icon + Clean Device Name) -->
                                             <Border x:Name="AudioDeviceBadge"
+                                                    Grid.Column="0"
                                                     Background="#2038BDF8"
                                                     BorderBrush="#3238BDF8"
                                                     BorderThickness="1"
@@ -1049,7 +1056,7 @@
                                                                Foreground="#38BDF8"
                                                                FontSize="9.5"
                                                                FontWeight="SemiBold"
-                                                               MaxWidth="110"
+                                                               MaxWidth="95"
                                                                TextTrimming="CharacterEllipsis"
                                                                VerticalAlignment="Center"/>
                                                 </StackPanel>
@@ -1057,6 +1064,7 @@
 
                                             <!-- Media View Mode Toggle (Lirik / Mixer Aplikasi) -->
                                             <Button x:Name="MediaViewToggleBtn"
+                                                    Grid.Column="1"
                                                     Style="{StaticResource IslandIconButtonStyle}"
                                                     Padding="6,2"
                                                     Margin="0,0,7,0"
@@ -1081,13 +1089,13 @@
                                             </Button>
 
                                             <TextBlock x:Name="ExpandedArtistText"
+                                                       Grid.Column="2"
                                                        Text="Putar lagu di Spotify, Chrome, Edge, atau VLC"
                                                        Foreground="#94A3B8"
                                                        FontSize="11.5"
-                                                       MaxWidth="205"
                                                        VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
+                                        </Grid>
                                     </StackPanel>
 
                                     <!-- Bespoke Vector Transport Buttons (Zero Emoji Boxes!) -->
@@ -1510,6 +1518,7 @@
                                                            Foreground="#64748B"
                                                            FontSize="11.5"
                                                            VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
                                                            IsHitTestVisible="False"/>
                                                 <TextBox x:Name="NewTodoInputBox"
                                                          Background="Transparent"
@@ -1539,7 +1548,8 @@
                                                     Margin="6,0,0,0"
                                                     VerticalAlignment="Center"
                                                     Click="OnSubmitTodoClick">
-                                                <TextBlock Text="Tambah"
+                                                <TextBlock x:Name="TodoAddBtnText"
+                                                           Text="Tambah"
                                                            Foreground="#38BDF8"
                                                            FontSize="10.5"
                                                            FontWeight="SemiBold"/>
@@ -1568,12 +1578,14 @@
                                                       HorizontalAlignment="Center"
                                                       VerticalAlignment="Center"/>
                                             </Border>
-                                            <TextBlock Text="Belum ada daftar tugas hari ini"
+                                            <TextBlock x:Name="EmptyTodoTitleText"
+                                                       Text="Belum ada daftar tugas hari ini"
                                                        Foreground="#94A3B8"
                                                        FontSize="11.5"
                                                        FontWeight="SemiBold"
                                                        TextAlignment="Center"/>
-                                            <TextBlock Text="Klik kolom input di atas, ketik tugas baru, lalu tekan Enter"
+                                            <TextBlock x:Name="EmptyTodoSubtitleText"
+                                                       Text="Klik kolom input di atas, ketik tugas baru, lalu tekan Enter"
                                                        Foreground="#64748B"
                                                        FontSize="10"
                                                        Margin="0,1.5,0,0"
@@ -1634,8 +1646,9 @@
                                                                          CaretBrush="{DynamicResource AppAccentBrush}"
                                                                          SelectionBrush="#40FFFFFF"
                                                                          Focusable="True"
-                                                                         VerticalAlignment="Center"
-                                                                         Padding="0,1"
+                                                                          VerticalAlignment="Center"
+                                                                          Margin="0,0,6,0"
+                                                                          Padding="0,1"
                                                                          Tag="{Binding Id}"
                                                                          PreviewMouseLeftButtonDown="OnTodoItemTextBoxMouseDown"
                                                                          GotFocus="OnTodoItemTextBoxGotFocus"
@@ -1698,7 +1711,8 @@
                                                       HorizontalAlignment="Center"
                                                       VerticalAlignment="Center"/>
                                             </Border>
-                                            <TextBlock Text="Pintasan Aplikasi"
+                                            <TextBlock x:Name="ShortcutsHeaderTitleText"
+                                                       Text="Pintasan Aplikasi"
                                                        Foreground="#F8FAFC"
                                                        FontSize="12.5"
                                                        FontWeight="Bold"
@@ -1752,7 +1766,7 @@
                                                           Fill="#38BDF8"
                                                           Margin="0,0,4,0"
                                                           VerticalAlignment="Center"/>
-                                                    <TextBlock Text="Tambah App" Foreground="#38BDF8" FontSize="10.5" FontWeight="SemiBold"/>
+                                                    <TextBlock x:Name="AddShortcutBtnText" Text="Tambah App" Foreground="#38BDF8" FontSize="10.5" FontWeight="SemiBold"/>
                                                 </StackPanel>
                                             </Button>
                                         </StackPanel>
@@ -1872,7 +1886,7 @@
                                               HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
                                     </Border>
-                                    <TextBlock Text="Performa Sistem"
+                                    <TextBlock x:Name="PerfHeaderTitleText" Text="Performa Sistem"
                                                Foreground="#F8FAFC"
                                                FontSize="12"
                                                FontWeight="Bold"
@@ -2680,7 +2694,7 @@
                                                       Fill="#38BDF8"
                                                       Margin="0,0,4,0"
                                                       VerticalAlignment="Center"/>
-                                                <TextBlock Text="Istirahat 5m" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="PomodoroBreakBtnText" Text="Istirahat 5m" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
 
@@ -2698,7 +2712,7 @@
                                                       Fill="#EF4444"
                                                       Margin="0,0,4,0"
                                                       VerticalAlignment="Center"/>
-                                                <TextBlock Text="Fokus 25m" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="PomodoroResetFocusBtnText" Text="Fokus 25m" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
 
@@ -2759,7 +2773,7 @@
                                     </Grid>
 
                                     <!-- Day of Week Headers -->
-                                    <UniformGrid Grid.Row="1" Columns="7" Margin="0,0,0,4">
+                                    <UniformGrid Grid.Row="1" x:Name="CalendarDayHeadersGrid" Columns="7" Margin="0,0,0,4">
                                         <TextBlock Text="M" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
                                         <TextBlock Text="S" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
                                         <TextBlock Text="S" Foreground="#64748B" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
@@ -2794,7 +2808,7 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Jadwal &amp; Agenda Hari Ini"
+                                        <TextBlock x:Name="AgendaHeaderTitleText" Text="Jadwal &amp; Agenda Hari Ini"
                                                    Foreground="#F8FAFC"
                                                    FontSize="11.5"
                                                    FontWeight="Bold"
@@ -2806,7 +2820,7 @@
                                                 Click="OnQuickAddScheduleClick">
                                             <StackPanel Orientation="Horizontal">
                                                 <Path Data="{StaticResource GeomPlus}" Width="9" Height="9" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="Tambah" FontSize="9.5" Foreground="#38BDF8" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="QuickAddScheduleBtnText" Text="Tambah" FontSize="9.5" Foreground="#38BDF8" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
                                     </Grid>
@@ -2852,7 +2866,7 @@
                                                     Style="{StaticResource IslandIconButtonStyle}"
                                                     Padding="6,2"
                                                     Click="OnSaveScheduleItemClick">
-                                                <TextBlock Text="Simpan" Foreground="#22C55E" FontSize="9.5" FontWeight="Bold"/>
+                                                <TextBlock x:Name="ScheduleSaveBtnText" Text="Simpan" Foreground="#22C55E" FontSize="9.5" FontWeight="Bold"/>
                                             </Button>
                                         </Grid>
                                     </Border>
@@ -2886,7 +2900,7 @@
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock x:Name="WeatherTempLargeText"
-                                                       Text="32Â°"
+                                                       Text="32°"
                                                        Foreground="#F8FAFC"
                                                        FontSize="34"
                                                        FontWeight="Bold"
@@ -2897,12 +2911,16 @@
                                                            Text="Cerah Berawan"
                                                            Foreground="#38BDF8"
                                                            FontSize="13"
-                                                           FontWeight="SemiBold"/>
+                                                           FontWeight="SemiBold"
+                                                           MaxWidth="140"
+                                                           TextTrimming="CharacterEllipsis"/>
                                                 <TextBlock x:Name="WeatherCityText"
                                                            Text="Jakarta, Indonesia"
                                                            Foreground="#94A3B8"
                                                            FontSize="10.5"
-                                                           Margin="0,2,0,0"/>
+                                                           Margin="0,2,0,0"
+                                                           MaxWidth="140"
+                                                           TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
@@ -2910,15 +2928,19 @@
                                     <!-- Middle Details -->
                                     <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
                                         <TextBlock x:Name="WeatherFeelsLikeText"
-                                                   Text="Terasa: 36Â°C"
+                                                   Text="Terasa: 36°C"
                                                    Foreground="#CBD5E1"
                                                    FontSize="10.5"
+                                                   MaxWidth="180"
+                                                   TextTrimming="CharacterEllipsis"
                                                    HorizontalAlignment="Right"/>
                                         <TextBlock x:Name="WeatherStatsDetailText"
-                                                   Text="Kelembapan: 50% â€¢ Angin: 1.6 km/j"
+                                                   Text="Kelembapan: 50% • Angin: 1.6 km/j"
                                                    Foreground="#94A3B8"
                                                    FontSize="10"
                                                    Margin="0,2,0,0"
+                                                   MaxWidth="180"
+                                                   TextTrimming="CharacterEllipsis"
                                                    HorizontalAlignment="Right"/>
                                     </StackPanel>
 
@@ -3034,12 +3056,12 @@
                                           Fill="#30FFFFFF"
                                           HorizontalAlignment="Center"
                                           Margin="0,0,0,6"/>
-                                    <TextBlock Text="Belum Ada Notifikasi Sesi Ini"
+                                    <TextBlock x:Name="EmptyNotifTitleText" Text="Belum Ada Notifikasi Sesi Ini"
                                                Foreground="#94A3B8"
                                                FontSize="11.5"
                                                FontWeight="SemiBold"
                                                HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Notifikasi yang masuk akan otomatis dicatat di sini"
+                                    <TextBlock x:Name="EmptyNotifSubtitleText" Text="Notifikasi yang masuk akan otomatis dicatat di sini"
                                                Foreground="#64748B"
                                                FontSize="10"
                                                Margin="0,2,0,0"
@@ -3151,7 +3173,8 @@
                                                   Fill="#FBBF24"
                                                   Margin="0,0,5,0"
                                                   VerticalAlignment="Center"/>
-                                            <TextBlock Grid.Column="1"
+                                            <TextBlock x:Name="SysBrightnessLabelText"
+                                                       Grid.Column="1"
                                                        Text="KECERAHAN LAYAR"
                                                        Foreground="#CBD5E1"
                                                        FontSize="10"
@@ -3297,7 +3320,7 @@
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock x:Name="SysUpdateStatusText"
-                                                   Text="Windows Dynamic Island v2.0.1 (Terbaru)"
+                                                   Text="Windows Dynamic Island v2.0.2 (Terbaru)"
                                                    Foreground="#F8FAFC"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
@@ -3444,7 +3467,8 @@
                                               Fill="#38BDF8"
                                               Margin="0,0,4.5,0"
                                               VerticalAlignment="Center"/>
-                                        <TextBlock Text="Pengaturan"
+                                        <TextBlock x:Name="SysSettingsBtnText"
+                                                   Text="Pengaturan"
                                                    Foreground="#38BDF8"
                                                    FontSize="10.5"
                                                    FontWeight="Bold"
@@ -3480,7 +3504,7 @@
                                               Fill="#CBD5E1"
                                               Margin="0,0,4,0"
                                               VerticalAlignment="Center"/>
-                                        <TextBlock Text="Simpan"
+                                        <TextBlock x:Name="SysTuckBtnText" Text="Simpan"
                                                    FontSize="10.5"
                                                    FontWeight="SemiBold"
                                                    VerticalAlignment="Center"/>
@@ -3505,7 +3529,7 @@
                                               Fill="#F87171"
                                               Margin="0,0,4,0"
                                               VerticalAlignment="Center"/>
-                                        <TextBlock Text="Keluar"
+                                        <TextBlock x:Name="SysExitBtnText" Text="Keluar"
                                                    FontSize="10.5"
                                                    FontWeight="SemiBold"
                                                    Foreground="#F87171"

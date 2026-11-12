@@ -96,7 +96,9 @@ public sealed class HardwareTelemetryService : IDisposable
     private double _cachedDiskUsedGb = 120;
     private double _cachedDiskTotalGb = 256;
     private double _cachedDiskFreeGb = 136;
+    private DateTime _lastNetSampleUtc = DateTime.MinValue;
 
+    public bool IsPerformanceViewActive { get; set; }
     public HardwareStatusSnapshot Current { get; private set; } = new();
     public IReadOnlyList<string> ConnectedBluetoothDevices => _connectedBtDevices.Values.ToList();
 
@@ -621,8 +623,9 @@ public sealed class HardwareTelemetryService : IDisposable
         }
         _lastCharging = isCharging;
 
-        // Poll network state changes & connected Bluetooth devices every 2 seconds
-        if ((DateTime.UtcNow - _lastBtPollUtc).TotalSeconds >= 2.0)
+        // Poll network state changes & connected Bluetooth devices (audio switching is already instant via WinRT event)
+        double btPollInterval = IsPerformanceViewActive ? 4.0 : 8.0;
+        if ((DateTime.UtcNow - _lastBtPollUtc).TotalSeconds >= btPollInterval)
         {
             _lastBtPollUtc = DateTime.UtcNow;
             CheckNetworkChange(emitToasts);
@@ -683,8 +686,12 @@ public sealed class HardwareTelemetryService : IDisposable
         double targetGpu = Math.Clamp((_smoothedCpuPct * 0.58) + 3.0, 2.0, 99.0);
         _smoothedGpuPct = (_smoothedGpuPct * 0.55) + (targetGpu * 0.45);
 
-        // 4. Real-time Network Download & Upload Speed (Bytes/sec delta across active interfaces)
-        SampleNetworkSpeed();
+        // 4. Real-time Network Download & Upload Speed
+        if (IsPerformanceViewActive || (DateTime.UtcNow - _lastNetSampleUtc).TotalSeconds >= 10.0)
+        {
+            _lastNetSampleUtc = DateTime.UtcNow;
+            SampleNetworkSpeed();
+        }
 
         // 5. System Uptime
         TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);

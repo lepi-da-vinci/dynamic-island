@@ -143,7 +143,7 @@ public partial class MainWindow : Window
         _fastUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _fastUpdateTimer.Tick += OnFastUpdateTick;
 
-        _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
+        _hitTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
         _hitTestTimer.Tick += (_, _) =>
         {
             UpdateScreenshotModeState();
@@ -253,6 +253,7 @@ public partial class MainWindow : Window
                 _flyoutSuppressor.IsEnabled = _settingsService.SuppressWindowsNativeOsd;
             }
         };
+        LocalizationService.Instance.LanguageChanged += () => Dispatcher.InvokeAsync(ApplyLocalization);
 
         RefreshCalendarMonthGrid();
         RefreshScheduleUi();
@@ -1022,6 +1023,19 @@ public partial class MainWindow : Window
         UnifiedNotchShadow.Opacity = suppressShadowAndGlow ? 0.0 : 0.72;
         AmbientGlowBorder.Visibility = suppressShadowAndGlow ? Visibility.Collapsed : Visibility.Visible;
 
+        _hardwareService.IsPerformanceViewActive =
+            state == IslandVisualState.PinnedPerformancePill ||
+            (state == IslandVisualState.ExpandedDashboard && tab == IslandDashboardTab.PerformanceMonitor);
+
+        if (state is IslandVisualState.TuckedTopEdge or IslandVisualState.Hidden || _stateMachine.IsFullScreenHidden)
+        {
+            _fastUpdateTimer.Interval = TimeSpan.FromMilliseconds(400);
+        }
+        else
+        {
+            _fastUpdateTimer.Interval = TimeSpan.FromMilliseconds(100);
+        }
+
         MediaTabGrid.Visibility = tab == IslandDashboardTab.MediaLyrics ? Visibility.Visible : Visibility.Collapsed;
         TodoAndWaterTabGrid.Visibility = tab == IslandDashboardTab.TodoAndWater ? Visibility.Visible : Visibility.Collapsed;
         PomodoroTabGrid.Visibility = tab == IslandDashboardTab.Pomodoro ? Visibility.Visible : Visibility.Collapsed;
@@ -1342,7 +1356,22 @@ public partial class MainWindow : Window
                                _rightWingWidth > 0.05;
             bool placementAnimating = Math.Abs(targetYTop - _currentPlacementTopDip) > 0.05;
 
-            if (!morphActive && !wingsActive && !placementAnimating && !isCompactMedia && !isExpandedMedia)
+            bool mediaAnimating = false;
+            if (isCompactMedia || isExpandedMedia)
+            {
+                if (_mediaService.CurrentTrack.IsPlaying)
+                {
+                    mediaAnimating = true;
+                }
+                else
+                {
+                    bool barsResting = _audioService.AreBarsResting(_spectrumHeights);
+                    bool panResting = Math.Abs(_currentPanX) < 0.1;
+                    mediaAnimating = !barsResting || !panResting;
+                }
+            }
+
+            if (!morphActive && !wingsActive && !placementAnimating && !mediaAnimating)
             {
                 StopRenderLoop();
             }
@@ -1491,8 +1520,14 @@ public partial class MainWindow : Window
         {
             _hardwareService.PollFastKeyboardIndicators();
             _audioService.PollExternalChanges();
-            _brightnessService.PollExternalChanges();
             _notificationService.PollNewNotifications();
+
+            bool isTuckedOrHidden = _stateMachine.CurrentState is IslandVisualState.TuckedTopEdge or IslandVisualState.Hidden || _stateMachine.IsFullScreenHidden;
+
+            if (!isTuckedOrHidden)
+            {
+                _brightnessService.PollExternalChanges();
+            }
 
             if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
                 _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
@@ -1510,7 +1545,7 @@ public partial class MainWindow : Window
                 UpdateAppMixerUi();
             }
 
-            if (_mediaService.CurrentTrack.HasActiveSession)
+            if (!isTuckedOrHidden && _mediaService.CurrentTrack.HasActiveSession)
             {
                 UpdateMediaAndLyricsUi();
             }
@@ -1568,7 +1603,7 @@ public partial class MainWindow : Window
                 _stateMachine.SetFullScreenHidden(false);
             }
 
-            if (_hwnd != IntPtr.Zero && _stateMachine.CurrentState != IslandVisualState.Hidden)
+            if (_hwnd != IntPtr.Zero && _stateMachine.CurrentState != IslandVisualState.Hidden && !_stateMachine.IsFullScreenHidden)
             {
                 // Self-healing: verify physical window position matches monitor center
                 IntPtr hMonitor = Win32Interop.MonitorFromWindow(_hwnd, Win32Interop.MONITOR_DEFAULTTOPRIMARY);
@@ -1606,13 +1641,16 @@ public partial class MainWindow : Window
             _pomodoroService.TickOneSecond();
             UpdatePomodoroAndClockUi();
 
-            _hardwareService.RefreshFullTelemetry();
-            UpdateHardwareUi();
-            if (_stateMachine.CurrentState == IslandVisualState.PinnedPerformancePill ||
-                (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
-                 _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor))
+            if (!_stateMachine.IsFullScreenHidden)
             {
-                UpdatePerformanceUi();
+                _hardwareService.RefreshFullTelemetry();
+                UpdateHardwareUi();
+                if (_stateMachine.CurrentState == IslandVisualState.PinnedPerformancePill ||
+                    (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
+                     _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor))
+                {
+                    UpdatePerformanceUi();
+                }
             }
 
             if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
@@ -1849,9 +1887,11 @@ public partial class MainWindow : Window
         string nowStr = DateTime.Now.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
         ExpandedClockBadge.Text = DateTime.Now.ToString(_settingsService.Use24HourClock ? "HH:mm" : "h:mm tt", System.Globalization.CultureInfo.InvariantCulture);
 
-        var idCulture = new System.Globalization.CultureInfo("id-ID");
-        string idDate = DateTime.Now.ToString("d MMM", idCulture);
-        ExpandedDateBadge.Text = DateTime.Now.ToString("ddd, d MMM", idCulture);
+        var dateCulture = LocalizationService.Instance.IsEnglish
+            ? new System.Globalization.CultureInfo("en-US")
+            : new System.Globalization.CultureInfo("id-ID");
+        string idDate = DateTime.Now.ToString("d MMM", dateCulture);
+        ExpandedDateBadge.Text = DateTime.Now.ToString("ddd, d MMM", dateCulture);
         IdleDateText.Text = idDate;
         IdleDateText.Visibility = (_settingsService.ShowDateOnIdle && !_settingsService.MinimalNotchEnabled)
             ? Visibility.Visible
@@ -1882,7 +1922,7 @@ public partial class MainWindow : Window
         ClockTextBlock.Text = nowStr;
 
         PomodoroTimeText.Text = _pomodoroService.FormattedRemaining;
-        PomodoroModeLabel.Text = _pomodoroService.IsBreakMode ? "Istirahat" : "Sesi Fokus";
+        PomodoroModeLabel.Text = _pomodoroService.IsBreakMode ? (LocalizationService.Instance.IsEnglish ? "Break" : "Istirahat") : (LocalizationService.Instance.IsEnglish ? "Focus Session" : "Sesi Fokus");
         PomodoroModeLabel.Foreground = new SolidColorBrush(
             IsMonochromeTheme
                 ? Color.FromRgb(228, 228, 231)
@@ -1901,7 +1941,7 @@ public partial class MainWindow : Window
         PomodoroPlayPauseIconPath.Data = _pomodoroService.IsRunning
             ? GetVectorGeometry("GeomPause")
             : GetVectorGeometry("GeomPlay");
-        PomodoroStartPauseText.Text = _pomodoroService.IsRunning ? "Jeda" : "Mulai";
+        PomodoroStartPauseText.Text = _pomodoroService.IsRunning ? (LocalizationService.Instance.IsEnglish ? "Pause" : "Jeda") : (LocalizationService.Instance.IsEnglish ? "Start" : "Mulai");
 
         UpdatePomodoroProgressRing(_pomodoroService.ProgressRatio);
     }
@@ -2049,9 +2089,10 @@ public partial class MainWindow : Window
             isMono
                 ? (hw.IsNetworkConnected ? Color.FromRgb(228, 228, 231) : Color.FromRgb(113, 113, 122))
                 : (hw.IsNetworkConnected ? Color.FromRgb(226, 232, 240) : Color.FromRgb(248, 113, 113)));
+        var loc = LocalizationService.Instance;
         HeaderWifiBadge.ToolTip = hw.IsNetworkConnected
-            ? $"Wi-Fi Terhubung: {hw.NetworkName}"
-            : "Tidak Terhubung ke Jaringan";
+            ? (loc.IsEnglish ? $"Wi-Fi Connected: {hw.NetworkName}" : $"Wi-Fi Terhubung: {hw.NetworkName}")
+            : (loc.IsEnglish ? "Not Connected to Network" : "Tidak Terhubung ke Jaringan");
 
         bool btOn = hw.IsBluetoothRadioOn;
         bool btConnected = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName);
@@ -2071,9 +2112,9 @@ public partial class MainWindow : Window
             isMono
                 ? (!btOn ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
                 : (!btOn ? Color.FromRgb(148, 163, 184) : Color.FromRgb(226, 232, 240)));
-        HeaderBluetoothBtn.ToolTip = btConnected
-            ? $"Bluetooth: {hw.ConnectedBluetoothName} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)"
-            : $"Bluetooth {(btOn ? "Aktif" : "Mati")} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)";
+        HeaderBluetoothBtn.ToolTip = loc.IsEnglish
+            ? (btConnected ? $"Bluetooth: {hw.ConnectedBluetoothName} (Left-Click: ON/OFF | Right-Click: Settings)" : $"Bluetooth {(btOn ? "On" : "Off")} (Left-Click: ON/OFF | Right-Click: Settings)")
+            : (btConnected ? $"Bluetooth: {hw.ConnectedBluetoothName} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)" : $"Bluetooth {(btOn ? "Aktif" : "Mati")} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)");
 
         HeaderBatteryPercentText.Text = $"{batPct}%";
         HeaderBatteryPercentText.Foreground = new SolidColorBrush(
@@ -2096,8 +2137,8 @@ public partial class MainWindow : Window
             : string.Empty;
 
         HeaderBatteryBadge.ToolTip = hw.HasBattery
-            ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%{batteryEstimate}{limitModeInfo}"
-            : "Daya Desktop AC (100%)";
+            ? $"{(isCharging ? (loc.IsEnglish ? "Charging" : "Sedang Mengisi Daya (Charging)") : (loc.IsEnglish ? "Battery" : "Baterai"))} • {batPct}%{batteryEstimate}{limitModeInfo}"
+            : (loc.IsEnglish ? "Desktop AC Power (100%)" : "Daya Desktop AC (100%)");
 
         IdleBatteryBodyBorder.ToolTip = hw.HasBattery
             ? $"{(isCharging ? "Sedang Mengisi Daya (Charging)" : "Baterai")} • {batPct}%{batteryEstimate}{limitModeInfo}"
@@ -2855,10 +2896,13 @@ public partial class MainWindow : Window
     {
         if (_stateMachine.IsScreenshotMode || _stateMachine.CurrentState != IslandVisualState.ExpandedDashboard)
         {
-            _targetLeftWingWidth = 0.0;
-            _targetRightWingWidth = 0.0;
-            _hoveredSideZone = 0;
-            SetBottomDockMorphed(false);
+            if (_targetLeftWingWidth != 0.0 || _targetRightWingWidth != 0.0 || _hoveredSideZone != 0 || _isBottomDockMorphed)
+            {
+                _targetLeftWingWidth = 0.0;
+                _targetRightWingWidth = 0.0;
+                _hoveredSideZone = 0;
+                SetBottomDockMorphed(false);
+            }
             return;
         }
 
@@ -3080,20 +3124,24 @@ public partial class MainWindow : Window
         return tabs[(idx + 1) % tabs.Count];
     }
 
-    private static (string GeometryKey, string Label) GetTabIconAndLabel(IslandDashboardTab tab) => tab switch
+    private static (string GeometryKey, string Label) GetTabIconAndLabel(IslandDashboardTab tab)
     {
-        IslandDashboardTab.MediaLyrics => ("GeomMusic", "Musik"),
-        IslandDashboardTab.TodoAndWater => ("GeomChecklist", "Tugas"),
-        IslandDashboardTab.Pomodoro => ("GeomFocusTimer", "Fokus"),
-        IslandDashboardTab.AppShortcuts => ("GeomAppGrid", "Pintasan"),
-        IslandDashboardTab.PerformanceMonitor => ("GeomCpuPulse", "Performa"),
-        IslandDashboardTab.FileShelf => ("GeomFolderTray", "Rak File"),
-                IslandDashboardTab.CalendarSchedule => ("GeomCalendar", "Kalender"),
-        IslandDashboardTab.Weather => ("GeomWeatherSunCloud", "Cuaca"),
-        IslandDashboardTab.NotificationHistory => ("GeomBellNotif", "Notifikasi"),
-        IslandDashboardTab.SystemStatus => ("GeomSliders", "Sistem"),
-        _ => ("GeomMusic", "Musik")
-    };
+        var loc = LocalizationService.Instance;
+        return tab switch
+        {
+            IslandDashboardTab.MediaLyrics => ("GeomMusic", loc.IsEnglish ? "Music" : "Musik"),
+            IslandDashboardTab.TodoAndWater => ("GeomChecklist", loc.IsEnglish ? "To-Do" : "Tugas"),
+            IslandDashboardTab.Pomodoro => ("GeomFocusTimer", loc.IsEnglish ? "Focus" : "Fokus"),
+            IslandDashboardTab.AppShortcuts => ("GeomAppGrid", loc.IsEnglish ? "Shortcuts" : "Pintasan"),
+            IslandDashboardTab.PerformanceMonitor => ("GeomCpuPulse", loc.IsEnglish ? "Perf" : "Performa"),
+            IslandDashboardTab.FileShelf => ("GeomFolderTray", loc.IsEnglish ? "Shelf" : "Rak File"),
+            IslandDashboardTab.CalendarSchedule => ("GeomCalendar", loc.IsEnglish ? "Calendar" : "Kalender"),
+            IslandDashboardTab.Weather => ("GeomWeatherSunCloud", loc.IsEnglish ? "Weather" : "Cuaca"),
+            IslandDashboardTab.NotificationHistory => ("GeomBellNotif", loc.IsEnglish ? "Notifs" : "Notifikasi"),
+            IslandDashboardTab.SystemStatus => ("GeomSliders", loc.IsEnglish ? "System" : "Sistem"),
+            _ => ("GeomMusic", loc.IsEnglish ? "Music" : "Musik")
+        };
+    }
 
     private void OnIslandMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
@@ -3756,7 +3804,7 @@ public partial class MainWindow : Window
             int done = _todoAndWaterService.CompletedTodosCount;
             int pending = total - done;
 
-            TodoCounterText.Text = $"{done}/{total} Selesai";
+            TodoCounterText.Text = LocalizationService.Instance.IsEnglish ? $"{done}/{total} Done" : $"{done}/{total} Selesai";
 
             double ratio = total > 0 ? (double)done / total : 0.0;
             TodoProgressFill.Width = 38.0 * Math.Clamp(ratio, 0.0, 1.0);
@@ -4270,6 +4318,7 @@ public partial class MainWindow : Window
 
             // 5. Reposition & Refresh UI
             PositionTopCenter();
+            ApplyLocalization();
             UpdateHardwareUi();
             UpdatePomodoroAndClockUi();
             UpdateTodoAndWaterUi();
@@ -4285,6 +4334,57 @@ public partial class MainWindow : Window
         {
             AppLogger.LogError("ApplyAppSettings", "Error applying app settings", ex);
         }
+    }
+
+    private void ApplyLocalization()
+    {
+        try
+        {
+            var loc = LocalizationService.Instance;
+
+            if (TopHeaderTuckText != null) TopHeaderTuckText.Text = loc.Get("Status_Tuck");
+            if (SysTuckBtnText != null) SysTuckBtnText.Text = loc.Get("Status_Tuck");
+            if (SysExitBtnText != null) SysExitBtnText.Text = loc.Get("Status_Exit");
+            if (ScheduleSaveBtnText != null) ScheduleSaveBtnText.Text = loc.Get("Cal_Save");
+
+            if (SysVolumeLabelText != null) SysVolumeLabelText.Text = loc.Get("Sys_Volume");
+            if (SysBrightnessLabelText != null) SysBrightnessLabelText.Text = loc.Get("Sys_Brightness");
+            if (SysSettingsBtnText != null) SysSettingsBtnText.Text = loc.Get("Sys_Settings");
+            if (SysUpdateStatusText != null) SysUpdateStatusText.Text = loc.IsEnglish ? "Windows Dynamic Island v2.0.2 (Latest)" : "Windows Dynamic Island v2.0.2 (Terbaru)";
+
+            if (TodoInputPlaceholder != null) TodoInputPlaceholder.Text = loc.Get("Todo_Placeholder");
+            if (TodoAddBtnText != null) TodoAddBtnText.Text = loc.Get("Todo_AddBtn");
+            if (EmptyTodoTitleText != null) EmptyTodoTitleText.Text = loc.Get("Todo_EmptyTitle");
+            if (EmptyTodoSubtitleText != null) EmptyTodoSubtitleText.Text = loc.Get("Todo_EmptySub");
+
+            if (PomodoroBreakBtnText != null) PomodoroBreakBtnText.Text = loc.IsEnglish ? "Break 5m" : "Istirahat 5m";
+            if (PomodoroResetFocusBtnText != null) PomodoroResetFocusBtnText.Text = loc.IsEnglish ? "Focus 25m" : "Fokus 25m";
+
+            if (ShortcutsHeaderTitleText != null) ShortcutsHeaderTitleText.Text = loc.Get("Shortcuts_Title");
+            if (AddShortcutBtnText != null) AddShortcutBtnText.Text = loc.Get("Shortcuts_Add");
+
+            if (PerfHeaderTitleText != null) PerfHeaderTitleText.Text = loc.Get("Perf_Title");
+
+            if (ShelfModeFilesText != null) ShelfModeFilesText.Text = loc.Get("Shelf_Files");
+            if (ShelfModeClipboardText != null) ShelfModeClipboardText.Text = loc.Get("Shelf_Clipboard");
+
+            if (AgendaHeaderTitleText != null) AgendaHeaderTitleText.Text = loc.Get("Cal_AgendaTitle");
+            if (QuickAddScheduleBtnText != null) QuickAddScheduleBtnText.Text = loc.Get("Cal_Add");
+
+            if (EmptyNotifTitleText != null) EmptyNotifTitleText.Text = loc.Get("Notif_EmptyTitle");
+            if (EmptyNotifSubtitleText != null) EmptyNotifSubtitleText.Text = loc.Get("Notif_EmptySub");
+
+            UpdateSideWingVisuals();
+            UpdateHardwareUi();
+            UpdateMediaAndLyricsUi();
+            UpdateTodoAndWaterUi();
+            UpdatePomodoroAndClockUi();
+            RefreshNotificationHistoryUi();
+            RefreshWeatherUi();
+            RefreshScheduleUi();
+            RefreshCalendarMonthGrid();
+        }
+        catch { }
     }
 
     private void OnOpenLogClick(object sender, RoutedEventArgs e)
@@ -4860,8 +4960,29 @@ private void OnTabCalendarClick(object sender, RoutedEventArgs e) => SwitchToTab
     {
         if (CalendarDaysMatrix == null || CalendarMonthTitleText == null) return;
 
+        var loc = LocalizationService.Instance;
+        var calCulture = loc.IsEnglish ? new System.Globalization.CultureInfo("en-US") : new System.Globalization.CultureInfo("id-ID");
         var now = DateTime.Now;
-        CalendarMonthTitleText.Text = now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("id-ID"));
+        CalendarMonthTitleText.Text = now.ToString("MMMM yyyy", calCulture);
+
+        if (CalendarDayHeadersGrid != null)
+        {
+            CalendarDayHeadersGrid.Children.Clear();
+            string[] dayLetters = loc.IsEnglish
+                ? new[] { "S", "M", "T", "W", "T", "F", "S" }
+                : new[] { "M", "S", "S", "R", "K", "J", "S" };
+            foreach (var d in dayLetters)
+            {
+                CalendarDayHeadersGrid.Children.Add(new TextBlock
+                {
+                    Text = d,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B)),
+                    FontSize = 9,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+            }
+        }
 
         CalendarDaysMatrix.Children.Clear();
         var cells = _calendarService.GenerateCurrentMonthGrid();
@@ -4905,11 +5026,13 @@ private void OnTabCalendarClick(object sender, RoutedEventArgs e) => SwitchToTab
         if (ScheduleItemsStack == null) return;
         ScheduleItemsStack.Children.Clear();
 
+        var loc = LocalizationService.Instance;
+
         if (_calendarService.ScheduleItems.Count == 0)
         {
             ScheduleItemsStack.Children.Add(new TextBlock
             {
-                Text = "Belum ada agenda hari ini. Klik '+ Tambah' untuk membuat jadwal.",
+                Text = loc.IsEnglish ? "No agenda for today yet. Click '+ Add' to create a schedule." : "Belum ada agenda hari ini. Klik '+ Tambah' untuk membuat jadwal.",
                 Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8)),
                 FontSize = 10.5,
                 Margin = new Thickness(0, 10, 0, 0),
@@ -4934,7 +5057,7 @@ private void OnTabCalendarClick(object sender, RoutedEventArgs e) => SwitchToTab
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var leftStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            var leftStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
             var topRow = new StackPanel { Orientation = Orientation.Horizontal };
 
             var catBorder = new Border
@@ -5037,8 +5160,13 @@ private void OnTabCalendarClick(object sender, RoutedEventArgs e) => SwitchToTab
         WeatherTempLargeText.Text = $"{Math.Round(w.TempC)}°";
         WeatherConditionText.Text = w.ConditionText;
         WeatherCityText.Text = $"{w.City}, Indonesia";
-        WeatherFeelsLikeText.Text = $"Terasa: {Math.Round(w.ApparentTempC)}°C";
-        WeatherStatsDetailText.Text = $"Kelembapan: {w.Humidity}% • Angin: {w.WindSpeedKmh} km/j";
+        var loc = LocalizationService.Instance;
+        WeatherFeelsLikeText.Text = loc.IsEnglish
+            ? $"Feels like: {Math.Round(w.ApparentTempC)}°C"
+            : $"Terasa: {Math.Round(w.ApparentTempC)}°C";
+        WeatherStatsDetailText.Text = loc.IsEnglish
+            ? $"Humidity: {w.Humidity}% • Wind: {w.WindSpeedKmh} km/h"
+            : $"Kelembapan: {w.Humidity}% • Angin: {w.WindSpeedKmh} km/j";
         WeatherMainIconPath.Data = TryFindResource(w.IconKey) as Geometry ?? (TryFindResource("GeomWeatherSunCloud") as Geometry);
 
         WeatherHourlyUniformGrid.Children.Clear();
@@ -5094,8 +5222,9 @@ private void OnTabCalendarClick(object sender, RoutedEventArgs e) => SwitchToTab
     {
         if (NotificationHistoryStack == null || NotifCountBadgeText == null || EmptyNotifHistoryPanel == null) return;
 
+        var loc = LocalizationService.Instance;
         int count = _notificationHistoryService.Items.Count;
-        NotifCountBadgeText.Text = $"{count} Sesi Ini";
+        NotifCountBadgeText.Text = loc.IsEnglish ? $"{count} This Session" : $"{count} Sesi Ini";
         NotificationHistoryStack.Children.Clear();
 
         if (count == 0)
@@ -5147,7 +5276,7 @@ private void OnTabCalendarClick(object sender, RoutedEventArgs e) => SwitchToTab
             grid.Children.Add(iconBorder);
             Grid.SetColumn(iconBorder, 0);
 
-            var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
             var headerRow = new StackPanel { Orientation = Orientation.Horizontal };
             headerRow.Children.Add(new TextBlock
             {

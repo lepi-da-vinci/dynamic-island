@@ -135,6 +135,8 @@ public static class Win32Interop
     private static bool _lastCheckedFgIsScreenshot;
     private static long _lastCheckedFgTick;
     private static long _screenshotHotkeyLockUntilTick;
+    private static long _lastFindWindowTick;
+    private static bool _cachedFindWindowResult;
 
     /// <summary>
     /// Detects whether the user is currently taking a screenshot (Win+Shift+S, PrintScreen,
@@ -156,15 +158,26 @@ public static class Win32Interop
             return true;
         }
 
-        // 2. Check known Windows 10/11 Snipping Overlay window classes directly
-        IntPtr clipWnd = FindWindow("ScreenClippingWindowClass", null);
-        if (clipWnd != IntPtr.Zero && IsWindowVisible(clipWnd))
+        // 2. Check known Windows 10/11 Snipping Overlay window classes directly (cached 150ms for zero lag & low CPU)
+        if ((nowTick - _lastFindWindowTick) > 150)
         {
-            return true;
-        }
+            _lastFindWindowTick = nowTick;
+            IntPtr clipWnd = FindWindow("ScreenClippingWindowClass", null);
+            if (clipWnd != IntPtr.Zero && IsWindowVisible(clipWnd))
+            {
+                _cachedFindWindowResult = true;
+                return true;
+            }
 
-        IntPtr snipToolbarWnd = FindWindow("Microsoft-Windows-SnipperToolbar", null);
-        if (snipToolbarWnd != IntPtr.Zero && IsWindowVisible(snipToolbarWnd))
+            IntPtr snipToolbarWnd = FindWindow("Microsoft-Windows-SnipperToolbar", null);
+            if (snipToolbarWnd != IntPtr.Zero && IsWindowVisible(snipToolbarWnd))
+            {
+                _cachedFindWindowResult = true;
+                return true;
+            }
+            _cachedFindWindowResult = false;
+        }
+        else if (_cachedFindWindowResult)
         {
             return true;
         }
