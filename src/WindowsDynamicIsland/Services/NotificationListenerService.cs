@@ -186,7 +186,7 @@ public sealed class NotificationListenerService
                                 : $"{appName} • {title}";
 
                         string displaySubtitle = string.IsNullOrWhiteSpace(body)
-                            ? "Notifikasi baru"
+                            ? LocalizationService.Instance.Get("Notif_NewFallback")
                             : body;
 
                         NotificationReceived?.Invoke(new ToastPayload(
@@ -210,8 +210,10 @@ public sealed class NotificationListenerService
                     {
                         NotificationReceived?.Invoke(new ToastPayload(
                             Icon: icon,
-                            Title: $"{appName} • Pesan Masuk",
-                            Subtitle: $"{badgeVal} pesan belum dibaca",
+                            Title: $"{appName} • {LocalizationService.Instance.Get("Notif_IncomingTitle")}",
+                            Subtitle: LocalizationService.Instance.IsEnglish
+                                ? $"{badgeVal} unread messages"
+                                : $"{badgeVal} pesan belum dibaca",
                             AccentHex: accentHex,
                             Duration: TimeSpan.FromSeconds(3.8)));
                     }

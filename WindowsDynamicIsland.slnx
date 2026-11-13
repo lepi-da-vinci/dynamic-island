@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/WindowsDynamicIsland/WindowsDynamicIsland.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WindowsDynamicIsland.Tests/WindowsDynamicIsland.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -77,7 +77,7 @@ public static partial class RomajiTransliterationService
         ['わ'] = "wa", ['を'] = "wo", ['ん'] = "n",
         ['が'] = "ga", ['ぎ'] = "gi", ['ぐ'] = "gu", ['げ'] = "ge", ['ご'] = "go",
         ['ざ'] = "za", ['じ'] = "ji", ['ず'] = "zu", ['ぜ'] = "ze", ['ぞ'] = "zo",
-        ['だ'] = "da", ['ぢ'] = "ji", ['づ'] = "zu", ['デ'] = "de", ['ど'] = "do",
+        ['だ'] = "da", ['ぢ'] = "ji", ['づ'] = "zu", ['で'] = "de", ['ど'] = "do",
         ['ば'] = "ba", ['び'] = "bi", ['ぶ'] = "bu", ['べ'] = "be", ['ぼ'] = "bo",
         ['ぱ'] = "pa", ['ぴ'] = "pi", ['ぷ'] = "pu", ['ぺ'] = "pe", ['ぽ'] = "po",
         // Small kana
@@ -492,10 +492,7 @@ public static partial class RomajiTransliterationService
         ("も", " mo "),
         ("へ", " e "),
         ("ね", " ne "),
-        ("よ", " yo "),
-        ("か", " ka "),
-        ("さ", " sa "),
-        ("な", " na ")
+        ("よ", " yo ")
     ];
 
     // Single Kanji dictionary covering frequent individual characters to guarantee zero raw Kanji in output.
@@ -601,6 +598,16 @@ public static partial class RomajiTransliterationService
     /// <summary>
     /// Checks if a string still contains Japanese Kanji or Kana characters.
     /// </summary>
+    public static bool HasJapaneseKana(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        foreach (char c in text)
+        {
+            if ((c >= 0x3040 && c <= 0x309F) || (c >= 0x30A0 && c <= 0x30FF)) return true;
+        }
+        return false;
+    }
+
     public static bool HasJapaneseScript(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
@@ -608,13 +615,13 @@ public static partial class RomajiTransliterationService
         {
             if (c >= 0x3040 && c <= 0x309F) return true; // Hiragana
             if (c >= 0x30A0 && c <= 0x30FF) return true; // Katakana
-            if (c >= 0x4E00 && c <= 0x9FFF) return true; // Kanji
+            if (c >= 0x4E00 && c <= 0x9FFF) return true; // Kanji / Hanzi
         }
         return false;
     }
 
     /// <summary>
-    /// Transliterates non-Latin scripts to Latin alphabet (Romaji/Revised Romanization)
+    /// Transliterates non-Latin scripts to Latin alphabet (Romaji/Pinyin/Revised Romanization)
     /// with natural word spacing and zero leftover non-Latin characters.
     /// Returns null if the text is already Latin/Western or transliteration isn't applicable.
     /// </summary>
@@ -625,9 +632,30 @@ public static partial class RomajiTransliterationService
             return null;
         }
 
-        // 1. Process Japanese text (Kanji + Kana) through dictionary, particle tokenizer, and phonetics
-        if (HasJapaneseScript(text))
+        // 1. Japanese pipeline (WinRT JapanesePhoneticAnalyzer word segmentation + reading, with dictionary fallback)
+        if (HasJapaneseKana(text))
         {
+            string? analyzerRomaji = TryTransliterateJapaneseWithAnalyzer(text);
+            if (!string.IsNullOrWhiteSpace(analyzerRomaji))
+            {
+                return CleanWordSpacing(analyzerRomaji);
+            }
+
+            string? japaneseRomaji = TransliterateJapanese(text);
+            if (!string.IsNullOrWhiteSpace(japaneseRomaji))
+            {
+                return CleanWordSpacing(japaneseRomaji);
+            }
+        }
+        else if (HasJapaneseScript(text))
+        {
+            // Pure CJK ideographs without Hiragana/Katakana -> try Mandarin Pinyin map first, then fallback to Japanese
+            string? pinyin = TryTransliterateMandarin(text);
+            if (!string.IsNullOrWhiteSpace(pinyin))
+            {
+                return CleanWordSpacing(pinyin);
+            }
+
             string? japaneseRomaji = TransliterateJapanese(text);
             if (!string.IsNullOrWhiteSpace(japaneseRomaji))
             {
@@ -640,10 +668,144 @@ public static partial class RomajiTransliterationService
         return string.IsNullOrWhiteSpace(general) ? null : CleanWordSpacing(general);
     }
 
+    private static string? TryTransliterateJapaneseWithAnalyzer(string text)
+    {
+        try
+        {
+            var words = JapanesePhoneticAnalyzer.GetWords(text, false);
+            if (words == null || words.Count == 0) return null;
+
+            var sb = new StringBuilder(text.Length * 2);
+            for (int wi = 0; wi < words.Count; wi++)
+            {
+                var word = words[wi];
+                string display = word.DisplayText ?? string.Empty;
+                string yomi = word.YomiText ?? string.Empty;
+
+                // Use YomiText (Hiragana reading resolved by Windows IME) when available
+                string tokenSource = !string.IsNullOrWhiteSpace(yomi) ? yomi : display;
+                if (string.IsNullOrWhiteSpace(tokenSource)) continue;
+
+                // If IME split trailing sokuon ('っ'/'ッ') from the following word, merge them so gemination works
+                while ((tokenSource[^1] == 'っ' || tokenSource[^1] == 'ッ') && wi + 1 < words.Count)
+                {
+                    wi++;
+                    var nextWord = words[wi];
+                    string nextSource = !string.IsNullOrWhiteSpace(nextWord.YomiText)
+                        ? nextWord.YomiText
+                        : (nextWord.DisplayText ?? string.Empty);
+                    if (!string.IsNullOrEmpty(nextSource))
+                    {
+                        tokenSource += nextSource;
+                    }
+                }
+
+                string? tokenRomaji;
+                if (tokenSource == "は" && display == "は")
+                {
+                    tokenRomaji = "wa";
+                }
+                else if (tokenSource == "へ" && display == "へ")
+                {
+                    tokenRomaji = "e";
+                }
+                else
+                {
+                    tokenRomaji = TransliterateJapanese(tokenSource, applyMarkers: false);
+                }
+
+                if (!string.IsNullOrWhiteSpace(tokenRomaji))
+                {
+                    if (sb.Length > 0 && sb[^1] != ' ' && (word.IsPhraseStart || tokenSource == "は" || tokenSource == "が" || tokenSource == "を" || tokenSource == "に" || tokenSource == "で" || tokenSource == "と" || tokenSource == "の" || tokenSource == "も" || tokenSource == "へ"))
+                    {
+                        sb.Append(' ');
+                    }
+                    sb.Append(tokenRomaji.Trim());
+                }
+            }
+
+            string built = sb.ToString().Trim();
+            return string.IsNullOrWhiteSpace(built) ? null : built;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static readonly Dictionary<char, string> MandarinPinyinMap = new()
+    {
+        ['我'] = "wo", ['你'] = "ni", ['他'] = "ta", ['她'] = "ta", ['它'] = "ta", ['们'] = "men",
+        ['的'] = "de", ['是'] = "shi", ['不'] = "bu", ['了'] = "le", ['在'] = "zai", ['有'] = "you",
+        ['人'] = "ren", ['这'] = "zhe", ['那'] = "na", ['就'] = "jiu", ['也'] = "ye", ['都'] = "dou",
+        ['和'] = "he", ['说'] = "shuo", ['要'] = "yao", ['去'] = "qu", ['会'] = "hui", ['可'] = "ke",
+        ['以'] = "yi", ['来'] = "lai", ['到'] = "dao", ['看'] = "kan", ['想'] = "xiang", ['爱'] = "ai",
+        ['心'] = "xin", ['情'] = "qing", ['梦'] = "meng", ['风'] = "feng", ['雨'] = "yu", ['雪'] = "xue",
+        ['花'] = "hua", ['月'] = "yue", ['夜'] = "ye", ['天'] = "tian", ['空'] = "kong", ['海'] = "hai",
+        ['星'] = "xing", ['光'] = "guang", ['春'] = "chun", ['夏'] = "xia", ['秋'] = "qiu", ['冬'] = "dong",
+        ['年'] = "nian", ['日'] = "ri", ['时'] = "shi", ['分'] = "fen", ['秒'] = "miao", ['好'] = "hao",
+        ['多'] = "duo", ['少'] = "shao", ['大'] = "da", ['小'] = "xiao", ['一'] = "yi", ['二'] = "er",
+        ['三'] = "san", ['四'] = "si", ['五'] = "wu", ['六'] = "liu", ['七'] = "qi", ['八'] = "ba",
+        ['九'] = "jiu", ['十'] = "shi", ['百'] = "bai", ['千'] = "qian", ['万'] = "wan", ['没'] = "mei",
+        ['着'] = "zhe", ['过'] = "guo", ['给'] = "gei", ['让'] = "rang", ['把'] = "ba", ['被'] = "bei",
+        ['对'] = "dui", ['为'] = "wei", ['从'] = "cong", ['向'] = "xiang", ['里'] = "li", ['外'] = "wai",
+        ['上'] = "shang", ['下'] = "xia", ['前'] = "qian", ['后'] = "hou", ['左'] = "zuo", ['右'] = "you",
+        ['中'] = "zhong", ['间'] = "jian", ['边'] = "bian", ['能'] = "neng", ['得'] = "de", ['真'] = "zhen",
+        ['假'] = "jia", ['美'] = "mei", ['丽'] = "li", ['笑'] = "xiao", ['哭'] = "ku", ['泪'] = "lei",
+        ['痛'] = "tong", ['苦'] = "ku", ['甜'] = "tian", ['蜜'] = "mi", ['飞'] = "fei", ['走'] = "zou",
+        ['跑'] = "pao", ['停'] = "ting", ['等'] = "deng", ['回'] = "hui", ['忘'] = "wang", ['记'] = "ji",
+        ['懂'] = "dong", ['知'] = "zhi", ['道'] = "dao", ['谁'] = "shei", ['什'] = "shen", ['么'] = "me",
+        ['因'] = "yin", ['所'] = "suo", ['但'] = "dan", ['却'] = "que", ['还'] = "hai",
+        ['再'] = "zai", ['只'] = "zhi", ['最'] = "zui", ['太'] = "tai", ['很'] = "hen", ['更'] = "geng",
+        ['样'] = "yang", ['起'] = "qi", ['开'] = "kai", ['关'] = "guan", ['见'] = "jian",
+        ['听'] = "ting", ['唱'] = "chang", ['歌'] = "ge", ['声'] = "sheng", ['音'] = "yin", ['词'] = "ci",
+        ['手'] = "shou", ['眼'] = "yan", ['睛'] = "jing", ['脸'] = "lian", ['头'] = "tou", ['发'] = "fa",
+        ['家'] = "jia", ['路'] = "lu", ['桥'] = "qiao", ['山'] = "shan", ['水'] = "shui", ['云'] = "yun",
+        ['雾'] = "wu", ['晴'] = "qing", ['阳'] = "yang", ['暗'] = "an", ['亮'] = "liang", ['黑'] = "hei",
+        ['白'] = "bai", ['红'] = "hong", ['蓝'] = "lan", ['绿'] = "lv", ['黄'] = "huang", ['紫'] = "zi",
+        ['生'] = "sheng", ['死'] = "si", ['活'] = "huo", ['老'] = "lao", ['新'] = "xin", ['旧'] = "jiu",
+        ['远'] = "yuan", ['近'] = "jin", ['高'] = "gao", ['低'] = "di", ['深'] = "shen", ['浅'] = "qian",
+        ['满'] = "man", ['热'] = "re", ['冷'] = "leng", ['暖'] = "nuan", ['凉'] = "liang",
+        ['永'] = "yong"
+    };
+
+    private static string? TryTransliterateMandarin(string text)
+    {
+        int cjkCount = 0;
+        int matchedCount = 0;
+        var sb = new StringBuilder(text.Length * 4);
+
+        foreach (char c in text)
+        {
+            if (c >= 0x4E00 && c <= 0x9FFF)
+            {
+                cjkCount++;
+                if (MandarinPinyinMap.TryGetValue(c, out string? pinyin))
+                {
+                    matchedCount++;
+                    sb.Append(' ');
+                    sb.Append(pinyin);
+                    sb.Append(' ');
+                }
+            }
+            else
+            {
+                sb.Append(c);
+            }
+        }
+
+        if (cjkCount == 0 || matchedCount == 0) return null;
+        // Require at least 40% coverage on CJK ideographs before committing to Mandarin Pinyin output
+        if (matchedCount * 10 < cjkCount * 4) return null;
+
+        string res = sb.ToString().Trim();
+        return string.IsNullOrWhiteSpace(res) ? null : res;
+    }
+
     /// <summary>
     /// Transliterates Japanese text into properly word-spaced Romaji.
     /// </summary>
-    private static string? TransliterateJapanese(string text)
+    private static string? TransliterateJapanese(string text, bool applyMarkers = true)
     {
         string working = text;
 
@@ -656,12 +818,27 @@ public static partial class RomajiTransliterationService
             }
         }
 
-        // Stage 2: Separate common Japanese particles and grammatical markers
-        foreach (var (marker, spacedRomaji) in CommonMarkers)
+        // Stage 2: Separate common Japanese particles and grammatical markers (never split immediately after sokuon っ/ッ)
+        if (applyMarkers)
         {
-            if (working.Contains(marker, StringComparison.Ordinal))
+            foreach (var (marker, spacedRomaji) in CommonMarkers)
             {
-                working = working.Replace(marker, spacedRomaji, StringComparison.Ordinal);
+                if (working.Contains(marker, StringComparison.Ordinal))
+                {
+                    int searchFrom = 0;
+                    while (searchFrom < working.Length)
+                    {
+                        int idx = working.IndexOf(marker, searchFrom, StringComparison.Ordinal);
+                        if (idx < 0) break;
+                        if (idx > 0 && (working[idx - 1] == 'っ' || working[idx - 1] == 'ッ'))
+                        {
+                            searchFrom = idx + marker.Length;
+                            continue;
+                        }
+                        working = string.Concat(working.AsSpan(0, idx), spacedRomaji, working.AsSpan(idx + marker.Length));
+                        searchFrom = idx + spacedRomaji.Length;
+                    }
+                }
             }
         }
 

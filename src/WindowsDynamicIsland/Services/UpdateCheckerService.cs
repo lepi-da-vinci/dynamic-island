@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -14,6 +17,8 @@ public sealed record UpdateCheckResult(
     string ReleaseNotes,
     string ReleaseUrl,
     string PublishedAt,
+    string DownloadZipUrl = "",
+    string Sha256AssetUrl = "",
     bool HasError = false,
     string ErrorMessage = "");
 
@@ -107,6 +112,25 @@ public sealed class UpdateCheckerService : IDisposable
             string htmlUrl = root.TryGetProperty("html_url", out var urlEl) ? urlEl.GetString() ?? GitHubReleasesPageUrl : GitHubReleasesPageUrl;
             string publishedAt = root.TryGetProperty("published_at", out var pubEl) ? pubEl.GetString() ?? "" : "";
 
+            string zipUrl = string.Empty;
+            string shaUrl = string.Empty;
+            if (root.TryGetProperty("assets", out var assetsEl) && assetsEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var asset in assetsEl.EnumerateArray())
+                {
+                    string assetName = asset.TryGetProperty("name", out var an) ? an.GetString() ?? "" : "";
+                    string dlUrl = asset.TryGetProperty("browser_download_url", out var au) ? au.GetString() ?? "" : "";
+                    if (assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(zipUrl))
+                    {
+                        zipUrl = dlUrl;
+                    }
+                    else if (assetName.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(shaUrl))
+                    {
+                        shaUrl = dlUrl;
+                    }
+                }
+            }
+
             string cleanLatest = CleanVersionString(tagName);
             string cleanCurrent = CleanVersionString(AppInstallerService.AppVersion);
 
@@ -120,6 +144,8 @@ public sealed class UpdateCheckerService : IDisposable
                 ReleaseNotes: TruncateNotes(releaseNotes),
                 ReleaseUrl: htmlUrl,
                 PublishedAt: FormatPublishDate(publishedAt),
+                DownloadZipUrl: zipUrl,
+                Sha256AssetUrl: shaUrl,
                 HasError: false,
                 ErrorMessage: string.Empty);
 
@@ -146,6 +172,138 @@ public sealed class UpdateCheckerService : IDisposable
         finally
         {
             IsChecking = false;
+        }
+    }
+
+    public bool IsUpdating { get; private set; }
+
+    public async Task<bool> DownloadAndInstallUpdateAsync(Action<int, string>? onProgress = null)
+    {
+        if (IsUpdating) return false;
+        IsUpdating = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(LastResult.DownloadZipUrl))
+            {
+                await CheckForUpdatesAsync(isBackgroundCheck: false);
+            }
+
+            if (string.IsNullOrWhiteSpace(LastResult.DownloadZipUrl))
+            {
+                LaunchOneClickInstaller();
+                return true;
+            }
+
+            string updatesRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "WindowsDynamicIsland",
+                "Updates");
+            Directory.CreateDirectory(updatesRoot);
+
+            string zipPath = Path.Combine(updatesRoot, "update.zip");
+            string stageDir = Path.Combine(updatesRoot, "staged");
+            if (File.Exists(zipPath)) File.Delete(zipPath);
+            if (Directory.Exists(stageDir)) Directory.Delete(stageDir, recursive: true);
+
+            onProgress?.Invoke(0, LocalizationService.Instance.Format("Updater_Downloading", 0));
+
+            using (var dlClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
+            {
+                dlClient.DefaultRequestHeaders.UserAgent.ParseAdd($"WindowsDynamicIsland/{AppInstallerService.AppVersion}");
+                using var response = await dlClient.GetAsync(LastResult.DownloadZipUrl, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+
+                long totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                await using var netStream = await response.Content.ReadAsStreamAsync();
+                await using var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+
+                byte[] buffer = new byte[81920];
+                long readTotal = 0;
+                int lastPct = -1;
+                int bytesRead;
+                while ((bytesRead = await netStream.ReadAsync(buffer)) > 0)
+                {
+                    await fs.WriteAsync(buffer.AsMemory(0, bytesRead));
+                    readTotal += bytesRead;
+                    if (totalBytes > 0)
+                    {
+                        int pct = (int)Math.Clamp((readTotal * 100L) / totalBytes, 0, 100);
+                        if (pct != lastPct)
+                        {
+                            lastPct = pct;
+                            onProgress?.Invoke(pct, LocalizationService.Instance.Format("Updater_Downloading", pct));
+                        }
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(LastResult.Sha256AssetUrl))
+            {
+                using var shaClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                shaClient.DefaultRequestHeaders.UserAgent.ParseAdd($"WindowsDynamicIsland/{AppInstallerService.AppVersion}");
+                string expectedContent = await shaClient.GetStringAsync(LastResult.Sha256AssetUrl);
+                string expectedHex = expectedContent.Trim().Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+                if (expectedHex.Length == 64)
+                {
+                    await using var verifyStream = File.OpenRead(zipPath);
+                    byte[] hash = await SHA256.HashDataAsync(verifyStream);
+                    string actualHex = Convert.ToHexString(hash);
+                    if (!string.Equals(actualHex, expectedHex, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException("SHA-256 verification failed for downloaded update package.");
+                    }
+                }
+            }
+
+            onProgress?.Invoke(100, LocalizationService.Instance.Get("Updater_Installing"));
+
+            // Validate archive & locate directory containing WindowsDynamicIsland.exe
+            ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
+            string? exeFile = Directory.GetFiles(stageDir, "WindowsDynamicIsland.exe", SearchOption.AllDirectories).FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(exeFile))
+            {
+                throw new InvalidDataException("Downloaded package missing WindowsDynamicIsland.exe.");
+            }
+
+            string sourceDir = Path.GetDirectoryName(exeFile)!;
+            string installDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string targetExe = Path.Combine(installDir, "WindowsDynamicIsland.exe");
+            string scriptPath = Path.Combine(updatesRoot, "apply_update.ps1");
+
+            string psScript = $$"""
+                $ErrorActionPreference = 'Stop'
+                $targetPid = {{Environment.ProcessId}}
+                for ($i = 0; $i -lt 40; $i++) {
+                    if (-not (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) { break }
+                    Start-Sleep -Milliseconds 200
+                }
+                Copy-Item -Path "{{sourceDir}}\*" -Destination "{{installDir}}" -Recurse -Force
+                Start-Process -FilePath "{{targetExe}}"
+                Remove-Item -Path "{{stageDir}}" -Recurse -Force -ErrorAction SilentlyContinue
+                Remove-Item -Path "{{zipPath}}" -Force -ErrorAction SilentlyContinue
+                """;
+            await File.WriteAllTextAsync(scriptPath, psScript, Encoding.UTF8);
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{scriptPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            System.Windows.Application.Current?.Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown());
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("UpdateChecker", "In-app auto-update failed; opening releases page or script", ex);
+            return false;
+        }
+        finally
+        {
+            IsUpdating = false;
         }
     }
 

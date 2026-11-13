@@ -152,16 +152,16 @@ public sealed class WeatherService
 
     public static (string ConditionText, string IconKey) MapWeatherCode(int code) => code switch
     {
-        0 => ("Cerah", "GeomWeatherSun"),
-        1 or 2 => ("Cerah Berawan", "GeomWeatherSunCloud"),
-        3 => ("Berawan", "GeomWeatherCloud"),
-        45 or 48 => ("Berkabut", "GeomWeatherCloud"),
-        51 or 53 or 55 => ("Gerimis", "GeomWeatherRain"),
-        61 or 63 or 65 => ("Hujan", "GeomWeatherRain"),
-        71 or 73 or 75 => ("Hujan Salju", "GeomWeatherRain"),
-        80 or 81 or 82 => ("Hujan Lebat", "GeomWeatherRain"),
-        95 or 96 or 99 => ("Badai Petir", "GeomWeatherRain"),
-        _ => ("Sebagian Berawan", "GeomWeatherSunCloud")
+        0 => (LocalizationService.Instance.Get("Weather_Clear"), "GeomWeatherSun"),
+        1 or 2 => (LocalizationService.Instance.Get("Weather_PartlyCloudy"), "GeomWeatherSunCloud"),
+        3 => (LocalizationService.Instance.Get("Weather_Cloudy"), "GeomWeatherCloud"),
+        45 or 48 => (LocalizationService.Instance.Get("Weather_Fog"), "GeomWeatherCloud"),
+        51 or 53 or 55 => (LocalizationService.Instance.Get("Weather_Drizzle"), "GeomWeatherRain"),
+        61 or 63 or 65 => (LocalizationService.Instance.Get("Weather_Rain"), "GeomWeatherRain"),
+        71 or 73 or 75 => (LocalizationService.Instance.Get("Weather_Snow"), "GeomWeatherRain"),
+        80 or 81 or 82 => (LocalizationService.Instance.Get("Weather_HeavyRain"), "GeomWeatherRain"),
+        95 or 96 or 99 => (LocalizationService.Instance.Get("Weather_Thunderstorm"), "GeomWeatherRain"),
+        _ => (LocalizationService.Instance.Get("Weather_Mixed"), "GeomWeatherSunCloud")
     };
 }
 

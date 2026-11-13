@@ -56,7 +56,7 @@ public sealed partial class LyricsService
         {
             Timeout = TimeSpan.FromSeconds(8)
         };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("WindowsDynamicIsland/1.7 (https://github.com/lepi-da-vinci/dynamic-island)");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd($"WindowsDynamicIsland/{AppInstallerService.AppVersion} (https://github.com/lepi-da-vinci/dynamic-island)");
         return client;
     }
 
@@ -71,7 +71,7 @@ public sealed partial class LyricsService
             _currentLines = [];
             _loadedTrackKey = string.Empty;
             _loadedDurationSeconds = 0;
-            StatusMessage = "Tidak ada media aktif";
+            StatusMessage = LocalizationService.Instance.Get("Media_NoActive");
             LyricsUpdated?.Invoke();
             return;
         }
@@ -95,7 +95,7 @@ public sealed partial class LyricsService
         _loadedTrackKey = trackKey;
         _loadedDurationSeconds = durationSeconds;
         _currentLines = [];
-        StatusMessage = "Mencari lirik lagu...";
+        StatusMessage = LocalizationService.Instance.Get("Lyrics_Fetching");
         LyricsUpdated?.Invoke();
 
         // Ignore very long non-music videos (podcasts, livestreams, 25+ min videos) so we don't match random song lyrics
@@ -266,6 +266,8 @@ public sealed partial class LyricsService
         LyricsUpdated?.Invoke();
     }
 
+    internal void LoadLinesForTest(List<LyricLine> lines) => _currentLines = lines;
+
     public ActiveLyricSnapshot GetActiveLyrics(TimeSpan position)
     {
         if (_currentLines.Count == 0)
@@ -274,7 +276,7 @@ public sealed partial class LyricsService
                 LineIndex: -1,
                 PreviousLine: string.Empty,
                 CurrentLine: StatusMessage,
-                NextLine: "Lirik sinkron belum tersedia untuk media ini",
+                NextLine: LocalizationService.Instance.Get("Lyrics_NotFound"),
                 LineProgressRatio: 0.0,
                 IsSynced: false);
         }
@@ -851,7 +853,7 @@ public sealed partial class LyricsService
         return sb.ToString().Trim();
     }
 
-    private static List<LyricLine> ConvertPlainLyricsToTimedLines(string plainLyrics, double durationSeconds)
+    internal static List<LyricLine> ConvertPlainLyricsToTimedLines(string plainLyrics, double durationSeconds)
     {
         var rawLines = plainLyrics.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .Select(l => l.Trim())
@@ -900,10 +902,10 @@ public sealed partial class LyricsService
         }
     }
 
-    private static List<LyricLine> ParseLrc(string lrcContent, string? romalrcContent = null)
+    internal static List<LyricLine> ParseLrc(string lrcContent, string? romalrcContent = null)
     {
         var lines = new List<LyricLine>();
-        var regex = LrcLineRegex();
+        var tagRegex = LrcTagRegex();
 
         Dictionary<int, string>? romaDict = null;
         if (!string.IsNullOrWhiteSpace(romalrcContent))
@@ -911,16 +913,11 @@ public sealed partial class LyricsService
             romaDict = [];
             foreach (string rawLine in romalrcContent.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
             {
-                var match = regex.Match(rawLine);
-                if (!match.Success) continue;
-                int m = int.Parse(match.Groups[1].Value);
-                int s = int.Parse(match.Groups[2].Value);
-                string fStr = match.Groups[3].Value;
-                int ms = fStr.Length == 2 ? int.Parse(fStr) * 10 : int.Parse(fStr.PadRight(3, '0')[..3]);
-                int centisec = (m * 60 + s) * 10 + (ms / 100);
-                string rText = match.Groups[4].Value.Trim();
-                if (!string.IsNullOrWhiteSpace(rText))
+                if (!TryExtractLrcTimestamps(rawLine, tagRegex, out var stamps, out string rText) || string.IsNullOrWhiteSpace(rText))
+                    continue;
+                foreach (var ts in stamps)
                 {
+                    int centisec = (int)(ts.TotalSeconds * 10);
                     romaDict[centisec] = rText;
                 }
             }
@@ -928,8 +925,52 @@ public sealed partial class LyricsService
 
         foreach (string rawLine in lrcContent.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
-            var match = regex.Match(rawLine);
-            if (!match.Success) continue;
+            if (!TryExtractLrcTimestamps(rawLine, tagRegex, out var stamps, out string text))
+                continue;
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                text = "• • •";
+            }
+
+            foreach (var ts in stamps)
+            {
+                string? romanized = null;
+
+                if (romaDict != null && romaDict.Count > 0)
+                {
+                    int centisec = (int)(ts.TotalSeconds * 10);
+                    for (int delta = 0; delta <= 5; delta++)
+                    {
+                        if (romaDict.TryGetValue(centisec + delta, out var r) ||
+                            (delta > 0 && romaDict.TryGetValue(centisec - delta, out r)))
+                        {
+                            romanized = r;
+                            break;
+                        }
+                    }
+                }
+
+                romanized ??= RomajiTransliterationService.Transliterate(text);
+                lines.Add(new LyricLine(ts, text, romanized));
+            }
+        }
+
+        lines.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
+        return lines;
+    }
+
+    private static bool TryExtractLrcTimestamps(string rawLine, Regex tagRegex, out List<TimeSpan> timestamps, out string text)
+    {
+        timestamps = [];
+        text = string.Empty;
+
+        string trimmed = rawLine.TrimStart();
+        int cursor = 0;
+        while (cursor < trimmed.Length && trimmed[cursor] == '[')
+        {
+            var match = tagRegex.Match(trimmed, cursor);
+            if (!match.Success || match.Index != cursor) break;
 
             int minutes = int.Parse(match.Groups[1].Value);
             int seconds = int.Parse(match.Groups[2].Value);
@@ -938,36 +979,13 @@ public sealed partial class LyricsService
                 ? int.Parse(fractionStr) * 10
                 : int.Parse(fractionStr.PadRight(3, '0')[..3]);
 
-            string text = match.Groups[4].Value.Trim();
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                text = "• • •";
-            }
-
-            var ts = new TimeSpan(0, 0, minutes, seconds, milliseconds);
-            string? romanized = null;
-
-            if (romaDict != null && romaDict.Count > 0)
-            {
-                int centisec = (minutes * 60 + seconds) * 10 + (milliseconds / 100);
-                for (int delta = 0; delta <= 5; delta++)
-                {
-                    if (romaDict.TryGetValue(centisec + delta, out var r) ||
-                        (delta > 0 && romaDict.TryGetValue(centisec - delta, out r)))
-                    {
-                        romanized = r;
-                        break;
-                    }
-                }
-            }
-
-            romanized ??= RomajiTransliterationService.Transliterate(text);
-
-            lines.Add(new LyricLine(ts, text, romanized));
+            timestamps.Add(new TimeSpan(0, 0, minutes, seconds, milliseconds));
+            cursor = match.Index + match.Length;
         }
 
-        lines.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
-        return lines;
+        if (timestamps.Count == 0) return false;
+        text = trimmed[cursor..].Trim();
+        return true;
     }
 
     private static string CleanTrackTitle(string? rawTitle)
@@ -1003,8 +1021,8 @@ public sealed partial class LyricsService
         return Path.Combine(_cacheDirectory, $"{hex}.lrc");
     }
 
-    [GeneratedRegex(@"^\[(\d{1,3}):(\d{2})\.(\d{2,3})\](.*)$")]
-    private static partial Regex LrcLineRegex();
+    [GeneratedRegex(@"\[(\d{1,3}):(\d{2})\.(\d{2,3})\]")]
+    private static partial Regex LrcTagRegex();
 
     [GeneratedRegex(@"^\(\d+\)\s*")]
     private static partial Regex LeadingNotifCountRegex();

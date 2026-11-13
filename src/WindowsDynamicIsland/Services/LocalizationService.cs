@@ -1,10 +1,12 @@
+using System.ComponentModel;
+
 namespace WindowsDynamicIsland.Services;
 
 /// <summary>
 /// Centralized Apple-standard localization engine supporting Bahasa Indonesia ("id") and English ("en").
-/// Provides dynamic UI re-translation across MainWindow and SettingsWindow without restarting the application.
+/// Provides dynamic UI re-translation across MainWindow and SettingsWindow via INotifyPropertyChanged indexer binding.
 /// </summary>
-public sealed class LocalizationService
+public sealed class LocalizationService : INotifyPropertyChanged
 {
     private static readonly Lazy<LocalizationService> _lazyInstance = new(() => new LocalizationService());
     public static LocalizationService Instance => _lazyInstance.Value;
@@ -14,6 +16,7 @@ public sealed class LocalizationService
     public bool IsEnglish => _currentLanguage.Equals("en", StringComparison.OrdinalIgnoreCase);
 
     public event Action? LanguageChanged;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     private readonly Dictionary<string, string> _idStrings = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _enStrings = new(StringComparer.OrdinalIgnoreCase);
@@ -29,7 +32,23 @@ public sealed class LocalizationService
         if (_currentLanguage == normalized) return;
 
         _currentLanguage = normalized;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentLanguage)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEnglish)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
         LanguageChanged?.Invoke();
+    }
+
+    public string Format(string key, params object[] args)
+    {
+        string template = Get(key);
+        try
+        {
+            return string.Format(template, args);
+        }
+        catch
+        {
+            return template;
+        }
     }
 
     public string Get(string key, string? fallback = null)
@@ -323,7 +342,7 @@ public sealed class LocalizationService
 
         // Settings Items
         _enStrings["Settings_Title"] = "Settings — Windows Dynamic Island";
-        _idStrings["Settings_Language"] = "Interface Language";
+        _idStrings["Settings_Language"] = "Bahasa Antarmuka";
         _enStrings["Settings_Language"] = "Interface Language";
         _enStrings["Settings_LanguageSub"] = "Choose display language for Dynamic Island and Settings";
         _enStrings["Settings_StartWithWindows"] = "Start with Windows";
@@ -372,5 +391,394 @@ public sealed class LocalizationService
         _enStrings["Settings_SystemNotif"] = "Windows System Notifications";
         _enStrings["Settings_SystemNotifSub"] = "Forward Windows app notifications into Dynamic Island pill";
         _enStrings["Settings_ToastDuration"] = "Toast Notification Duration";
+
+        // ==================== EXTENDED LOCALIZATION (v2.1.0) ====================
+        // Settings Window Sidebar, Headers & Controls
+        _idStrings["Settings_CloseTooltip"] = "Tutup Pengaturan";
+        _enStrings["Settings_CloseTooltip"] = "Close Settings";
+        _idStrings["Settings_DoneBtn"] = "Selesai";
+        _enStrings["Settings_DoneBtn"] = "Done";
+        _idStrings["Settings_HeaderLangSection"] = "Bahasa & Lokalisasi";
+        _enStrings["Settings_HeaderLangSection"] = "Language & Localization";
+        _idStrings["Settings_HeaderStartup"] = "Startup";
+        _enStrings["Settings_HeaderStartup"] = "Startup";
+        _idStrings["Settings_HeaderNotch"] = "Notch & Ukuran";
+        _enStrings["Settings_HeaderNotch"] = "Notch & Sizing";
+        _idStrings["Settings_HeaderNotchTabs"] = "Tab Notch (Kustomisasi Tab)";
+        _enStrings["Settings_HeaderNotchTabs"] = "Notch Tabs (Customize)";
+        _idStrings["Settings_HeaderUpdater"] = "Pembaruan Aplikasi";
+        _enStrings["Settings_HeaderUpdater"] = "Application Updates";
+        _idStrings["Settings_UpdaterSub"] = "Memeriksa pembaruan otomatis dari GitHub Releases";
+        _enStrings["Settings_UpdaterSub"] = "Automatically check and install releases from GitHub";
+        _idStrings["Settings_CheckUpdateBtn"] = "Cek Update";
+        _enStrings["Settings_CheckUpdateBtn"] = "Check Update";
+        _idStrings["Settings_UpdateNowBtn"] = "Update Sekarang";
+        _enStrings["Settings_UpdateNowBtn"] = "Update Now";
+        _idStrings["Settings_PowerTitle"] = "Kontrol Daya Sistem";
+        _enStrings["Settings_PowerTitle"] = "System Power Controls";
+        _idStrings["Settings_PowerSub"] = "Aksi daya cepat untuk menghemat baterai atau menidurkan sistem seketika";
+        _enStrings["Settings_PowerSub"] = "Quick power actions to conserve battery or sleep your PC immediately";
+        _idStrings["Settings_Sec5"] = "5 Detik";
+        _enStrings["Settings_Sec5"] = "5s";
+        _idStrings["Settings_Sec10"] = "10 Detik";
+        _enStrings["Settings_Sec10"] = "10s";
+        _idStrings["Settings_Sec15"] = "15 Detik";
+        _enStrings["Settings_Sec15"] = "15s";
+        _idStrings["Settings_Sec30"] = "30 Detik";
+        _enStrings["Settings_Sec30"] = "30s";
+        _idStrings["Settings_TabMusic"] = "Tab Musik";
+        _enStrings["Settings_TabMusic"] = "Music Tab";
+        _idStrings["Settings_TabMusicSub"] = "Tampilkan tab pemutar media & panggung lirik lagu di Dynamic Island";
+        _enStrings["Settings_TabMusicSub"] = "Show media player and synchronized lyrics stage in Dynamic Island";
+        _idStrings["Settings_TabTodo"] = "Tab Tugas (To-do)";
+        _enStrings["Settings_TabTodo"] = "To-Do Tab";
+        _idStrings["Settings_TabTodoSub"] = "Tampilkan tab daftar tugas harian di Dynamic Island";
+        _enStrings["Settings_TabTodoSub"] = "Show daily task list tab in Dynamic Island";
+        _idStrings["Settings_TabFocus"] = "Tab Fokus (Pomodoro & Air)";
+        _enStrings["Settings_TabFocus"] = "Focus Tab (Timer & Hydration)";
+        _idStrings["Settings_TabFocusSub"] = "Tampilkan tab timer fokus Pomodoro, Stopwatch & target hidrasi";
+        _enStrings["Settings_TabFocusSub"] = "Show Pomodoro focus timer, stopwatch, and hydration tracker tab";
+        _idStrings["Settings_TabShortcuts"] = "Tab Pintasan Aplikasi";
+        _enStrings["Settings_TabShortcuts"] = "App Shortcuts Tab";
+        _idStrings["Settings_TabShortcutsSub"] = "Tampilkan Launchpad pintasan cepat untuk membuka aplikasi tanpa Start Menu";
+        _enStrings["Settings_TabShortcutsSub"] = "Show quick Launchpad shortcuts to open apps without the Start Menu";
+        _idStrings["Settings_TabPerf"] = "Tab Monitor Performa (CPU / GPU / RAM)";
+        _enStrings["Settings_TabPerf"] = "Performance Monitor Tab (CPU / GPU / RAM)";
+        _idStrings["Settings_TabPerfSub"] = "Tampilkan pemantau performa perangkat real-time (CPU, GPU, RAM, Disk, Jaringan)";
+        _enStrings["Settings_TabPerfSub"] = "Show real-time hardware telemetry (CPU, GPU, RAM, Disk, Network)";
+        _idStrings["Settings_TabShelf"] = "Tab Rak File (Shelf)";
+        _enStrings["Settings_TabShelf"] = "File Shelf Tab";
+        _enStrings["Settings_TabShelfSub"] = "Tampilkan rak file drag-and-drop & berbagi QR Wi-Fi lokal";
+        _enStrings["Settings_TabShelfSub"] = "Show temporary drag-and-drop shelf and local Wi-Fi QR sharing";
+
+        // Display & Multi-Monitor
+        _idStrings["Settings_HeaderScreen"] = "Layar & Perilaku";
+        _enStrings["Settings_HeaderScreen"] = "Screen & Behavior";
+        _idStrings["Settings_TargetMonitor"] = "Monitor Target Dynamic Island";
+        _enStrings["Settings_TargetMonitor"] = "Target Display Monitor";
+        _idStrings["Settings_TargetMonitorSub"] = "Pilih layar tempat Dynamic Island ditampilkan atau ikuti kursor aktif";
+        _enStrings["Settings_TargetMonitorSub"] = "Choose which display hosts Dynamic Island or follow the active cursor";
+        _idStrings["Monitor_Primary"] = "Utama";
+        _enStrings["Monitor_Primary"] = "Primary";
+        _idStrings["Monitor_Display2"] = "Layar 2";
+        _enStrings["Monitor_Display2"] = "Display 2";
+        _idStrings["Monitor_Display3"] = "Layar 3";
+        _enStrings["Monitor_Display3"] = "Display 3";
+        _idStrings["Monitor_FollowCursor"] = "Ikuti Kursor";
+        _enStrings["Monitor_FollowCursor"] = "Follow Cursor";
+        _idStrings["Settings_TopOffsetSub"] = "Jarak vertikal Dynamic Island dari tepi paling atas layar monitor";
+        _enStrings["Settings_TopOffsetSub"] = "Vertical gap between Dynamic Island and the top edge of the monitor";
+
+        // Appearance Cards
+        _idStrings["Settings_HeaderContour"] = "Model Kontur, Tema Permukaan & Material";
+        _enStrings["Settings_HeaderContour"] = "Contour Shape, Surface Theme & Material";
+        _idStrings["Settings_NotchMode"] = "Notch Menempel Atas";
+        _enStrings["Settings_NotchMode"] = "Top-Attached Notch";
+        _idStrings["Settings_PunchHoleMode"] = "Punch-Hole Melayang";
+        _enStrings["Settings_PunchHoleMode"] = "Floating Punch-Hole";
+        _idStrings["Settings_CornerStyleSub"] = "Sesuaikan siluet lengkungan telinga atas dan sudut bawah Dynamic Island";
+        _enStrings["Settings_CornerStyleSub"] = "Customize the top-ear curve and bottom corner silhouette";
+        _idStrings["Settings_CornerSquircle"] = "Apple Squircle";
+        _enStrings["Settings_CornerSquircle"] = "Apple Squircle";
+        _idStrings["Settings_CornerUltraPill"] = "Ultra Pill Bulat";
+        _enStrings["Settings_CornerUltraPill"] = "Ultra Pill";
+        _idStrings["Settings_CornerSharp"] = "Sharp Modern";
+        _enStrings["Settings_CornerSharp"] = "Sharp Modern";
+        _idStrings["Settings_Opacity"] = "Transparansi Permukaan";
+        _enStrings["Settings_Opacity"] = "Surface Opacity";
+        _idStrings["Settings_OpacitySub"] = "Tingkat kepekatan latar belakang OLED / Glassmorphism pada pulau";
+        _enStrings["Settings_OpacitySub"] = "Background opacity level for OLED and Glassmorphism materials";
+        _idStrings["Settings_HeaderGlass"] = "Glassmorphism & Aksen";
+        _enStrings["Settings_HeaderGlass"] = "Glassmorphism & Accent";
+        _idStrings["Settings_RimSubtle"] = "Kaca Tipis (Default)";
+        _enStrings["Settings_RimSubtle"] = "Subtle Glass (Default)";
+        _idStrings["Settings_RimNeon"] = "Neon Warna Aksen";
+        _enStrings["Settings_RimNeon"] = "Accent Neon";
+        _idStrings["Settings_RimHidden"] = "Tanpa Garis Tepi";
+        _enStrings["Settings_RimHidden"] = "Hidden";
+        _idStrings["Settings_GlowStyleSub"] = "Tampilan garis kilau kaca atau neon di sekeliling kontur pulau";
+        _enStrings["Settings_GlowStyleSub"] = "Edge rim highlight appearance around the island contour";
+        _idStrings["Settings_Backlight"] = "Cahaya Latar Ambient";
+        _enStrings["Settings_Backlight"] = "Ambient Backlight Glow";
+        _idStrings["Settings_BacklightSub"] = "Intensitas pendaran cahaya warna di belakang kontur Dynamic Island";
+        _enStrings["Settings_BacklightSub"] = "Ambient color halo intensity behind the Dynamic Island contour";
+        _idStrings["Settings_GlowOff"] = "Mati (0%)";
+        _enStrings["Settings_GlowOff"] = "Off (0%)";
+        _idStrings["Settings_GlowLow"] = "Lembut";
+        _enStrings["Settings_GlowLow"] = "Soft";
+        _idStrings["Settings_GlowNorm"] = "Normal";
+        _enStrings["Settings_GlowNorm"] = "Normal";
+        _idStrings["Settings_GlowHigh"] = "Terang";
+        _enStrings["Settings_GlowHigh"] = "Bright";
+        _idStrings["Settings_GlassRim"] = "Garis Kilau Kaca (Rim)";
+        _enStrings["Settings_GlassRim"] = "Glass Contour Rim";
+        _idStrings["Settings_GlassRimSub"] = "Tampilkan garis kilau kaca tipis pada tepi kurva Dynamic Island";
+        _enStrings["Settings_GlassRimSub"] = "Show thin specular glass highlight along the notch outline";
+
+        // Music, Todo, Calendar, Pomodoro, Water, Shelf, HUD Pages
+        _idStrings["Settings_HeaderMusic"] = "Pemutar & Lirik Tersinkronisasi";
+        _enStrings["Settings_HeaderMusic"] = "Playback & Synchronized Lyrics";
+        _idStrings["Settings_TrackPopup"] = "Popup Pergantian Lagu";
+        _enStrings["Settings_TrackPopup"] = "Track Change Popup";
+        _idStrings["Settings_TrackPopupSub"] = "Tampilkan notifikasi judul & artis saat lagu berganti";
+        _enStrings["Settings_TrackPopupSub"] = "Show title & artist pill when switching songs";
+        _idStrings["Settings_AppMixer"] = "Mixer Audio Per Aplikasi";
+        _enStrings["Settings_AppMixer"] = "Per-App Audio Mixer";
+        _idStrings["Settings_AppMixerSub"] = "Aktifkan kontrol volume mandiri untuk Spotify, browser, dan game di tab Musik";
+        _enStrings["Settings_AppMixerSub"] = "Enable per-app volume sliders for Spotify, browsers, and games in Music tab";
+
+        _idStrings["Settings_HeaderTodo"] = "Daftar Tugas & Indikator";
+        _enStrings["Settings_HeaderTodo"] = "Task List & Indicators";
+        _idStrings["Settings_TaskBadge"] = "Tampilkan Badge Tugas di Notch";
+        _enStrings["Settings_TaskBadge"] = "Show Active Task Badge on Notch";
+        _idStrings["Settings_TaskBadgeSub"] = "Tampilkan jumlah tugas aktif pada pil idle Dynamic Island";
+        _enStrings["Settings_TaskBadgeSub"] = "Show active task counter badge on the idle Dynamic Island pill";
+        _idStrings["Settings_ClearDoneTasks"] = "Bersihkan Tugas Selesai";
+        _enStrings["Settings_ClearDoneTasks"] = "Clear Completed Tasks";
+        _idStrings["Settings_ClearDoneTasksSub"] = "Hapus seluruh tugas yang sudah ditandai selesai dari daftar";
+        _enStrings["Settings_ClearDoneTasksSub"] = "Remove all completed tasks from your active list";
+
+        _idStrings["Settings_HeaderClock"] = "Tampilan Tanggal & Jam";
+        _enStrings["Settings_HeaderClock"] = "Date & Clock Display";
+        _idStrings["Settings_ShowDate"] = "Tampilkan Tanggal di Pil Idle";
+        _enStrings["Settings_ShowDate"] = "Show Date on Idle Pill";
+        _idStrings["Settings_ShowDateSub"] = "Tampilkan tanggal hari ini di sebelah kiri jam";
+        _enStrings["Settings_ShowDateSub"] = "Display today's date beside the clock on the idle pill";
+        _idStrings["Settings_24Hour"] = "Format Waktu 24-Jam";
+        _enStrings["Settings_24Hour"] = "24-Hour Clock Format";
+        _idStrings["Settings_24HourSub"] = "Gunakan format 24-jam (16:30) alih-alih 12-jam";
+        _enStrings["Settings_24HourSub"] = "Use 24-hour time (16:30) instead of 12-hour AM/PM";
+        _idStrings["Settings_ShowSeconds"] = "Tampilkan Detik pada Jam";
+        _enStrings["Settings_ShowSeconds"] = "Show Seconds on Clock";
+        _idStrings["Settings_ShowSecondsSub"] = "Tampilkan detik berjalan pada indikator waktu utama";
+        _enStrings["Settings_ShowSecondsSub"] = "Display ticking seconds on the primary clock readout";
+
+        _idStrings["Settings_HeaderPomo"] = "Timer Fokus & Istirahat";
+        _enStrings["Settings_HeaderPomo"] = "Focus & Break Timer";
+        _idStrings["Settings_FocusDur"] = "Durasi Fokus Standar";
+        _enStrings["Settings_FocusDur"] = "Default Focus Duration";
+        _idStrings["Settings_FocusDurSub"] = "Durasi standar sesi fokus saat tombol Fokus ditekan";
+        _enStrings["Settings_FocusDurSub"] = "Default duration of a focus session when started";
+        _idStrings["Settings_BreakDur"] = "Durasi Istirahat Standar";
+        _enStrings["Settings_BreakDur"] = "Default Break Duration";
+        _idStrings["Settings_BreakDurSub"] = "Durasi istirahat setelah sesi fokus selesai";
+        _enStrings["Settings_BreakDurSub"] = "Break length after completing a focus session";
+        _idStrings["Settings_PomoIdle"] = "Hitung Mundur Langsung di Pil Idle";
+        _enStrings["Settings_PomoIdle"] = "Live Countdown on Idle Pill";
+        _idStrings["Settings_PomoIdleSub"] = "Tampilkan progres timer & stopwatch di sayap sisi saat berjalan";
+        _enStrings["Settings_PomoIdleSub"] = "Show live timer & stopwatch progress on the side wing while active";
+        _idStrings["Settings_Min15"] = "15 Menit";
+        _enStrings["Settings_Min15"] = "15 Min";
+        _idStrings["Settings_Min25"] = "25 Menit";
+        _enStrings["Settings_Min25"] = "25 Min";
+        _idStrings["Settings_Min45"] = "45 Menit";
+        _enStrings["Settings_Min45"] = "45 Min";
+        _idStrings["Settings_Min60"] = "60 Menit";
+        _enStrings["Settings_Min60"] = "60 Min";
+        _idStrings["Settings_Min5"] = "5 Menit";
+        _enStrings["Settings_Min5"] = "5 Min";
+        _idStrings["Settings_Min10"] = "10 Menit";
+        _enStrings["Settings_Min10"] = "10 Min";
+
+        _idStrings["Settings_HeaderWater"] = "Hidrasi & Target Harian";
+        _enStrings["Settings_HeaderWater"] = "Hydration & Daily Target";
+        _idStrings["Settings_WaterTarget"] = "Target Air Minum Harian";
+        _enStrings["Settings_WaterTarget"] = "Daily Water Target";
+        _idStrings["Settings_WaterTargetSub"] = "Target konsumsi air minum harian Anda";
+        _enStrings["Settings_WaterTargetSub"] = "Your daily hydration consumption goal";
+        _idStrings["Settings_WaterAddReset"] = "Tambah & Reset Air Harian";
+        _enStrings["Settings_WaterAddReset"] = "Log & Reset Daily Water";
+        _idStrings["Settings_WaterProgressFmt"] = "Progres hari ini: {0:F1} / {1:F1} L";
+        _enStrings["Settings_WaterProgressFmt"] = "Today's progress: {0:F1} / {1:F1} L";
+
+        _idStrings["Settings_HeaderShelf"] = "Rak File & Drag-Drop";
+        _enStrings["Settings_HeaderShelf"] = "File Drop Tray";
+        _idStrings["Settings_AutoShelf"] = "Buka Rak Otomatis Saat Drag File";
+        _enStrings["Settings_AutoShelf"] = "Auto-open Shelf on File Drag";
+        _idStrings["Settings_AutoShelfSub"] = "Buka Rak File otomatis saat menarik file ke area Dynamic Island";
+        _enStrings["Settings_AutoShelfSub"] = "Automatically open File Shelf when dragging files over Dynamic Island";
+        _idStrings["Settings_ClearShelf"] = "Bersihkan Rak File";
+        _enStrings["Settings_ClearShelf"] = "Clear File Shelf";
+        _idStrings["Settings_ClearShelfSub"] = "Kosongkan seluruh file sementara dari Rak File Dynamic Island";
+        _enStrings["Settings_ClearShelfSub"] = "Remove all temporary items from the Dynamic Island File Shelf";
+        _idStrings["Settings_ClearShelfBtn"] = "Kosongkan Rak";
+        _enStrings["Settings_ClearShelfBtn"] = "Empty Shelf";
+
+        _idStrings["Settings_HeaderBt"] = "Kontrol & Pairing Bluetooth";
+        _enStrings["Settings_HeaderBt"] = "Bluetooth Control & Pairing";
+        _idStrings["Settings_BtSub"] = "Siap menghubungkan perangkat audio & aksesoris";
+        _enStrings["Settings_BtSub"] = "Ready to connect wireless audio and accessories";
+        _idStrings["Settings_BtToggleBtn"] = "Matikan / Nyalakan";
+        _enStrings["Settings_BtToggleBtn"] = "Toggle Radio";
+        _idStrings["Settings_BtPairBtn"] = "Pair Perangkat";
+        _enStrings["Settings_BtPairBtn"] = "Pair Device";
+        _idStrings["Settings_HeaderHud"] = "HUD & Notifikasi Toast";
+        _enStrings["Settings_HeaderHud"] = "HUD & Toast Notifications";
+        _idStrings["Settings_SpotlightTitle"] = "Spotlight Quick Launcher (Alt + Spasi)";
+        _enStrings["Settings_SpotlightTitle"] = "Spotlight Quick Launcher (Alt + Space)";
+        _idStrings["Settings_SpotlightSub"] = "Buka launcher cepat untuk aplikasi, OCR layar, color picker, kalkulator & perintah sistem";
+        _enStrings["Settings_SpotlightSub"] = "Open quick launcher for apps, screen OCR, color picker, calculator, and system commands";
+        _idStrings["Settings_ToastDurSub"] = "Lama notifikasi tampil sebelum kembali ke tampilan normal";
+        _enStrings["Settings_ToastDurSub"] = "Duration a toast remains visible before returning to normal state";
+        _idStrings["Settings_Dur20"] = "2.0 Detik";
+        _enStrings["Settings_Dur20"] = "2.0s";
+        _idStrings["Settings_Dur28"] = "2.8 Detik";
+        _enStrings["Settings_Dur28"] = "2.8s";
+        _idStrings["Settings_Dur40"] = "4.0 Detik";
+        _enStrings["Settings_Dur40"] = "4.0s";
+        _idStrings["Settings_Dur50"] = "5.0 Detik";
+        _enStrings["Settings_Dur50"] = "5.0s";
+
+        // Service Toasts & Runtime Localization
+        _idStrings["Toast_Battery80Title"] = "Baterai Mencapai 80%";
+        _enStrings["Toast_Battery80Title"] = "Battery Reached 80%";
+        _idStrings["Toast_Battery80Sub"] = "Smart Charge: Cabut charger untuk jaga kesehatan baterai";
+        _enStrings["Toast_Battery80Sub"] = "Smart Charge: Unplug charger to preserve battery lifespan";
+        _idStrings["Toast_ChargerPluggedTitle"] = "Daya Tersambung ({0}%)";
+        _enStrings["Toast_ChargerPluggedTitle"] = "Power Connected ({0}%)";
+        _idStrings["Toast_ChargerPluggedSub"] = "Laptop sedang mengisi daya";
+        _enStrings["Toast_ChargerPluggedSub"] = "Laptop is now charging";
+        _idStrings["Toast_ChargerUnpluggedTitle"] = "Mode Baterai ({0}%)";
+        _enStrings["Toast_ChargerUnpluggedTitle"] = "On Battery ({0}%)";
+        _idStrings["Toast_ChargerUnpluggedSub"] = "Charger dilepas • Berjalan di daya baterai";
+        _enStrings["Toast_ChargerUnpluggedSub"] = "Charger unplugged • Running on battery power";
+        _idStrings["Toast_BtConnectedTitle"] = "Bluetooth Terhubung";
+        _enStrings["Toast_BtConnectedTitle"] = "Bluetooth Connected";
+        _idStrings["Toast_BtConnectedSub"] = "{0} siap digunakan";
+        _enStrings["Toast_BtConnectedSub"] = "{0} ready for audio and control";
+        _idStrings["Toast_BtDisconnectedTitle"] = "Bluetooth Terputus";
+        _enStrings["Toast_BtDisconnectedTitle"] = "Bluetooth Disconnected";
+        _idStrings["Toast_BtDisconnectedSub"] = "{0} tidak lagi terhubung";
+        _enStrings["Toast_BtDisconnectedSub"] = "{0} is no longer connected";
+        _idStrings["Toast_BtOnTitle"] = "Bluetooth Aktif";
+        _enStrings["Toast_BtOnTitle"] = "Bluetooth Turned On";
+        _idStrings["Toast_BtOnSub"] = "Radio Bluetooth menyala & siap menghubungkan perangkat";
+        _enStrings["Toast_BtOnSub"] = "Bluetooth radio is on and ready to connect";
+        _idStrings["Toast_BtOffTitle"] = "Bluetooth Dimatikan";
+        _enStrings["Toast_BtOffTitle"] = "Bluetooth Turned Off";
+        _idStrings["Toast_BtOffSub"] = "Radio Bluetooth dimatikan untuk menghemat baterai";
+        _enStrings["Toast_BtOffSub"] = "Bluetooth radio turned off to conserve battery";
+        _idStrings["Toast_WifiConnectedTitle"] = "Wi-Fi Terhubung";
+        _enStrings["Toast_WifiConnectedTitle"] = "Wi-Fi Connected";
+        _idStrings["Toast_WifiConnectedSub"] = "Koneksi ke {0} aktif";
+        _enStrings["Toast_WifiConnectedSub"] = "Connected to {0}";
+        _idStrings["Toast_WifiDisconnectedTitle"] = "Wi-Fi Terputus";
+        _enStrings["Toast_WifiDisconnectedTitle"] = "Wi-Fi Disconnected";
+        _idStrings["Toast_WifiDisconnectedSub"] = "Tidak ada koneksi jaringan aktif";
+        _enStrings["Toast_WifiDisconnectedSub"] = "No active network connection";
+        _idStrings["Toast_CapsLockTitle"] = "Caps Lock";
+        _enStrings["Toast_CapsLockTitle"] = "Caps Lock";
+        _idStrings["Toast_CapsLockSubOn"] = "Huruf kapital aktif (ON)";
+        _enStrings["Toast_CapsLockSubOn"] = "Uppercase lock enabled (ON)";
+        _idStrings["Toast_CapsLockSubOff"] = "Huruf kapital nonaktif (OFF)";
+        _enStrings["Toast_CapsLockSubOff"] = "Uppercase lock disabled (OFF)";
+        _idStrings["Toast_MicInUse"] = "Mikrofon Sedang Digunakan";
+        _enStrings["Toast_MicInUse"] = "Microphone In Use";
+        _idStrings["Toast_CamInUse"] = "Kamera Sedang Digunakan";
+        _enStrings["Toast_CamInUse"] = "Camera In Use";
+        _idStrings["Toast_AppUsingDevice"] = "{0} sedang mengakses perangkat ini";
+        _enStrings["Toast_AppUsingDevice"] = "{0} is accessing this device";
+        _idStrings["Perf_UptimeFmt"] = "{0}j {1}m";
+        _enStrings["Perf_UptimeFmt"] = "{0}h {1}m";
+        _idStrings["Perf_UptimeMinFmt"] = "{0}m {1}d";
+        _enStrings["Perf_UptimeMinFmt"] = "{0}m {1}s";
+
+        // Notifications & Pomodoro & Weather
+        _idStrings["Notif_NewFallback"] = "Notifikasi baru";
+        _enStrings["Notif_NewFallback"] = "New notification";
+        _idStrings["Notif_IncomingTitle"] = "Pesan Masuk";
+        _enStrings["Notif_IncomingTitle"] = "Incoming Message";
+        _idStrings["Notif_SystemFallback"] = "Notifikasi Sistem";
+        _enStrings["Notif_SystemFallback"] = "System Notification";
+        _idStrings["Time_JustNow"] = "Baru saja";
+        _enStrings["Time_JustNow"] = "Just now";
+        _idStrings["Time_MinutesAgo"] = "{0}m lalu";
+        _enStrings["Time_MinutesAgo"] = "{0}m ago";
+        _idStrings["Time_HoursAgo"] = "{0}j lalu";
+        _enStrings["Time_HoursAgo"] = "{0}h ago";
+
+        _idStrings["Pomo_FocusDoneTitle"] = "Sesi Fokus Selesai!";
+        _enStrings["Pomo_FocusDoneTitle"] = "Focus Session Complete!";
+        _idStrings["Pomo_FocusDoneSub"] = "Waktunya istirahat {0} menit.";
+        _enStrings["Pomo_FocusDoneSub"] = "Time for a {0}-minute break.";
+        _idStrings["Pomo_BreakDoneTitle"] = "Istirahat Selesai!";
+        _enStrings["Pomo_BreakDoneTitle"] = "Break Complete!";
+        _idStrings["Pomo_BreakDoneSub"] = "Siap memulai sesi fokus baru.";
+        _enStrings["Pomo_BreakDoneSub"] = "Ready to start a new focus session.";
+        _idStrings["Pomo_ModeTimer"] = "Timer Fokus";
+        _enStrings["Pomo_ModeTimer"] = "Focus Timer";
+        _idStrings["Pomo_ModeStopwatch"] = "Stopwatch";
+        _enStrings["Pomo_ModeStopwatch"] = "Stopwatch";
+        _idStrings["Pomo_StopwatchStart"] = "Mulai Stopwatch";
+        _enStrings["Pomo_StopwatchStart"] = "Start Stopwatch";
+        _idStrings["Pomo_StopwatchLap"] = "Putaran";
+        _enStrings["Pomo_StopwatchLap"] = "Lap";
+
+        _idStrings["Weather_Clear"] = "Cerah";
+        _enStrings["Weather_Clear"] = "Clear";
+        _idStrings["Weather_PartlyCloudy"] = "Cerah Berawan";
+        _enStrings["Weather_PartlyCloudy"] = "Partly Cloudy";
+        _idStrings["Weather_Cloudy"] = "Berawan";
+        _enStrings["Weather_Cloudy"] = "Cloudy";
+        _idStrings["Weather_Fog"] = "Berkabut";
+        _enStrings["Weather_Fog"] = "Foggy";
+        _idStrings["Weather_Drizzle"] = "Gerimis";
+        _enStrings["Weather_Drizzle"] = "Drizzle";
+        _idStrings["Weather_Rain"] = "Hujan";
+        _enStrings["Weather_Rain"] = "Rain";
+        _idStrings["Weather_HeavyRain"] = "Hujan Lebat";
+        _enStrings["Weather_HeavyRain"] = "Heavy Rain";
+        _idStrings["Weather_Snow"] = "Salju";
+        _enStrings["Weather_Snow"] = "Snow";
+        _idStrings["Weather_Thunderstorm"] = "Badai Petir";
+        _enStrings["Weather_Thunderstorm"] = "Thunderstorm";
+        _idStrings["Weather_Mixed"] = "Berawan / Cerah";
+        _enStrings["Weather_Mixed"] = "Mixed Clouds";
+
+        // Lyrics & Spotlight & New Tools (Audio Switcher, OCR, Eyedropper, QR Share, Auto-Updater)
+        _idStrings["Lyrics_NotFound"] = "Lirik tidak ditemukan untuk lagu ini";
+        _enStrings["Lyrics_NotFound"] = "Lyrics not found for this track";
+        _idStrings["Lyrics_Fetching"] = "Mencari lirik lagu...";
+        _enStrings["Lyrics_Fetching"] = "Searching for lyrics...";
+        _idStrings["Lyrics_NoTiming"] = "Lirik tersedia (tanpa timestamp)";
+        _enStrings["Lyrics_NoTiming"] = "Static lyrics loaded (no timestamps)";
+        _idStrings["Spotlight_ShortcutApp"] = "Aplikasi Pintasan";
+        _enStrings["Spotlight_ShortcutApp"] = "Shortcut App";
+        _idStrings["Spotlight_WindowsApp"] = "Aplikasi Windows";
+        _enStrings["Spotlight_WindowsApp"] = "Windows App";
+        _idStrings["Spotlight_Placeholder"] = "Cari aplikasi, hitung cepat, ocr, picker, sleep...";
+        _enStrings["Spotlight_Placeholder"] = "Search apps, calculate, ocr, picker, sleep...";
+        _idStrings["Audio_SwitchTitle"] = "Pilih Output Audio";
+        _enStrings["Audio_SwitchTitle"] = "Select Audio Output";
+        _idStrings["Audio_SwitchedToast"] = "Output Audio Dialihkan";
+        _enStrings["Audio_SwitchedToast"] = "Audio Output Switched";
+        _idStrings["Ocr_CopySuccess"] = "Teks Layar Disalin (OCR)";
+        _enStrings["Ocr_CopySuccess"] = "Screen Text Copied (OCR)";
+        _idStrings["Ocr_NoTextFound"] = "Tidak ada teks terdeteksi di area ini";
+        _enStrings["Ocr_NoTextFound"] = "No readable text found in selection";
+        _idStrings["Ocr_BtnLabel"] = "OCR Teks";
+        _enStrings["Ocr_BtnLabel"] = "OCR Text";
+        _idStrings["Picker_CopySuccess"] = "Warna Disalin ({0})";
+        _enStrings["Picker_CopySuccess"] = "Color Copied ({0})";
+        _idStrings["Picker_BtnLabel"] = "Ambil Warna";
+        _enStrings["Picker_BtnLabel"] = "Color Picker";
+        _idStrings["Qr_ShareBtn"] = "Bagikan QR";
+        _enStrings["Qr_ShareBtn"] = "QR Share";
+        _idStrings["Qr_Title"] = "Berbagi Wi-Fi Lokal";
+        _enStrings["Qr_Title"] = "Local Wi-Fi Share";
+        _idStrings["Qr_ScanHint"] = "Pindai QR dengan kamera HP pada Wi-Fi yang sama";
+        _enStrings["Qr_ScanHint"] = "Scan QR with your phone camera on the same Wi-Fi";
+        _idStrings["Qr_StopBtn"] = "Hentikan Server";
+        _enStrings["Qr_StopBtn"] = "Stop Server";
+        _idStrings["Updater_Checking"] = "Memeriksa versi terbaru...";
+        _enStrings["Updater_Checking"] = "Checking for latest release...";
+        _idStrings["Updater_UpToDate"] = "Anda menggunakan versi terbaru ({0})";
+        _enStrings["Updater_UpToDate"] = "You are on the latest version ({0})";
+        _idStrings["Updater_Available"] = "Tersedia pembaruan v{0}!";
+        _enStrings["Updater_Available"] = "Update v{0} available!";
+        _idStrings["Updater_Downloading"] = "Mengunduh pembaruan... {0}%";
+        _enStrings["Updater_Downloading"] = "Downloading update... {0}%";
+        _idStrings["Updater_Installing"] = "Memasang pembaruan & memulai ulang...";
+        _enStrings["Updater_Installing"] = "Installing update & restarting...";
     }
 }

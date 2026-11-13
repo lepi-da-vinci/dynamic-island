@@ -71,7 +71,7 @@ public sealed class SpotlightSearchService
                     list.Add(new SpotlightItem
                     {
                         Title = sc.Name,
-                        Subtitle = "Aplikasi Pintasan",
+                        Subtitle = LocalizationService.Instance.Get("Spotlight_ShortcutApp"),
                         Kind = SpotlightResultKind.Application,
                         IconImage = sc.IconImage,
                         ActionData = sc.TargetPath,
@@ -111,7 +111,7 @@ public sealed class SpotlightSearchService
                             list.Add(new SpotlightItem
                             {
                                 Title = fileName,
-                                Subtitle = "Aplikasi Windows",
+                                Subtitle = LocalizationService.Instance.Get("Spotlight_WindowsApp"),
                                 Kind = SpotlightResultKind.Application,
                                 IconImage = icon,
                                 ActionData = f,
@@ -190,7 +190,9 @@ public sealed class SpotlightSearchService
         Action startPomodoroFocus,
         Action? sleepSystem = null,
         Action? hibernateSystem = null,
-        Action? openClipboardHistory = null)
+        Action? openClipboardHistory = null,
+        Action? launchOcrSnip = null,
+        Action? launchColorPicker = null)
     {
         string q = (rawQuery ?? string.Empty).Trim();
         var results = new List<SpotlightItem>();
@@ -198,7 +200,7 @@ public sealed class SpotlightSearchService
         if (string.IsNullOrWhiteSpace(q))
         {
             // Empty query: Show smart quick commands & top apps
-            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory));
+            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory, launchOcrSnip, launchColorPicker));
             lock (_cachedAppItems)
             {
                 results.AddRange(_cachedAppItems.Take(4));
@@ -216,7 +218,9 @@ public sealed class SpotlightSearchService
             results.Add(new SpotlightItem
             {
                 Title = $"= {formattedRes}",
-                Subtitle = $"Hasil perhitungan: {mathExpr} (Tekan Enter untuk salin)",
+                Subtitle = LocalizationService.Instance.IsEnglish
+                    ? $"Calculated: {mathExpr} (Press Enter to copy)"
+                    : $"Hasil perhitungan: {mathExpr} (Tekan Enter untuk salin)",
                 Kind = SpotlightResultKind.MathResult,
                 VectorIconKey = "GeomCalculator",
                 ActionData = formattedRes,
@@ -232,7 +236,7 @@ public sealed class SpotlightSearchService
         }
 
         // 2. System Commands Match
-        var commands = GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory);
+        var commands = GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory, launchOcrSnip, launchColorPicker);
         foreach (var cmd in commands)
         {
             if (cmd.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ||
@@ -298,7 +302,7 @@ public sealed class SpotlightSearchService
                 results.Add(new SpotlightItem
                 {
                     Title = clip.PreviewText,
-                    Subtitle = $"Papan Klip • {clip.BadgeLabel} • {clip.TimeAgoText}",
+                    Subtitle = $"{(LocalizationService.Instance.IsEnglish ? "Clipboard" : "Papan Klip")} • {clip.BadgeLabel} • {clip.TimeAgoText}",
                     Kind = SpotlightResultKind.ClipboardItem,
                     VectorIconKey = "GeomClipboard",
                     ActionData = clip.Content,
@@ -323,8 +327,8 @@ public sealed class SpotlightSearchService
             string url = q.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? q : $"https://{q}";
             results.Add(new SpotlightItem
             {
-                Title = $"Buka {q}",
-                Subtitle = "Kunjungi website di browser default",
+                Title = LocalizationService.Instance.IsEnglish ? $"Open {q}" : $"Buka {q}",
+                Subtitle = LocalizationService.Instance.IsEnglish ? "Open URL in default browser" : "Kunjungi website di browser default",
                 Kind = SpotlightResultKind.WebUrl,
                 VectorIconKey = "GeomGlobe",
                 ActionData = url,
@@ -347,8 +351,8 @@ public sealed class SpotlightSearchService
             string searchUrl = $"https://www.google.com/search?q={Uri.EscapeDataString(q)}";
             results.Add(new SpotlightItem
             {
-                Title = $"Cari di Google: \"{q}\"",
-                Subtitle = "Buka pencarian web di browser default",
+                Title = LocalizationService.Instance.IsEnglish ? $"Search Google: \"{q}\"" : $"Cari di Google: \"{q}\"",
+                Subtitle = LocalizationService.Instance.IsEnglish ? "Open web search in default browser" : "Buka pencarian web di browser default",
                 Kind = SpotlightResultKind.WebUrl,
                 VectorIconKey = "GeomGlobe",
                 ActionData = searchUrl,
@@ -370,7 +374,7 @@ public sealed class SpotlightSearchService
         return results.Take(5).ToList();
     }
 
-    private static int CalculateMatchScore(string target, string query)
+    internal static int CalculateMatchScore(string target, string query)
     {
         if (target.Equals(query, StringComparison.OrdinalIgnoreCase)) return 100;
         if (target.StartsWith(query, StringComparison.OrdinalIgnoreCase)) return 80;
@@ -398,14 +402,17 @@ public sealed class SpotlightSearchService
         Action startPomodoroFocus,
         Action? sleepSystem = null,
         Action? hibernateSystem = null,
-        Action? openClipboardHistory = null)
+        Action? openClipboardHistory = null,
+        Action? launchOcrSnip = null,
+        Action? launchColorPicker = null)
     {
+        bool en = LocalizationService.Instance.IsEnglish;
         var list = new List<SpotlightItem>
         {
             new()
             {
-                Title = "Pengaturan Dynamic Island",
-                Subtitle = "Buka preferensi tampilan, tema & sistem",
+                Title = en ? "Dynamic Island Settings" : "Pengaturan Dynamic Island",
+                Subtitle = en ? "Open appearance, theme & system preferences" : "Buka preferensi tampilan, tema & sistem",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomSettingsGear",
                 ActionData = "setting settings opsi preferensi",
@@ -413,8 +420,8 @@ public sealed class SpotlightSearchService
             },
             new()
             {
-                Title = "Mute / Unmute Audio",
-                Subtitle = "Beralih bisukan speaker / headphone",
+                Title = en ? "Mute / Unmute Audio" : "Mute / Unmute Audio",
+                Subtitle = en ? "Toggle speaker or headphone mute" : "Beralih bisukan speaker / headphone",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomSpeakerOn",
                 ActionData = "mute sound suara speaker audio hening",
@@ -422,8 +429,8 @@ public sealed class SpotlightSearchService
             },
             new()
             {
-                Title = "Mute / Unmute Mikrofon",
-                Subtitle = "Beralih bisukan input mikrofon",
+                Title = en ? "Mute / Unmute Microphone" : "Mute / Unmute Mikrofon",
+                Subtitle = en ? "Toggle microphone input mute" : "Beralih bisukan input mikrofon",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomMicOn",
                 ActionData = "mic mikrofon mute",
@@ -431,8 +438,8 @@ public sealed class SpotlightSearchService
             },
             new()
             {
-                Title = "Bluetooth Radio ON/OFF",
-                Subtitle = "Beralih sakelar radio Bluetooth",
+                Title = en ? "Bluetooth Radio ON/OFF" : "Bluetooth Radio ON/OFF",
+                Subtitle = en ? "Toggle Bluetooth radio power" : "Beralih sakelar radio Bluetooth",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomBluetooth",
                 ActionData = "bluetooth bt radio pair",
@@ -440,17 +447,17 @@ public sealed class SpotlightSearchService
             },
             new()
             {
-                Title = "Mulai Fokus Pomodoro",
-                Subtitle = "Mulai sesi fokus 25 menit",
+                Title = en ? "Start Pomodoro Focus" : "Mulai Fokus Pomodoro",
+                Subtitle = en ? "Start 25-minute focus session" : "Mulai sesi fokus 25 menit",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomFocusTimer",
-                ActionData = "pomo pomodoro fokus waktu kerja timer",
+                ActionData = "pomo pomodoro fokus focus waktu kerja timer",
                 ExecuteAction = startPomodoroFocus
             },
             new()
             {
-                Title = "Simpan Dynamic Island",
-                Subtitle = "Lipat island ke bibir atas layar",
+                Title = en ? "Tuck Dynamic Island" : "Simpan Dynamic Island",
+                Subtitle = en ? "Collapse island to top edge" : "Lipat island ke bibir atas layar",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomChevronUp",
                 ActionData = "simpan tuck hide lipat sembunyikan",
@@ -458,8 +465,8 @@ public sealed class SpotlightSearchService
             },
             new()
             {
-                Title = "Kunci Komputer (Lock Workstation)",
-                Subtitle = "Kunci sesi Windows seketika (Win + L)",
+                Title = en ? "Lock Workstation" : "Kunci Komputer (Lock Workstation)",
+                Subtitle = en ? "Lock Windows session immediately (Win + L)" : "Kunci sesi Windows seketika (Win + L)",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomShieldCheck",
                 ActionData = "lock kunci logout",
@@ -471,7 +478,7 @@ public sealed class SpotlightSearchService
             new()
             {
                 Title = "Task Manager",
-                Subtitle = "Buka pengelola proses Windows",
+                Subtitle = en ? "Open Windows process manager" : "Buka pengelola proses Windows",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomCpuPulse",
                 ActionData = "taskmgr task manager performa proses",
@@ -482,12 +489,38 @@ public sealed class SpotlightSearchService
             }
         };
 
+        if (launchOcrSnip != null)
+        {
+            list.Add(new SpotlightItem
+            {
+                Title = en ? "OCR Text Snip (Copy Screen Text)" : "OCR Teks Layar (Salin Teks)",
+                Subtitle = en ? "Select any screen region to extract & copy text" : "Pilih area layar untuk menyalin teks ke papan klip",
+                Kind = SpotlightResultKind.SystemCommand,
+                VectorIconKey = "GeomClipboard",
+                ActionData = "ocr snip teks text screenshot copy extract",
+                ExecuteAction = launchOcrSnip
+            });
+        }
+
+        if (launchColorPicker != null)
+        {
+            list.Add(new SpotlightItem
+            {
+                Title = en ? "Screen Color Eyedropper (HEX)" : "Ambil Warna Layar (Color Picker HEX)",
+                Subtitle = en ? "Inspect pixel under cursor & copy HEX color" : "Ambil kode warna HEX piksel di bawah kursor",
+                Kind = SpotlightResultKind.SystemCommand,
+                VectorIconKey = "GeomAppearanceSparkle",
+                ActionData = "color colour warna picker eyedropper pipet hex",
+                ExecuteAction = launchColorPicker
+            });
+        }
+
         if (sleepSystem != null)
         {
             list.Add(new SpotlightItem
             {
-                Title = "Mode Tidur (Sleep)",
-                Subtitle = "Masuk ke mode tidur / stand-by untuk menghemat daya",
+                Title = en ? "Sleep Mode" : "Mode Tidur (Sleep)",
+                Subtitle = en ? "Enter low-power standby immediately" : "Masuk ke mode tidur / stand-by untuk menghemat daya",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomMoon",
                 ActionData = "sleep tidur standby daya suspend",
@@ -499,8 +532,8 @@ public sealed class SpotlightSearchService
         {
             list.Add(new SpotlightItem
             {
-                Title = "Hibernasi (Hibernate)",
-                Subtitle = "Simpan sesi ke penyimpanan dan matikan komputer",
+                Title = en ? "Hibernate" : "Hibernasi (Hibernate)",
+                Subtitle = en ? "Save session to disk and power off" : "Simpan sesi ke penyimpanan dan matikan komputer",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomPower",
                 ActionData = "hibernate hibernasi daya hemat",
@@ -512,8 +545,8 @@ public sealed class SpotlightSearchService
         {
             list.Add(new SpotlightItem
             {
-                Title = "Riwayat Papan Klip (Clipboard)",
-                Subtitle = "Lihat riwayat cuplikan teks, tautan & gambar yang baru disalin",
+                Title = en ? "Clipboard History" : "Riwayat Papan Klip (Clipboard)",
+                Subtitle = en ? "Browse recently copied text, links & images" : "Lihat riwayat cuplikan teks, tautan & gambar yang baru disalin",
                 Kind = SpotlightResultKind.SystemCommand,
                 VectorIconKey = "GeomClipboard",
                 ActionData = "clipboard clip klip salin copy riwayat papan",
@@ -524,7 +557,7 @@ public sealed class SpotlightSearchService
         return list;
     }
 
-    private static bool TryEvaluateMath(string input, out double result, out string expr)
+    internal static bool TryEvaluateMath(string input, out double result, out string expr)
     {
         result = 0;
         expr = string.Empty;

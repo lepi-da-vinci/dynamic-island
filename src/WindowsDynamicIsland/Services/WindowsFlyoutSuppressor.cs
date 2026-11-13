@@ -27,16 +27,8 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
     private const int WS_EX_TOOLWINDOW = 0x00000080;
     private const uint LWA_ALPHA = 0x00000002;
 
-    private const int WH_KEYBOARD_LL = 13;
-    private const int WM_KEYDOWN = 0x0100;
-    private const int VK_VOLUME_MUTE = 0xAD;
-    private const int VK_VOLUME_DOWN = 0xAE;
-    private const int VK_VOLUME_UP = 0xAF;
-
     private delegate void WinEventDelegate(
         IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
-
-    private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
     private static extern IntPtr SetWinEventHook(
@@ -45,18 +37,6 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool UnhookWindowsHookEx(IntPtr hhk);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    private static extern IntPtr GetModuleHandle(string? lpModuleName);
 
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
     private static extern IntPtr FindWindowEx(IntPtr parentHandle, IntPtr childAfter, string? className, string? windowTitle);
@@ -102,9 +82,7 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
     private static readonly Lock PidLock = new();
 
     private readonly WinEventDelegate _winEventDelegate;
-    private readonly LowLevelKeyboardProc _keyboardProc;
     private IntPtr _winEventHook;
-    private IntPtr _keyboardHook;
     private bool _isEnabled;
 
     private static CancellationTokenSource? _burstCts;
@@ -125,7 +103,6 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
     public WindowsFlyoutSuppressor(bool initialEnabled = true)
     {
         _winEventDelegate = OnWinEvent;
-        _keyboardProc = LowLevelKeyboardCallback;
         if (initialEnabled)
         {
             Start();
@@ -149,21 +126,8 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
                 0,
                 WINEVENT_OUTOFCONTEXT);
 
-            // Install low-level keyboard hook to catch volume media keys instantly before Explorer processes them
-            try
-            {
-                using var curProcess = Process.GetCurrentProcess();
-                using var curModule = curProcess.MainModule;
-                IntPtr hMod = GetModuleHandle(curModule?.ModuleName);
-                _keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, _keyboardProc, hMod, 0);
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogWarning("WindowsFlyoutSuppressor", $"Could not install keyboard hook: {ex.Message}");
-            }
-
             _isEnabled = true;
-            AppLogger.LogInfo("WindowsFlyoutSuppressor", "Native flyout suppressor hooks registered.");
+            AppLogger.LogInfo("WindowsFlyoutSuppressor", "Native WinEvent flyout suppressor registered (zero keyboard hooks).");
         }
         catch (Exception ex)
         {
@@ -181,12 +145,6 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
             _winEventHook = IntPtr.Zero;
         }
 
-        if (_keyboardHook != IntPtr.Zero)
-        {
-            UnhookWindowsHookEx(_keyboardHook);
-            _keyboardHook = IntPtr.Zero;
-        }
-
         lock (BurstLock)
         {
             _burstCts?.Cancel();
@@ -194,23 +152,7 @@ public sealed class WindowsFlyoutSuppressor : IDisposable
         }
 
         _isEnabled = false;
-        AppLogger.LogInfo("WindowsFlyoutSuppressor", "Native flyout suppressor hooks uninstalled.");
-    }
-
-    private IntPtr LowLevelKeyboardCallback(int nCode, IntPtr wParam, IntPtr lParam)
-    {
-        if (nCode >= 0 && wParam == (IntPtr)WM_KEYDOWN && _isEnabled)
-        {
-            int vkCode = Marshal.ReadInt32(lParam);
-            if (vkCode is VK_VOLUME_UP or VK_VOLUME_DOWN or VK_VOLUME_MUTE)
-            {
-                // Volume key touched on physical keyboard: trigger suppression burst immediately
-                TriggerSuppressionBurst(durationMs: 700, intervalMs: 20);
-                SuppressOnce();
-            }
-        }
-
-        return CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
+        AppLogger.LogInfo("WindowsFlyoutSuppressor", "Native WinEvent flyout suppressor uninstalled.");
     }
 
     /// <summary>

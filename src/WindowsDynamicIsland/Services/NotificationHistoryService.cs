@@ -18,9 +18,10 @@ public sealed class NotificationHistoryItem
     private static string FormatRelativeTime(DateTime dt)
     {
         var diff = DateTime.Now - dt;
-        if (diff.TotalSeconds < 60) return "Baru saja";
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m lalu";
-        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}j lalu";
+        var loc = LocalizationService.Instance;
+        if (diff.TotalSeconds < 60) return loc.Get("Time_JustNow");
+        if (diff.TotalMinutes < 60) return loc.Format("Time_MinutesAgo", (int)diff.TotalMinutes);
+        if (diff.TotalHours < 24) return loc.Format("Time_HoursAgo", (int)diff.TotalHours);
         return dt.ToString("dd MMM HH:mm");
     }
 }
@@ -53,7 +54,7 @@ public sealed class NotificationHistoryService
 
         var item = new NotificationHistoryItem
         {
-            AppName = string.IsNullOrWhiteSpace(appName) ? "Notifikasi Sistem" : appName,
+            AppName = string.IsNullOrWhiteSpace(appName) ? LocalizationService.Instance.Get("Notif_SystemFallback") : appName,
             Title = string.IsNullOrWhiteSpace(title) ? appName : title,
             Message = message,
             IconKey = iconKey,

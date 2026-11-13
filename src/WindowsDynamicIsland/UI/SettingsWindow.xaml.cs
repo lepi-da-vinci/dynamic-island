@@ -193,6 +193,13 @@ public partial class SettingsWindow : Window
             // Page 1: Display
             ChkAutoHideFullScreen.IsChecked = _settings.AutoHideFullScreen;
             ChkExcludeFromCapture.IsChecked = _settings.ExcludeFromScreenCapture;
+            switch (_settings.TargetMonitorMode)
+            {
+                case "Monitor2": Monitor2Btn.IsChecked = true; break;
+                case "Monitor3": Monitor3Btn.IsChecked = true; break;
+                case "FollowCursor": MonitorCursorBtn.IsChecked = true; break;
+                default: MonitorPrimaryBtn.IsChecked = true; break;
+            }
             switch (_settings.TopOffsetPx)
             {
                 case 2: Offset2Btn.IsChecked = true; break;
@@ -369,13 +376,18 @@ public partial class SettingsWindow : Window
             if (NavText8 != null) NavText8.Text = loc.Get("Nav_Shelf");
             if (NavText9 != null) NavText9.Text = loc.Get("Nav_Hud");
 
-            if (SettingsDoneBtnText != null) SettingsDoneBtnText.Text = loc.IsEnglish ? "Done" : "Selesai";
+            if (SettingsDoneBtnText != null) SettingsDoneBtnText.Text = loc.Get("Settings_DoneBtn", "Done");
             if (SettingsExitBtnText != null) SettingsExitBtnText.Text = loc.Get("Status_Exit");
-            if (SettingsUpdateTitleText != null) SettingsUpdateTitleText.Text = loc.IsEnglish ? "Windows Dynamic Island v2.0.2 (Up to date)" : "Windows Dynamic Island v2.0.2 (Terbaru)";
+            if (SettingsCheckUpdateBtnText != null) SettingsCheckUpdateBtnText.Text = loc.Get("Settings_CheckUpdateBtn", "Check Update");
+            if (_updateService?.LastResult != null) RefreshUpdateCard(_updateService.LastResult);
 
-            if (SettingsLangHeader != null) SettingsLangHeader.Text = loc.IsEnglish ? "Language & Localization" : "Bahasa & Lokalisasi";
+            if (SettingsLangHeader != null) SettingsLangHeader.Text = loc.Get("Settings_HeaderLangSection");
             if (SettingsLangTitle != null) SettingsLangTitle.Text = loc.Get("Settings_Language");
             if (SettingsLangSub != null) SettingsLangSub.Text = loc.Get("Settings_LanguageSub");
+
+            RefreshSystemControlCenterCard();
+            RefreshBluetoothCard();
+            RefreshWaterCard();
 
             int currentCategory = 0;
             if (NavDisplayBtn?.IsChecked == true) currentCategory = 1;
@@ -564,7 +576,7 @@ public partial class SettingsWindow : Window
                     : isHeadphones
                         ? Color.FromRgb(192, 132, 252)
                         : Color.FromRgb(56, 189, 248);
-            var volBrush = new SolidColorBrush(volColor);
+            var volBrush = BrushCache.Get(volColor);
             SettingsVolPercentText.Foreground = volBrush;
             SettingsVolIconPath.Fill = volBrush;
             SettingsVolIconPath.Data = soundMuted
@@ -581,7 +593,7 @@ public partial class SettingsWindow : Window
             SettingsVolFillBorder.Width = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
             SettingsVolFillBorder.Background = volBrush;
 
-            var brtBrush = new SolidColorBrush(mono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(251, 191, 36));
+            var brtBrush = BrushCache.Get(mono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(251, 191, 36));
             SettingsBrtIconPath.Fill = brtBrush;
             SettingsBrtPercentText.Text = $"{brt}%";
             SettingsBrtPercentText.Foreground = brtBrush;
@@ -590,7 +602,8 @@ public partial class SettingsWindow : Window
             SettingsBrtFillBorder.Background = brtBrush;
 
             var hw = _hardwareService.Current;
-            SettingsSysBoltIcon.Fill = new SolidColorBrush(
+            var loc = LocalizationService.Instance;
+            SettingsSysBoltIcon.Fill = BrushCache.Get(
                 mono
                     ? Color.FromRgb(228, 228, 231)
                     : (hw.IsCharging || hw.BatteryPercent > 65
@@ -599,15 +612,15 @@ public partial class SettingsWindow : Window
                             ? Color.FromRgb(239, 68, 68)
                             : Color.FromRgb(249, 115, 22)));
             SettingsSysBatteryText.Text = hw.IsCharging
-                ? $"Charging • {hw.BatteryPercent}%"
-                : $"Battery • {hw.BatteryPercent}%";
+                ? $"{loc.Get("Status_Charging")} • {hw.BatteryPercent}%"
+                : $"{loc.Get("Status_Battery")} • {hw.BatteryPercent}%";
             if (!hw.IsNetworkConnected)
             {
-                SettingsSysNetworkText.Text = "Offline (Tidak ada internet)";
+                SettingsSysNetworkText.Text = loc.Get("Status_Disconnected");
             }
             else
             {
-                string netName = hw.NetworkName ?? "Terhubung";
+                string netName = hw.NetworkName ?? loc.Get("Status_Connected");
                 SettingsSysNetworkText.Text = netName.StartsWith("Wi-Fi", StringComparison.OrdinalIgnoreCase) ||
                                               netName.StartsWith("Ethernet", StringComparison.OrdinalIgnoreCase)
                     ? netName
@@ -617,19 +630,19 @@ public partial class SettingsWindow : Window
             if (hw.IsCameraInUse || hw.IsMicrophoneInUse)
             {
                 string active = hw.IsCameraInUse && hw.IsMicrophoneInUse
-                    ? "Kamera & Mic Sedang Aktif!"
+                    ? (loc.IsEnglish ? "Camera & Mic Active!" : "Kamera & Mic Sedang Aktif!")
                     : hw.IsCameraInUse
-                        ? "Kamera Sedang Digunakan"
-                        : "Mikrofon Sedang Digunakan";
+                        ? loc.Get("Toast_CamInUse")
+                        : loc.Get("Toast_MicInUse");
                 SettingsSysPrivacyText.Text = active;
-                var warnBrush = new SolidColorBrush(mono ? Color.FromRgb(250, 250, 250) : Color.FromRgb(251, 191, 36));
+                var warnBrush = BrushCache.Get(mono ? Color.FromRgb(250, 250, 250) : Color.FromRgb(251, 191, 36));
                 SettingsSysPrivacyText.Foreground = warnBrush;
                 SettingsSysPrivacyIcon.Fill = warnBrush;
             }
             else
             {
-                SettingsSysPrivacyText.Text = "Kamera & Mic Aman (Idle)";
-                var safeBrush = new SolidColorBrush(mono ? Color.FromRgb(212, 212, 216) : Color.FromRgb(34, 197, 94));
+                SettingsSysPrivacyText.Text = loc.Get("Status_MicSafe");
+                var safeBrush = BrushCache.Get(mono ? Color.FromRgb(212, 212, 216) : Color.FromRgb(34, 197, 94));
                 SettingsSysPrivacyText.Foreground = safeBrush;
                 SettingsSysPrivacyIcon.Fill = safeBrush;
             }
@@ -640,29 +653,33 @@ public partial class SettingsWindow : Window
             SettingsMuteBtnIcon.Data = soundMuted
                 ? (TryFindResource("GeomSpeakerMuted") as Geometry ?? Geometry.Empty)
                 : (TryFindResource("GeomSpeakerOn") as Geometry ?? Geometry.Empty);
-            var soundBtnBrush = new SolidColorBrush(
+            var soundBtnBrush = BrushCache.Get(
                 mono
                     ? (soundMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
                     : (soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248)));
             SettingsMuteBtnIcon.Fill = soundBtnBrush;
-            SettingsMuteBtn.ToolTip = soundMuted ? "Sound: Muted (Klik untuk Nyalakan)" : "Sound: ON (Klik untuk Mute)";
-            SettingsMuteBtnBg.Background = new SolidColorBrush(
+            SettingsMuteBtn.ToolTip = soundMuted
+                ? (loc.IsEnglish ? "Sound: Muted (Click to Unmute)" : "Sound: Muted (Klik untuk Nyalakan)")
+                : (loc.IsEnglish ? "Sound: ON (Click to Mute)" : "Sound: ON (Klik untuk Mute)");
+            SettingsMuteBtnBg.Background = BrushCache.Get(
                 soundMuted ? Color.FromArgb(0x28, 0xF8, 0x71, 0x71) : Color.FromArgb(0x20, 0x38, 0xBD, 0xF8));
-            SettingsMuteBtnBg.BorderBrush = new SolidColorBrush(
+            SettingsMuteBtnBg.BorderBrush = BrushCache.Get(
                 soundMuted ? Color.FromArgb(0x45, 0xF8, 0x71, 0x71) : Color.FromArgb(0x35, 0x38, 0xBD, 0xF8));
 
             SettingsMicBtnIcon.Data = micMuted
                 ? (TryFindResource("GeomMicMuted") as Geometry ?? Geometry.Empty)
                 : (TryFindResource("GeomMicOn") as Geometry ?? Geometry.Empty);
-            var micBtnBrush = new SolidColorBrush(
+            var micBtnBrush = BrushCache.Get(
                 mono
                     ? (micMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
                     : (micMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(34, 197, 94)));
             SettingsMicBtnIcon.Fill = micBtnBrush;
-            SettingsMicBtn.ToolTip = micMuted ? "Mikrofon: Muted (Klik untuk Nyalakan)" : "Mikrofon: ON (Klik untuk Mute)";
-            SettingsMicBtnBg.Background = new SolidColorBrush(
+            SettingsMicBtn.ToolTip = micMuted
+                ? (loc.IsEnglish ? "Microphone: Muted (Click to Unmute)" : "Mikrofon: Muted (Klik untuk Nyalakan)")
+                : (loc.IsEnglish ? "Microphone: ON (Click to Mute)" : "Mikrofon: ON (Klik untuk Mute)");
+            SettingsMicBtnBg.Background = BrushCache.Get(
                 micMuted ? Color.FromArgb(0x28, 0xF8, 0x71, 0x71) : Color.FromArgb(0x20, 0x22, 0xC5, 0x5E));
-            SettingsMicBtnBg.BorderBrush = new SolidColorBrush(
+            SettingsMicBtnBg.BorderBrush = BrushCache.Get(
                 micMuted ? Color.FromArgb(0x45, 0xF8, 0x71, 0x71) : Color.FromArgb(0x35, 0x22, 0xC5, 0x5E));
 
             bool btOn = hw.IsBluetoothRadioOn;
@@ -674,27 +691,27 @@ public partial class SettingsWindow : Window
                     : btConnected
                         ? Color.FromRgb(34, 197, 94)
                         : Color.FromRgb(56, 189, 248);
-            var btBrush = new SolidColorBrush(btColor);
+            var btBrush = BrushCache.Get(btColor);
             SettingsBtBtnIcon.Data = btOn
                 ? (TryFindResource("GeomBluetooth") as Geometry ?? Geometry.Empty)
                 : (TryFindResource("GeomBluetoothOff") as Geometry ?? Geometry.Empty);
             SettingsBtBtnIcon.Fill = btBrush;
             SettingsBtBtn.ToolTip = !btOn
-                ? "Bluetooth: OFF (Klik untuk Nyalakan)"
-                : (btConnected ? $"Bluetooth: Terhubung ({hw.ConnectedBluetoothName})" : "Bluetooth: ON (Klik untuk Matikan)");
-            SettingsBtBtnBg.Background = new SolidColorBrush(
+                ? (loc.IsEnglish ? "Bluetooth: OFF (Click to Turn On)" : "Bluetooth: OFF (Klik untuk Nyalakan)")
+                : (btConnected ? $"Bluetooth: {hw.ConnectedBluetoothName}" : (loc.IsEnglish ? "Bluetooth: ON (Click to Turn Off)" : "Bluetooth: ON (Klik untuk Matikan)"));
+            SettingsBtBtnBg.Background = BrushCache.Get(
                 !btOn
                     ? Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF)
                     : (btConnected ? Color.FromArgb(0x25, 0x22, 0xC5, 0x5E) : Color.FromArgb(0x20, 0x38, 0xBD, 0xF8)));
-            SettingsBtBtnBg.BorderBrush = new SolidColorBrush(
+            SettingsBtBtnBg.BorderBrush = BrushCache.Get(
                 !btOn
                     ? Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF)
                     : (btConnected ? Color.FromArgb(0x35, 0x22, 0xC5, 0x5E) : Color.FromArgb(0x35, 0x38, 0xBD, 0xF8)));
 
-            var exitBrush = new SolidColorBrush(mono ? Color.FromRgb(161, 161, 170) : Color.FromRgb(248, 113, 113));
+            var exitBrush = BrushCache.Get(mono ? Color.FromRgb(161, 161, 170) : Color.FromRgb(248, 113, 113));
             SettingsExitBtnIcon.Fill = exitBrush;
             SettingsExitBtnText.Foreground = mono
-                ? new SolidColorBrush(Color.FromRgb(212, 212, 216))
+                ? BrushCache.Get(Color.FromRgb(212, 212, 216))
                 : exitBrush;
         }
         catch { }
@@ -833,6 +850,12 @@ public partial class SettingsWindow : Window
             };
             AnimateTuckDelayPill(col);
         }
+    }
+
+    private void OnTargetMonitorClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string mode) return;
+        _settings.TargetMonitorMode = mode;
     }
 
     private void OnTopOffsetClicked(object sender, RoutedEventArgs e)
@@ -997,22 +1020,22 @@ public partial class SettingsWindow : Window
                 subCardBg = MonochromeThemeHelper.ToMonochromeColor(subCardBg);
             }
 
-            SettingsOuterFrame.Background = new SolidColorBrush(winBg);
-            SettingsOuterFrame.BorderBrush = new SolidColorBrush(frameBorder);
-            SettingsSidebarBorder.Background = new SolidColorBrush(sidebarBg);
-            SettingsContentPaneGrid.Background = new SolidColorBrush(winBg);
-            SettingsDividerBorder.Background = new SolidColorBrush(Color.FromArgb(32, frameBorder.R, frameBorder.G, frameBorder.B));
+            SettingsOuterFrame.Background = BrushCache.Get(winBg);
+            SettingsOuterFrame.BorderBrush = BrushCache.Get(frameBorder);
+            SettingsSidebarBorder.Background = BrushCache.Get(sidebarBg);
+            SettingsContentPaneGrid.Background = BrushCache.Get(winBg);
+            SettingsDividerBorder.Background = BrushCache.Get(Color.FromArgb(32, frameBorder.R, frameBorder.G, frameBorder.B));
 
-            var primaryCardBrush = new SolidColorBrush(cardBg);
-            var primaryBorderBrush = new SolidColorBrush(Color.FromArgb(32, frameBorder.R, frameBorder.G, frameBorder.B));
+            var primaryCardBrush = BrushCache.Get(cardBg);
+            var primaryBorderBrush = BrushCache.Get(Color.FromArgb(32, frameBorder.R, frameBorder.G, frameBorder.B));
             foreach (var card in _primaryCardBorders)
             {
                 card.Background = primaryCardBrush;
                 card.BorderBrush = primaryBorderBrush;
             }
 
-            var subCardBrush = new SolidColorBrush(subCardBg);
-            var subBorderBrush = new SolidColorBrush(Color.FromArgb(28, 255, 255, 255));
+            var subCardBrush = BrushCache.Get(subCardBg);
+            var subBorderBrush = BrushCache.Get(Color.FromArgb(28, 255, 255, 255));
             foreach (var sub in _subCardBorders)
             {
                 sub.Background = subCardBrush;
@@ -1040,21 +1063,21 @@ public partial class SettingsWindow : Window
                     ? Color.FromArgb(38, 255, 255, 255)
                     : Color.FromArgb(52, accent.R, accent.G, accent.B));
 
-            Resources["SettingsToggleActiveBgBrush"] = new SolidColorBrush(toggleBg);
-            Resources["SettingsToggleActiveBorderBrush"] = new SolidColorBrush(Color.FromArgb(120, toggleBg.R, toggleBg.G, toggleBg.B));
-            Resources["SettingsToggleThumbBrush"] = new SolidColorBrush(toggleThumb);
-            Resources["SettingsSegmentActiveBgBrush"] = new SolidColorBrush(segBg);
+            Resources["SettingsToggleActiveBgBrush"] = BrushCache.Get(toggleBg);
+            Resources["SettingsToggleActiveBorderBrush"] = BrushCache.Get(Color.FromArgb(120, toggleBg.R, toggleBg.G, toggleBg.B));
+            Resources["SettingsToggleThumbBrush"] = BrushCache.Get(toggleThumb);
+            Resources["SettingsSegmentActiveBgBrush"] = BrushCache.Get(segBg);
             Resources["SettingsSegmentActiveFgBrush"] = Brushes.White;
-            Resources["SettingsNavActiveBgBrush"] = new SolidColorBrush(navBg);
+            Resources["SettingsNavActiveBgBrush"] = BrushCache.Get(navBg);
 
             // Top-Left macOS Traffic Lights: Graphite Monochrome vs Red/Amber
-            Resources["SettingsTrafficCloseBgBrush"] = new SolidColorBrush(
+            Resources["SettingsTrafficCloseBgBrush"] = BrushCache.Get(
                 isMonochrome ? Color.FromRgb(212, 212, 216) : Color.FromRgb(255, 95, 86));
-            Resources["SettingsTrafficCloseHoverBrush"] = new SolidColorBrush(
+            Resources["SettingsTrafficCloseHoverBrush"] = BrushCache.Get(
                 isMonochrome ? Color.FromRgb(250, 250, 250) : Color.FromRgb(255, 59, 48));
-            Resources["SettingsTrafficMinBgBrush"] = new SolidColorBrush(
+            Resources["SettingsTrafficMinBgBrush"] = BrushCache.Get(
                 isMonochrome ? Color.FromRgb(113, 113, 122) : Color.FromRgb(255, 189, 46));
-            Resources["SettingsTrafficMinHoverBrush"] = new SolidColorBrush(
+            Resources["SettingsTrafficMinHoverBrush"] = BrushCache.Get(
                 isMonochrome ? Color.FromRgb(161, 161, 170) : Color.FromRgb(245, 158, 11));
 
             // Sync Sidebar Squircle Badges (Monochrome vs Full-Spectrum macOS HIG)
@@ -1072,10 +1095,10 @@ public partial class SettingsWindow : Window
                 (NavBadge9, Color.FromRgb(14, 165, 233)),
             ];
 
-            var monoBadgeBrush = new SolidColorBrush(Color.FromRgb(52, 52, 58));
+            var monoBadgeBrush = BrushCache.Get(Color.FromRgb(52, 52, 58));
             foreach (var (badge, defColor) in navBadges)
             {
-                badge.Background = isMonochrome ? monoBadgeBrush : new SolidColorBrush(defColor);
+                badge.Background = isMonochrome ? monoBadgeBrush : BrushCache.Get(defColor);
             }
 
             RefreshSystemControlCenterCard();
@@ -1165,7 +1188,10 @@ public partial class SettingsWindow : Window
 
     private void RefreshWaterCard()
     {
-        SettingsWaterProgressText.Text = $"Progres hari ini: {_todoAndWaterService.WaterCurrentLiters:0.0} / {_todoAndWaterService.WaterTargetLiters:0.0} L ({_todoAndWaterService.WaterPercentage:0}%)";
+        string baseText = LocalizationService.Instance.Format("Settings_WaterProgressFmt",
+            _todoAndWaterService.WaterCurrentLiters,
+            _todoAndWaterService.WaterTargetLiters);
+        SettingsWaterProgressText.Text = $"{baseText} ({_todoAndWaterService.WaterPercentage:0}%)";
     }
 
     private void OnClearCompletedTodosSettingsClick(object sender, RoutedEventArgs e)
@@ -1186,25 +1212,36 @@ public partial class SettingsWindow : Window
     {
         bool mono = IsMonochromeTheme;
         var hw = _hardwareService.Current;
-        BtStatusTitleText.Text = hw.IsBluetoothRadioOn ? "Bluetooth Radio: ON (Aktif)" : "Bluetooth Radio: OFF (Mati)";
-        BtToggleBtnText.Text = hw.IsBluetoothRadioOn ? "Matikan BT" : "Nyalakan BT";
+        var loc = LocalizationService.Instance;
+        BtStatusTitleText.Text = hw.IsBluetoothRadioOn
+            ? (loc.IsEnglish ? "Bluetooth Radio: ON" : "Bluetooth Radio: ON (Aktif)")
+            : (loc.IsEnglish ? "Bluetooth Radio: OFF" : "Bluetooth Radio: OFF (Mati)");
+        BtToggleBtnText.Text = hw.IsBluetoothRadioOn
+            ? (loc.IsEnglish ? "Turn Off BT" : "Matikan BT")
+            : (loc.IsEnglish ? "Turn On BT" : "Nyalakan BT");
 
         if (!hw.IsBluetoothRadioOn)
         {
-            BtConnectedDevicesText.Text = "Radio Bluetooth sedang dinonaktifkan";
-            BtConnectedDevicesText.Foreground = new SolidColorBrush(
+            BtConnectedDevicesText.Text = loc.IsEnglish
+                ? "Bluetooth radio is turned off"
+                : "Radio Bluetooth sedang dinonaktifkan";
+            BtConnectedDevicesText.Foreground = BrushCache.Get(
                 mono ? Color.FromRgb(161, 161, 170) : Color.FromRgb(148, 163, 184));
         }
         else if (!string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName))
         {
-            BtConnectedDevicesText.Text = $"Terhubung: {hw.ConnectedBluetoothName}";
-            BtConnectedDevicesText.Foreground = new SolidColorBrush(
+            BtConnectedDevicesText.Text = loc.IsEnglish
+                ? $"Connected: {hw.ConnectedBluetoothName}"
+                : $"Terhubung: {hw.ConnectedBluetoothName}";
+            BtConnectedDevicesText.Foreground = BrushCache.Get(
                 mono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(34, 197, 94));
         }
         else
         {
-            BtConnectedDevicesText.Text = "Tidak ada perangkat aktif • Klik Pair Perangkat untuk menyambungkan";
-            BtConnectedDevicesText.Foreground = new SolidColorBrush(
+            BtConnectedDevicesText.Text = loc.IsEnglish
+                ? "No active device • Click Pair Device to connect"
+                : "Tidak ada perangkat aktif • Klik Pair Perangkat untuk menyambungkan";
+            BtConnectedDevicesText.Foreground = BrushCache.Get(
                 mono ? Color.FromRgb(212, 212, 216) : Color.FromRgb(56, 189, 248));
         }
     }
@@ -1224,29 +1261,33 @@ public partial class SettingsWindow : Window
     public void RefreshUpdateCard(UpdateCheckResult res)
     {
         bool mono = IsMonochromeTheme;
+        var loc = LocalizationService.Instance;
         SidebarVersionText.Text = $"{res.CurrentVersion} • macOS Edition";
 
         if (res.IsUpdateAvailable)
         {
-            SettingsUpdateTitleText.Text = $"Update Baru Tersedia: {res.LatestVersion}";
-            SettingsUpdateTitleText.Foreground = new SolidColorBrush(
+            SettingsUpdateTitleText.Text = loc.Format("Updater_Available", res.LatestVersion);
+            SettingsUpdateTitleText.Foreground = BrushCache.Get(
                 mono ? Color.FromRgb(250, 250, 250) : Color.FromRgb(34, 197, 94));
-            SettingsUpdateSubText.Text = $"Versi saat ini: {res.CurrentVersion} • Klik Update Sekarang untuk memasang";
+            SettingsUpdateSubText.Text = loc.IsEnglish
+                ? $"Current version: {res.CurrentVersion} • Click Update Now to install"
+                : $"Versi saat ini: {res.CurrentVersion} • Klik Update Sekarang untuk memasang";
             SettingsInstallUpdateBtn.Visibility = Visibility.Visible;
         }
         else
         {
-            SettingsUpdateTitleText.Text = $"Windows Dynamic Island {res.CurrentVersion} (Terbaru)";
-            SettingsUpdateTitleText.Foreground = new SolidColorBrush(
+            SettingsUpdateTitleText.Text = $"Windows Dynamic Island {res.CurrentVersion}";
+            SettingsUpdateTitleText.Foreground = BrushCache.Get(
                 mono ? Color.FromRgb(244, 244, 245) : Color.FromRgb(248, 250, 252));
-            SettingsUpdateSubText.Text = "Sistem sudah menggunakan rilis versi paling mutakhir";
+            SettingsUpdateSubText.Text = loc.Format("Updater_UpToDate", res.CurrentVersion);
             SettingsInstallUpdateBtn.Visibility = Visibility.Collapsed;
         }
     }
 
     private async void OnCheckUpdateClicked(object sender, RoutedEventArgs e)
     {
-        SettingsCheckUpdateBtnText.Text = "Mengecek...";
+        var loc = LocalizationService.Instance;
+        SettingsCheckUpdateBtnText.Text = loc.Get("Updater_Checking", "Checking...");
         SettingsCheckUpdateBtn.IsEnabled = false;
         try
         {
@@ -1255,14 +1296,40 @@ public partial class SettingsWindow : Window
         }
         finally
         {
-            SettingsCheckUpdateBtnText.Text = "Cek Update";
+            SettingsCheckUpdateBtnText.Text = loc.Get("Settings_CheckUpdateBtn", "Check Update");
             SettingsCheckUpdateBtn.IsEnabled = true;
         }
     }
 
-    private void OnInstallUpdateClicked(object sender, RoutedEventArgs e)
+    private async void OnInstallUpdateClicked(object sender, RoutedEventArgs e)
     {
-        UpdateCheckerService.LaunchOneClickInstaller();
+        var loc = LocalizationService.Instance;
+        SettingsInstallUpdateBtn.IsEnabled = false;
+        SettingsCheckUpdateBtn.IsEnabled = false;
+        SettingsUpdateProgressBar.Visibility = Visibility.Visible;
+        SettingsUpdateProgressBar.Value = 0;
+
+        SettingsUpdateSubText.Text = loc.Format("Updater_Downloading", 0);
+        bool started = await _updateService.DownloadAndInstallUpdateAsync((pct, status) =>
+            Dispatcher.InvokeAsync(() =>
+            {
+                SettingsUpdateProgressBar.Value = pct;
+                SettingsUpdateSubText.Text = string.IsNullOrWhiteSpace(status) ? loc.Format("Updater_Downloading", pct) : status;
+            }));
+        if (started)
+        {
+            SettingsUpdateProgressBar.Value = 100;
+            SettingsUpdateSubText.Text = loc.Get("Updater_Installing", "Installing update & restarting...");
+            await Task.Delay(650);
+            Application.Current?.Shutdown();
+        }
+        else
+        {
+            SettingsUpdateProgressBar.Visibility = Visibility.Collapsed;
+            SettingsInstallUpdateBtn.IsEnabled = true;
+            SettingsCheckUpdateBtn.IsEnabled = true;
+            RefreshUpdateCard(_updateService.LastResult);
+        }
     }
 
     private void OnTitleBarDragMove(object sender, MouseButtonEventArgs e)
@@ -1386,7 +1453,7 @@ public partial class SettingsWindow : Window
                     translate = new TranslateTransform(0, 0);
                     pill = new Border
                     {
-                        BorderBrush = new SolidColorBrush(Color.FromArgb(0x25, 0xFF, 0xFF, 0xFF)),
+                        BorderBrush = BrushCache.Get(Color.FromArgb(0x25, 0xFF, 0xFF, 0xFF)),
                         BorderThickness = new Thickness(1),
                         CornerRadius = new CornerRadius(6.5),
                         HorizontalAlignment = HorizontalAlignment.Left,

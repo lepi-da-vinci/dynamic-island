@@ -32,6 +32,7 @@ public sealed class AppSettingsData
     public bool ExcludeFromScreenCapture { get; set; } = false;
     public int TopOffsetPx { get; set; } = 0;
     public int TopEdgeHoverSensitivityMs { get; set; } = 60;
+    public string TargetMonitorMode { get; set; } = "Primary"; // Primary, Monitor2, Monitor3, FollowCursor
 
     // Appearance & Design Themes
     public string IslandPlacementStyle { get; set; } = "Notch"; // Notch (Top-Attached), PunchHole (Floating Capsule)
@@ -210,6 +211,23 @@ public sealed class AppSettingsService
         {
             if (_data.ExcludeFromScreenCapture == value) return;
             _data.ExcludeFromScreenCapture = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public string TargetMonitorMode
+    {
+        get => _data.TargetMonitorMode;
+        set
+        {
+            string normalized = value switch
+            {
+                "Monitor2" or "Monitor3" or "FollowCursor" => value,
+                _ => "Primary"
+            };
+            if (string.Equals(_data.TargetMonitorMode, normalized, StringComparison.Ordinal)) return;
+            _data.TargetMonitorMode = normalized;
             Save();
             SettingsChanged?.Invoke();
         }

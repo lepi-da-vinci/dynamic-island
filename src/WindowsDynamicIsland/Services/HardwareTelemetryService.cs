@@ -36,6 +36,8 @@ public sealed class HardwareStatusSnapshot
 
     public int GpuUsagePercent { get; init; } = 4;
     public string GpuModelShort { get; init; } = "Integrated GPU";
+    public double GpuVramUsedMb { get; init; }
+    public string GpuVramText { get; init; } = "0 MB";
 
     public int RamUsagePercent { get; init; } = 45;
     public double RamUsedGb { get; init; } = 7.2;
@@ -85,6 +87,14 @@ public sealed class HardwareTelemetryService : IDisposable
     private ulong _prevUserTicks;
     private double _smoothedCpuPct = 8.0;
     private double _smoothedGpuPct = 4.0;
+    private double _lastGpuVramMb;
+    private IntPtr _pdhQuery;
+    private IntPtr _pdhGpuUtilCounter;
+    private IntPtr _pdhGpuVramCounter;
+    private bool _pdhInitAttempted;
+    private bool _pdhAvailable;
+    private bool _pdhPrimed;
+    private byte[] _pdhBuffer = Array.Empty<byte>();
     private string _cpuModelShort = "CPU";
     private string _gpuModelShort = "GPU";
     private long _prevRxBytes = -1;
@@ -247,7 +257,7 @@ public sealed class HardwareTelemetryService : IDisposable
                 _lastAudioRenderDeviceName = newName;
                 HardwareToastTriggered?.Invoke(new ToastPayload(
                     Icon: "HEADPHONES",
-                    Title: "Output Audio Terhubung",
+                    Title: LocalizationService.Instance.Get("Audio_SwitchedToast"),
                     Subtitle: newName,
                     AccentHex: "#38BDF8",
                     Duration: TimeSpan.FromSeconds(3.2)));
@@ -322,7 +332,7 @@ public sealed class HardwareTelemetryService : IDisposable
                             _lastBtToastTimeUtc[$"CONN:{kvp.Key}"] = nowUtc;
                             HardwareToastTriggered?.Invoke(new ToastPayload(
                                 Icon: "BLUETOOTH",
-                                Title: "Bluetooth Terhubung",
+                                Title: LocalizationService.Instance.Get("Toast_BtConnectedTitle"),
                                 Subtitle: kvp.Value,
                                 AccentHex: "#38BDF8",
                                 Duration: TimeSpan.FromSeconds(3.0)));
@@ -350,7 +360,7 @@ public sealed class HardwareTelemetryService : IDisposable
                                 _lastBtToastTimeUtc[$"DISC:{oldKvp.Key}"] = nowUtc;
                                 HardwareToastTriggered?.Invoke(new ToastPayload(
                                     Icon: "BLUETOOTH_OFF",
-                                    Title: "Bluetooth Terputus",
+                                    Title: LocalizationService.Instance.Get("Toast_BtDisconnectedTitle"),
                                     Subtitle: oldKvp.Value,
                                     AccentHex: "#94A3B8",
                                     Duration: TimeSpan.FromSeconds(2.6)));
@@ -511,7 +521,7 @@ public sealed class HardwareTelemetryService : IDisposable
             HardwareToastTriggered?.Invoke(new ToastPayload(
                 Icon: caps ? "CAPS_ON" : "CAPS_OFF",
                 Title: caps ? "CAPS LOCK: ON" : "CAPS LOCK: OFF",
-                Subtitle: caps ? "Huruf kapital aktif" : "Huruf standar aktif",
+                Subtitle: LocalizationService.Instance.Get(caps ? "Toast_CapsLockSubOn" : "Toast_CapsLockSubOff"),
                 AccentHex: caps ? "#F59E0B" : "#94A3B8",
                 Duration: TimeSpan.FromSeconds(1.8)));
         }
@@ -522,7 +532,9 @@ public sealed class HardwareTelemetryService : IDisposable
             HardwareToastTriggered?.Invoke(new ToastPayload(
                 Icon: num ? "NUM_ON" : "NUM_OFF",
                 Title: num ? "NUM LOCK: ON" : "NUM LOCK: OFF",
-                Subtitle: num ? "Numpad numerik aktif" : "Numpad navigasi",
+                Subtitle: LocalizationService.Instance.IsEnglish
+                    ? (num ? "Numeric keypad enabled" : "Navigation keypad active")
+                    : (num ? "Numpad numerik aktif" : "Numpad navigasi"),
                 AccentHex: num ? "#38BDF8" : "#94A3B8",
                 Duration: TimeSpan.FromSeconds(1.8)));
         }
@@ -554,8 +566,12 @@ public sealed class HardwareTelemetryService : IDisposable
 
         HardwareToastTriggered?.Invoke(new ToastPayload(
             Icon: "BATTERY",
-            Title: isCharging ? $"Charging • {batteryPct}%" : $"Baterai • {batteryPct}%",
-            Subtitle: isCharging ? "Adaptor Daya AC Terhubung" : "Adaptor Dilepas (Mode Baterai)",
+            Title: isCharging
+                ? LocalizationService.Instance.Format("Toast_ChargerPluggedTitle", batteryPct)
+                : LocalizationService.Instance.Format("Toast_ChargerUnpluggedTitle", batteryPct),
+            Subtitle: isCharging
+                ? LocalizationService.Instance.Get("Toast_ChargerPluggedSub")
+                : LocalizationService.Instance.Get("Toast_ChargerUnpluggedSub"),
             AccentHex: accentHex,
             ProgressRatio: batteryPct / 100.0,
             Duration: TimeSpan.FromSeconds(2.8),
@@ -576,7 +592,9 @@ public sealed class HardwareTelemetryService : IDisposable
             batteryPct = power.BatteryLifePercent <= 100 ? power.BatteryLifePercent : 100;
         }
 
-        string batteryEstimateText = hasBattery ? (isCharging ? "Mengisi Daya (Charging)" : "Mode Baterai") : "Daya Desktop AC (100%)";
+        string batteryEstimateText = hasBattery
+            ? (isCharging ? LocalizationService.Instance.Get("Status_Charging") : LocalizationService.Instance.Get("Status_Battery"))
+            : LocalizationService.Instance.Get("Status_DesktopAc");
         if (hasBattery)
         {
             if (isCharging)
@@ -592,8 +610,8 @@ public sealed class HardwareTelemetryService : IDisposable
                     {
                         HardwareToastTriggered?.Invoke(new ToastPayload(
                             Icon: "BATTERY_HEALTH",
-                            Title: "Baterai 80% Tercapai (Smart Charge)",
-                            Subtitle: "Cabut adaptor untuk menjaga usia pakai baterai lithium",
+                            Title: LocalizationService.Instance.Get("Toast_Battery80Title"),
+                            Subtitle: LocalizationService.Instance.Get("Toast_Battery80Sub"),
                             AccentHex: "#22C55E",
                             Duration: TimeSpan.FromSeconds(4.5)));
                     }
@@ -606,11 +624,13 @@ public sealed class HardwareTelemetryService : IDisposable
                 {
                     int hours = power.BatteryLifeTime / 3600;
                     int mins = (power.BatteryLifeTime % 3600) / 60;
-                    batteryEstimateText = hours > 0 ? $"{hours}j {mins}m tersisa" : $"{mins}m tersisa";
+                    batteryEstimateText = LocalizationService.Instance.IsEnglish
+                        ? (hours > 0 ? $"{hours}h {mins}m left" : $"{mins}m left")
+                        : (hours > 0 ? $"{hours}j {mins}m tersisa" : $"{mins}m tersisa");
                 }
                 else
                 {
-                    batteryEstimateText = "Mode Baterai";
+                    batteryEstimateText = LocalizationService.Instance.Get("Status_Battery");
                 }
             }
         }
@@ -682,9 +702,17 @@ public sealed class HardwareTelemetryService : IDisposable
             ramUsedGb = Math.Round(Math.Max(0.1, ramTotalGb - availGb), 1);
         }
 
-        // 3. Smooth GPU utilization tracking (correlates with active DWM/media/3D load + system activity without WMI stalls)
-        double targetGpu = Math.Clamp((_smoothedCpuPct * 0.58) + 3.0, 2.0, 99.0);
-        _smoothedGpuPct = (_smoothedGpuPct * 0.55) + (targetGpu * 0.45);
+        // 3. Real GPU Engine Utilization & Dedicated VRAM via native Win32 PDH
+        if (TrySampleGpuPdh(out double gpuPct, out double vramMb))
+        {
+            _smoothedGpuPct = (_smoothedGpuPct * 0.45) + (gpuPct * 0.55);
+            _lastGpuVramMb = vramMb;
+        }
+        else
+        {
+            double targetGpu = Math.Clamp((_smoothedCpuPct * 0.25) + 1.0, 1.0, 99.0);
+            _smoothedGpuPct = (_smoothedGpuPct * 0.6) + (targetGpu * 0.4);
+        }
 
         // 4. Real-time Network Download & Upload Speed
         if (IsPerformanceViewActive || (DateTime.UtcNow - _lastNetSampleUtc).TotalSeconds >= 10.0)
@@ -696,8 +724,14 @@ public sealed class HardwareTelemetryService : IDisposable
         // 5. System Uptime
         TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
         string uptimeStr = uptime.TotalDays >= 1
-            ? $"{(int)uptime.TotalDays}h {uptime.Hours}j {uptime.Minutes}m"
-            : $"{uptime.Hours}j {uptime.Minutes}m";
+            ? (LocalizationService.Instance.IsEnglish
+                ? $"{(int)uptime.TotalDays}d {uptime.Hours}h {uptime.Minutes}m"
+                : $"{(int)uptime.TotalDays}h {uptime.Hours}j {uptime.Minutes}m")
+            : LocalizationService.Instance.Format("Perf_UptimeFmt", uptime.Hours, uptime.Minutes);
+
+        string vramText = _lastGpuVramMb >= 1024
+            ? $"{_lastGpuVramMb / 1024.0:F1} GB VRAM"
+            : _lastGpuVramMb > 0 ? $"{_lastGpuVramMb:F0} MB VRAM" : "0 MB";
 
         double memoryMb = Math.Round(GC.GetTotalMemory(false) / (1024.0 * 1024.0) + 18.0, 1);
         string btName = _connectedBtDevices.Values.FirstOrDefault() ?? string.Empty;
@@ -723,6 +757,8 @@ public sealed class HardwareTelemetryService : IDisposable
             CpuCoresCount = Environment.ProcessorCount,
             GpuUsagePercent = (int)Math.Round(_smoothedGpuPct),
             GpuModelShort = _gpuModelShort,
+            GpuVramUsedMb = Math.Round(_lastGpuVramMb, 0),
+            GpuVramText = vramText,
             RamUsagePercent = ramPct,
             RamUsedGb = ramUsedGb,
             RamTotalGb = ramTotalGb,
@@ -810,7 +846,7 @@ public sealed class HardwareTelemetryService : IDisposable
                     {
                         HardwareToastTriggered?.Invoke(new ToastPayload(
                             Icon: "WIFI",
-                            Title: "Wi-Fi Terhubung",
+                            Title: LocalizationService.Instance.Get("Toast_WifiConnectedTitle"),
                             Subtitle: netName,
                             AccentHex: "#38BDF8",
                             Duration: TimeSpan.FromSeconds(2.8)));
@@ -819,8 +855,8 @@ public sealed class HardwareTelemetryService : IDisposable
                     {
                         HardwareToastTriggered?.Invoke(new ToastPayload(
                             Icon: "WIFI_OFF",
-                            Title: "Jaringan Terputus",
-                            Subtitle: wasWifi ? "Koneksi Wi-Fi terputus" : "Tidak ada akses internet",
+                            Title: LocalizationService.Instance.Get("Toast_WifiDisconnectedTitle"),
+                            Subtitle: LocalizationService.Instance.Get("Toast_WifiDisconnectedSub"),
                             AccentHex: "#F87171",
                             Duration: TimeSpan.FromSeconds(2.8)));
                     }
@@ -828,7 +864,7 @@ public sealed class HardwareTelemetryService : IDisposable
                     {
                         HardwareToastTriggered?.Invoke(new ToastPayload(
                             Icon: "WIFI",
-                            Title: "Jaringan Aktif",
+                            Title: LocalizationService.Instance.Get("Status_Connected"),
                             Subtitle: netName,
                             AccentHex: "#38BDF8",
                             Duration: TimeSpan.FromSeconds(2.8)));
@@ -930,6 +966,165 @@ public sealed class HardwareTelemetryService : IDisposable
         return startObj is long start && start > 0 && stopObj is long stop && stop == 0;
     }
 
+    private bool TrySampleGpuPdh(out double gpuPercent, out double dedicatedVramMb)
+    {
+        gpuPercent = 0;
+        dedicatedVramMb = _lastGpuVramMb;
+
+        if (!_pdhInitAttempted)
+        {
+            _pdhInitAttempted = true;
+            try
+            {
+                if (PdhOpenQueryW(null, IntPtr.Zero, out _pdhQuery) == 0 &&
+                    PdhAddEnglishCounterW(_pdhQuery, @"\GPU Engine(*)\Utilization Percentage", IntPtr.Zero, out _pdhGpuUtilCounter) == 0)
+                {
+                    PdhAddEnglishCounterW(_pdhQuery, @"\GPU Adapter Memory(*)\Dedicated Usage", IntPtr.Zero, out _pdhGpuVramCounter);
+                    PdhCollectQueryData(_pdhQuery);
+                    _pdhAvailable = true;
+                    _pdhPrimed = false;
+                }
+            }
+            catch
+            {
+                _pdhAvailable = false;
+            }
+        }
+
+        if (!_pdhAvailable || _pdhQuery == IntPtr.Zero) return false;
+
+        try
+        {
+            if (PdhCollectQueryData(_pdhQuery) != 0) return false;
+            if (!_pdhPrimed)
+            {
+                _pdhPrimed = true;
+                return false;
+            }
+
+            // Sum per (luid + engtype) so overall GPU utilization matches Windows Task Manager
+            var engineTotals = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, val) in ReadPdhCounterArray(_pdhGpuUtilCounter))
+            {
+                if (val <= 0 || double.IsNaN(val) || double.IsInfinity(val)) continue;
+                int engIdx = name.IndexOf("engtype_", StringComparison.OrdinalIgnoreCase);
+                int luidIdx = name.IndexOf("luid_", StringComparison.OrdinalIgnoreCase);
+                string groupKey = engIdx >= 0
+                    ? (luidIdx >= 0 ? $"{name[luidIdx..Math.Min(name.Length, luidIdx + 24)]}|{name[engIdx..]}" : name[engIdx..])
+                    : "default";
+
+                engineTotals.TryGetValue(groupKey, out double acc);
+                engineTotals[groupKey] = acc + val;
+            }
+
+            double peakEngine = 0;
+            foreach (double engineSum in engineTotals.Values)
+            {
+                if (engineSum > peakEngine) peakEngine = engineSum;
+            }
+            gpuPercent = Math.Clamp(peakEngine, 0.0, 100.0);
+
+            if (_pdhGpuVramCounter != IntPtr.Zero)
+            {
+                double maxVramBytes = 0;
+                foreach (var (_, val) in ReadPdhCounterArray(_pdhGpuVramCounter))
+                {
+                    if (val > maxVramBytes && !double.IsNaN(val) && !double.IsInfinity(val))
+                    {
+                        maxVramBytes = val;
+                    }
+                }
+                if (maxVramBytes > 0)
+                {
+                    dedicatedVramMb = maxVramBytes / (1024.0 * 1024.0);
+                }
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private IEnumerable<(string Name, double Value)> ReadPdhCounterArray(IntPtr counter)
+    {
+        if (counter == IntPtr.Zero) return Array.Empty<(string, double)>();
+
+        uint bufferSize = 0;
+        uint itemCount = 0;
+        uint status = PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, ref bufferSize, out itemCount, IntPtr.Zero);
+        if (status != PDH_MORE_DATA || bufferSize == 0 || itemCount == 0)
+        {
+            return Array.Empty<(string, double)>();
+        }
+
+        if (_pdhBuffer.Length < bufferSize)
+        {
+            _pdhBuffer = new byte[bufferSize + 4096];
+        }
+
+        var results = new List<(string, double)>((int)itemCount);
+        GCHandle handle = GCHandle.Alloc(_pdhBuffer, GCHandleType.Pinned);
+        try
+        {
+            IntPtr ptr = handle.AddrOfPinnedObject();
+            status = PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, ref bufferSize, out itemCount, ptr);
+            if (status != 0) return results;
+
+            int stride = Marshal.SizeOf<PDH_FMT_COUNTERVALUE_ITEM_DOUBLE>();
+            for (int i = 0; i < itemCount; i++)
+            {
+                var item = Marshal.PtrToStructure<PDH_FMT_COUNTERVALUE_ITEM_DOUBLE>(IntPtr.Add(ptr, i * stride));
+                if (item.FmtValue.CStatus == 0 && item.szName != IntPtr.Zero)
+                {
+                    string name = Marshal.PtrToStringUni(item.szName) ?? string.Empty;
+                    results.Add((name, item.FmtValue.doubleValue));
+                }
+            }
+        }
+        finally
+        {
+            handle.Free();
+        }
+
+        return results;
+    }
+
+    private const uint PDH_FMT_DOUBLE = 0x00000200;
+    private const uint PDH_MORE_DATA = 0x800007D2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PDH_FMT_COUNTERVALUE_DOUBLE
+    {
+        public uint CStatus;
+        public int Padding;
+        public double doubleValue;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PDH_FMT_COUNTERVALUE_ITEM_DOUBLE
+    {
+        public IntPtr szName;
+        public PDH_FMT_COUNTERVALUE_DOUBLE FmtValue;
+    }
+
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+    private static extern uint PdhOpenQueryW(string? szDataSource, IntPtr dwUserData, out IntPtr phQuery);
+
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+    private static extern uint PdhAddEnglishCounterW(IntPtr hQuery, string szFullCounterPath, IntPtr dwUserData, out IntPtr phCounter);
+
+    [DllImport("pdh.dll")]
+    private static extern uint PdhCollectQueryData(IntPtr hQuery);
+
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+    private static extern uint PdhGetFormattedCounterArrayW(IntPtr hCounter, uint dwFormat, ref uint lpdwBufferSize, out uint lpdwItemCount, IntPtr ItemBuffer);
+
+    [DllImport("pdh.dll")]
+    private static extern uint PdhCloseQuery(IntPtr hQuery);
+
     public void Dispose()
     {
         try
@@ -937,5 +1132,11 @@ public sealed class HardwareTelemetryService : IDisposable
             MediaDevice.DefaultAudioRenderDeviceChanged -= OnDefaultAudioRenderDeviceChanged;
         }
         catch { }
+
+        if (_pdhQuery != IntPtr.Zero)
+        {
+            try { PdhCloseQuery(_pdhQuery); } catch { }
+            _pdhQuery = IntPtr.Zero;
+        }
     }
 }

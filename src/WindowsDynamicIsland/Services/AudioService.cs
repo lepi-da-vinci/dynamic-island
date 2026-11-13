@@ -10,6 +10,15 @@ using WindowsDynamicIsland.Core;
 
 namespace WindowsDynamicIsland.Services;
 
+public sealed class AudioOutputDeviceInfo
+{
+    public string Id { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string ShortName { get; init; } = string.Empty;
+    public bool IsDefault { get; init; }
+    public bool IsHeadphone { get; init; }
+}
+
 public sealed class AudioAppSession
 {
     public int ProcessId { get; init; }
@@ -32,10 +41,13 @@ public sealed class AudioService
 
     private IMMDeviceEnumerator? _enumerator;
     private IAudioEndpointVolume? _speakerVolume;
+    private IAudioEndpointVolumeCallback? _speakerVolumeCallback;
+    private IAudioEndpointVolume? _registeredVolumeEndpoint;
     private IAudioMeterInformation? _speakerMeter;
     private IAudioEndpointVolume? _micVolume;
     private IAudioSessionManager2? _sessionManager;
     private readonly Dictionary<int, (string Name, ImageSource? Icon)> _appInfoCache = new();
+    private readonly Guid _appVolumeContextGuid = Guid.NewGuid();
 
     // Real-time WASAPI Loopback PCM capture for true song-synced frequency bars
     private IAudioClient? _loopbackClient;
@@ -107,6 +119,7 @@ public sealed class AudioService
             Guid iidMeter = typeof(IAudioMeterInformation).GUID;
 
             // 1. Speaker / Headphone / TWS Output Endpoint (eRender = 0, eMultimedia = 1)
+            UnregisterVolumeCallback();
             if (_enumerator.GetDefaultAudioEndpoint(0, 1, out var renderDevice) == 0 && renderDevice != null)
             {
                 if (renderDevice.GetId(out string devId) == 0)
@@ -117,6 +130,7 @@ public sealed class AudioService
                 if (renderDevice.Activate(ref iidVolume, 23, IntPtr.Zero, out var volObj) == 0)
                 {
                     _speakerVolume = volObj as IAudioEndpointVolume;
+                    RegisterVolumeCallback();
                 }
 
                 if (renderDevice.Activate(ref iidMeter, 23, IntPtr.Zero, out var meterObj) == 0)
@@ -583,7 +597,7 @@ public sealed class AudioService
             float scalar = Math.Clamp(targetPercent / 100f, 0f, 1f);
             if (_speakerVolume != null)
             {
-                Guid ctx = Guid.Empty;
+                Guid ctx = _appVolumeContextGuid;
                 _speakerVolume.SetMasterVolumeLevelScalar(scalar, ref ctx);
                 if (scalar > 0f)
                 {
@@ -625,7 +639,7 @@ public sealed class AudioService
             if (_speakerVolume != null && _speakerVolume.GetMute(out bool muted) == 0)
             {
                 bool next = !muted;
-                Guid ctx = Guid.Empty;
+                Guid ctx = _appVolumeContextGuid;
                 _speakerVolume.SetMute(next, ref ctx);
                 _lastPolledSpeakerMute = next;
                 return next;
@@ -710,8 +724,27 @@ public sealed class AudioService
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IMMDeviceEnumerator
     {
-        [PreserveSig] int EnumAudioEndpoints(int dataFlow, int dwStateMask, out IntPtr ppDevices);
+        [PreserveSig] int EnumAudioEndpoints(int dataFlow, int dwStateMask, out IMMDeviceCollection? ppDevices);
         [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice? ppEndpoint);
+    }
+
+    [ComImport]
+    [Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDeviceCollection
+    {
+        [PreserveSig] int GetCount(out uint pcDevices);
+        [PreserveSig] int Item(uint nDevice, out IMMDevice? ppDevice);
+    }
+
+    [ComImport]
+    [Guid("886d8eeb-8cf2-4446-8d02-cdba1dbdcf99")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IPropertyStore
+    {
+        [PreserveSig] int GetCount(out uint cProps);
+        [PreserveSig] int GetAt(uint iProp, out PROPERTYKEY pkey);
+        [PreserveSig] int GetValue(ref PROPERTYKEY key, out PROPVARIANT pv);
     }
 
     [ComImport]
@@ -722,7 +755,7 @@ public sealed class AudioService
         [PreserveSig]
         int Activate(ref Guid iid, uint dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.IUnknown)] out object? ppInterface);
         [PreserveSig]
-        int OpenPropertyStore(int stgmAccess, out IntPtr ppProperties);
+        int OpenPropertyStore(int stgmAccess, out IPropertyStore? ppProperties);
         [PreserveSig]
         int GetId([MarshalAs(UnmanagedType.LPWStr)] out string ppstrId);
         [PreserveSig]
@@ -767,12 +800,20 @@ public sealed class AudioService
     }
 
     [ComImport]
+    [Guid("657804FA-D6AD-4496-8A60-352752AF4F89")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioEndpointVolumeCallback
+    {
+        [PreserveSig] int OnNotify(IntPtr pNotify);
+    }
+
+    [ComImport]
     [Guid("5CDF2C82-841E-4546-9722-0CF74078229A")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IAudioEndpointVolume
     {
-        [PreserveSig] int RegisterControlChangeNotify(IntPtr pNotify);
-        [PreserveSig] int UnregisterControlChangeNotify(IntPtr pNotify);
+        [PreserveSig] int RegisterControlChangeNotify([MarshalAs(UnmanagedType.Interface)] IAudioEndpointVolumeCallback pNotify);
+        [PreserveSig] int UnregisterControlChangeNotify([MarshalAs(UnmanagedType.Interface)] IAudioEndpointVolumeCallback pNotify);
         [PreserveSig] int GetChannelCount(out uint pnChannelCount);
         [PreserveSig] int SetMasterVolumeLevel(float fLevelDB, ref Guid pguidEventContext);
         [PreserveSig] int SetMasterVolumeLevelScalar(float fLevel, ref Guid pguidEventContext);
@@ -784,6 +825,230 @@ public sealed class AudioService
         [PreserveSig] int GetChannelVolumeLevelScalar(uint nChannel, out float pfLevel);
         [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, ref Guid pguidEventContext);
         [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool pbMute);
+    }
+
+    [ComImport]
+    [Guid("f8679f50-850a-41cf-9c72-430f290290c8")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IPolicyConfig
+    {
+        [PreserveSig] int GetMixFormat(string pszDeviceName, IntPtr ppFormat);
+        [PreserveSig] int GetDeviceFormat(string pszDeviceName, bool bDefault, IntPtr ppFormat);
+        [PreserveSig] int ResetDeviceFormat(string pszDeviceName);
+        [PreserveSig] int SetDeviceFormat(string pszDeviceName, IntPtr pEndpointFormat, IntPtr MixFormat);
+        [PreserveSig] int GetProcessingPeriod(string pszDeviceName, bool bDefault, IntPtr pmftDefaultPeriod, IntPtr pmftMinimumPeriod);
+        [PreserveSig] int SetProcessingPeriod(string pszDeviceName, IntPtr pmftPeriod);
+        [PreserveSig] int GetShareMode(string pszDeviceName, IntPtr pMode);
+        [PreserveSig] int SetShareMode(string pszDeviceName, IntPtr mode);
+        [PreserveSig] int GetPropertyValue(string pszDeviceName, bool bFxStore, IntPtr key, IntPtr pv);
+        [PreserveSig] int SetPropertyValue(string pszDeviceName, bool bFxStore, IntPtr key, IntPtr pv);
+        [PreserveSig] int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, int role);
+        [PreserveSig] int SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, bool bVisible);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROPERTYKEY
+    {
+        public Guid fmtid;
+        public uint pid;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROPVARIANT
+    {
+        public ushort vt;
+        public ushort wReserved1;
+        public ushort wReserved2;
+        public ushort wReserved3;
+        public IntPtr pwszVal;
+        public IntPtr padding;
+    }
+
+    [DllImport("ole32.dll")]
+    private static extern int PropVariantClear(ref PROPVARIANT pvar);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct AUDIO_VOLUME_NOTIFICATION_DATA
+    {
+        public Guid guidEventContext;
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool bMuted;
+        public float fMasterVolume;
+        public uint nChannels;
+        public float afChannelVolumes;
+    }
+
+    private sealed class VolumeCallbackSink : IAudioEndpointVolumeCallback
+    {
+        private readonly AudioService _owner;
+        public VolumeCallbackSink(AudioService owner) => _owner = owner;
+
+        public int OnNotify(IntPtr pNotify)
+        {
+            if (pNotify != IntPtr.Zero)
+            {
+                try
+                {
+                    var data = Marshal.PtrToStructure<AUDIO_VOLUME_NOTIFICATION_DATA>(pNotify);
+                    _owner.HandleNativeVolumeCallback(data);
+                }
+                catch { }
+            }
+            return 0;
+        }
+    }
+
+    private void RegisterVolumeCallback()
+    {
+        if (_speakerVolume == null) return;
+        try
+        {
+            _speakerVolumeCallback ??= new VolumeCallbackSink(this);
+            if (_speakerVolume.RegisterControlChangeNotify(_speakerVolumeCallback) == 0)
+            {
+                _registeredVolumeEndpoint = _speakerVolume;
+            }
+        }
+        catch { }
+    }
+
+    private void UnregisterVolumeCallback()
+    {
+        try
+        {
+            if (_registeredVolumeEndpoint != null && _speakerVolumeCallback != null)
+            {
+                _registeredVolumeEndpoint.UnregisterControlChangeNotify(_speakerVolumeCallback);
+            }
+        }
+        catch { }
+        _registeredVolumeEndpoint = null;
+    }
+
+    private void HandleNativeVolumeCallback(AUDIO_VOLUME_NOTIFICATION_DATA data)
+    {
+        // Always suppress Windows native volume flyout immediately when an external volume change happens
+        if (data.guidEventContext != _appVolumeContextGuid)
+        {
+            WindowsFlyoutSuppressor.TriggerSuppressionBurst(durationMs: 650, intervalMs: 18);
+            WindowsFlyoutSuppressor.SuppressOnce();
+        }
+
+        if (DateTime.UtcNow < _suppressExternalNotifyUntilUtc || data.guidEventContext == _appVolumeContextGuid)
+        {
+            return;
+        }
+
+        int volPct = (int)Math.Round(Math.Clamp(data.fMasterVolume, 0f, 1f) * 100);
+        bool isMuteToggle = data.bMuted != _lastPolledSpeakerMute;
+        if (!isMuteToggle && Math.Abs(volPct - _lastPolledVolume) < 1)
+        {
+            return;
+        }
+
+        _lastPolledVolume = volPct;
+        _lastPolledSpeakerMute = data.bMuted;
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(() => SpeakerVolumeOrMuteChanged?.Invoke(volPct, data.bMuted, isMuteToggle));
+        }
+        else
+        {
+            SpeakerVolumeOrMuteChanged?.Invoke(volPct, data.bMuted, isMuteToggle);
+        }
+    }
+
+    public List<AudioOutputDeviceInfo> GetOutputDevices()
+    {
+        var devices = new List<AudioOutputDeviceInfo>();
+        try
+        {
+            if (_enumerator == null) InitializeCoreAudio();
+            if (_enumerator == null) return devices;
+
+            // DEVICE_STATE_ACTIVE = 0x1, eRender = 0
+            if (_enumerator.EnumAudioEndpoints(0, 1, out var collection) != 0 || collection == null)
+                return devices;
+
+            if (collection.GetCount(out uint count) != 0) return devices;
+
+            var friendlyNameKey = new PROPERTYKEY
+            {
+                fmtid = new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"),
+                pid = 14
+            };
+
+            for (uint i = 0; i < count; i++)
+            {
+                if (collection.Item(i, out var dev) != 0 || dev == null) continue;
+                if (dev.GetId(out string id) != 0 || string.IsNullOrWhiteSpace(id)) continue;
+
+                string name = "Audio Output";
+                if (dev.OpenPropertyStore(0, out var propStore) == 0 && propStore != null)
+                {
+                    if (propStore.GetValue(ref friendlyNameKey, out var pv) == 0)
+                    {
+                        try
+                        {
+                            if (pv.vt == 31 && pv.pwszVal != IntPtr.Zero) // VT_LPWSTR
+                            {
+                                name = Marshal.PtrToStringUni(pv.pwszVal) ?? name;
+                            }
+                        }
+                        finally
+                        {
+                            PropVariantClear(ref pv);
+                        }
+                    }
+                }
+
+                bool isHp = CheckIfHeadphoneOrTws(name);
+                devices.Add(new AudioOutputDeviceInfo
+                {
+                    Id = id,
+                    Name = name,
+                    ShortName = CleanDeviceDisplayName(name, isHp),
+                    IsDefault = string.Equals(id, _activeSpeakerDeviceId, StringComparison.OrdinalIgnoreCase),
+                    IsHeadphone = isHp
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("GetOutputDevices", "Failed enumerating audio output devices", ex);
+        }
+
+        return devices;
+    }
+
+    public bool SetDefaultOutputDevice(string deviceId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId)) return false;
+        try
+        {
+            var policyType = Type.GetTypeFromCLSID(new Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9"));
+            if (policyType == null) return false;
+
+            if (Activator.CreateInstance(policyType) is IPolicyConfig policy)
+            {
+                // Set Console (0), Multimedia (1), Communications (2)
+                int r0 = policy.SetDefaultEndpoint(deviceId, 0);
+                int r1 = policy.SetDefaultEndpoint(deviceId, 1);
+                int r2 = policy.SetDefaultEndpoint(deviceId, 2);
+                if (r0 == 0 || r1 == 0 || r2 == 0)
+                {
+                    ReinitializeEndpoints();
+                    return true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("SetDefaultOutputDevice", $"Failed switching output endpoint to {deviceId}", ex);
+        }
+        return false;
     }
 
     public List<AudioAppSession> GetAppAudioSessions()

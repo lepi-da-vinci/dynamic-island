@@ -119,14 +119,14 @@ public static class Win32Interop
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
-    [DllImport("user32.dll")]
-    public static extern short GetAsyncKeyState(int vKey);
-
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
 
     [DllImport("user32.dll")]
     public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
@@ -134,31 +134,18 @@ public static class Win32Interop
     private static IntPtr _lastCheckedFgHwnd;
     private static bool _lastCheckedFgIsScreenshot;
     private static long _lastCheckedFgTick;
-    private static long _screenshotHotkeyLockUntilTick;
     private static long _lastFindWindowTick;
     private static bool _cachedFindWindowResult;
 
     /// <summary>
-    /// Detects whether the user is currently taking a screenshot (Win+Shift+S, PrintScreen,
-    /// Snipping Tool overlay, ScreenClippingHost, Lightshot, ShareX, Greenshot, etc.).
+    /// Detects whether a screenshot overlay or snipping application is currently active
+    /// via non-intrusive window class and foreground process checks (zero keyboard hooks/polling).
     /// </summary>
     public static bool IsScreenshotSessionActive()
     {
         long nowTick = Environment.TickCount64;
 
-        // 1. Instantaneous hotkey detection (PrintScreen or Win + Shift + S)
-        bool prtScDown = (GetAsyncKeyState(VK_SNAPSHOT) & 0x8000) != 0;
-        bool winDown = ((GetAsyncKeyState(VK_LWIN) & 0x8000) != 0) || ((GetAsyncKeyState(VK_RWIN) & 0x8000) != 0);
-        bool shiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-        bool sDown = (GetAsyncKeyState(VK_S) & 0x8000) != 0;
-
-        if (prtScDown || (winDown && shiftDown && sDown))
-        {
-            _screenshotHotkeyLockUntilTick = nowTick + 3500;
-            return true;
-        }
-
-        // 2. Check known Windows 10/11 Snipping Overlay window classes directly (cached 150ms for zero lag & low CPU)
+        // 1. Check known Windows 10/11 Snipping Overlay window classes directly (cached 150ms for zero lag & low CPU)
         if ((nowTick - _lastFindWindowTick) > 150)
         {
             _lastFindWindowTick = nowTick;
@@ -182,7 +169,7 @@ public static class Win32Interop
             return true;
         }
 
-        // 3. Check Foreground Window process & class name (cached per HWND / 120ms for zero overhead)
+        // 2. Check Foreground Window process & class name (cached per HWND / 120ms for zero overhead)
         IntPtr fg = GetForegroundWindow();
         if (fg != IntPtr.Zero)
         {
@@ -199,7 +186,7 @@ public static class Win32Interop
             }
         }
 
-        return nowTick < _screenshotHotkeyLockUntilTick;
+        return false;
     }
 
     private static bool IsWindowScreenshotTool(IntPtr hWnd)
@@ -259,17 +246,103 @@ public static class Win32Interop
         public uint dwFlags;
     }
 
+    public sealed record MonitorBoundsInfo(
+        IntPtr HMonitor,
+        RECT BoundsPx,
+        RECT WorkAreaPx,
+        bool IsPrimary,
+        double ScaleFactor);
+
+    private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
+
     [DllImport("user32.dll")]
     public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
+    [DllImport("shcore.dll")]
+    private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    public static IReadOnlyList<MonitorBoundsInfo> GetAllMonitors()
+    {
+        var list = new List<MonitorBoundsInfo>();
+        try
+        {
+            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr hMon, IntPtr _, ref RECT _, IntPtr _) =>
+            {
+                var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+                if (GetMonitorInfo(hMon, ref mi))
+                {
+                    bool isPrimary = (mi.dwFlags & 1) != 0;
+                    double scale = 1.0;
+                    try
+                    {
+                        if (GetDpiForMonitor(hMon, 0, out uint dpiX, out _) == 0 && dpiX > 0)
+                        {
+                            scale = dpiX / 96.0;
+                        }
+                    }
+                    catch
+                    {
+                        scale = 1.0;
+                    }
+
+                    list.Add(new MonitorBoundsInfo(hMon, mi.rcMonitor, mi.rcWork, isPrimary, scale));
+                }
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch
+        {
+            // Ignore display enumeration fallback failures
+        }
+
+        // Keep primary first, then left-to-right physical order
+        return list
+            .OrderByDescending(m => m.IsPrimary)
+            .ThenBy(m => m.BoundsPx.Left)
+            .ThenBy(m => m.BoundsPx.Top)
+            .ToList();
+    }
+
+    public static MonitorBoundsInfo? ResolveTargetMonitor(string mode)
+    {
+        var monitors = GetAllMonitors();
+        if (monitors.Count == 0) return null;
+
+        if (string.Equals(mode, "FollowCursor", StringComparison.OrdinalIgnoreCase) &&
+            GetCursorPos(out var pt))
+        {
+            IntPtr cursorMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+            var matched = monitors.FirstOrDefault(m => m.HMonitor == cursorMon);
+            if (matched != null) return matched;
+        }
+
+        if (string.Equals(mode, "Monitor2", StringComparison.OrdinalIgnoreCase) && monitors.Count >= 2)
+        {
+            return monitors[1];
+        }
+
+        if (string.Equals(mode, "Monitor3", StringComparison.OrdinalIgnoreCase) && monitors.Count >= 3)
+        {
+            return monitors[2];
+        }
+
+        return monitors.FirstOrDefault(m => m.IsPrimary) ?? monitors[0];
+    }
+
     /// <summary>
-    /// Checks if the user's active foreground application has its titlebar/tabs at the top center of the screen
+    /// Checks if the user's active foreground application has its titlebar/tabs at the top center of the monitor
     /// where the Dynamic Island resides.
     /// </summary>
-    public static bool IsForegroundAppOccupyingTopBar(IntPtr ownHwnd, int screenWidthPx)
+    public static bool IsForegroundAppOccupyingTopBar(IntPtr ownHwnd, RECT monitorBoundsPx)
     {
         IntPtr fg = GetForegroundWindow();
         if (fg == IntPtr.Zero || fg == ownHwnd) return false;
@@ -284,14 +357,17 @@ public static class Win32Interop
 
         if (GetWindowRect(fg, out var rect))
         {
-            int centerPx = screenWidthPx / 2;
-            bool coversTopEdge = rect.Top <= 48 && rect.Bottom > 120;
+            int centerPx = monitorBoundsPx.Left + ((monitorBoundsPx.Right - monitorBoundsPx.Left) / 2);
+            bool coversTopEdge = rect.Top <= (monitorBoundsPx.Top + 48) && rect.Bottom > (monitorBoundsPx.Top + 120);
             bool coversHorizontalCenter = rect.Left <= (centerPx + 120) && rect.Right >= (centerPx - 120);
             return coversTopEdge && coversHorizontalCenter;
         }
 
         return false;
     }
+
+    public static bool IsForegroundAppOccupyingTopBar(IntPtr ownHwnd, int screenWidthPx)
+        => IsForegroundAppOccupyingTopBar(ownHwnd, new RECT { Left = 0, Top = 0, Right = screenWidthPx, Bottom = 1080 });
 
     // Full-screen game & presentation detection
     public enum QUERY_USER_NOTIFICATION_STATE
@@ -308,13 +384,54 @@ public static class Win32Interop
     [DllImport("shell32.dll")]
     public static extern int SHQueryUserNotificationState(out QUERY_USER_NOTIFICATION_STATE pquns);
 
-    public static bool IsFullScreenAppActive()
+    public static bool IsFullScreenAppActive(IntPtr ownHwnd = default, IntPtr targetMonitor = default)
     {
         if (SHQueryUserNotificationState(out var state) == 0)
         {
-            return state == QUERY_USER_NOTIFICATION_STATE.QUNS_RUNNING_D3D_FULL_SCREEN;
+            if (state == QUERY_USER_NOTIFICATION_STATE.QUNS_RUNNING_D3D_FULL_SCREEN)
+            {
+                return true;
+            }
         }
-        return false;
+
+        // Detect Borderless Fullscreen (games, YouTube/MPC-HC/VLC fullscreen, Remote Desktop, etc.)
+        IntPtr fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero || fg == ownHwnd || IsIconic(fg) || !IsWindowVisible(fg))
+        {
+            return false;
+        }
+
+        var classSb = new StringBuilder(64);
+        GetClassName(fg, classSb, 64);
+        string cls = classSb.ToString();
+        if (cls is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "Windows.UI.Core.CoreWindow")
+        {
+            return false;
+        }
+
+        IntPtr fgMonitor = MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST);
+        if (fgMonitor == IntPtr.Zero) return false;
+        if (targetMonitor != IntPtr.Zero && fgMonitor != targetMonitor)
+        {
+            return false;
+        }
+
+        var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(fgMonitor, ref mi) || !GetWindowRect(fg, out var rect))
+        {
+            return false;
+        }
+
+        int monW = mi.rcMonitor.Right - mi.rcMonitor.Left;
+        int monH = mi.rcMonitor.Bottom - mi.rcMonitor.Top;
+        int winW = rect.Right - rect.Left;
+        int winH = rect.Bottom - rect.Top;
+
+        return monW > 0 && monH > 0 &&
+               rect.Left <= mi.rcMonitor.Left + 2 &&
+               rect.Top <= mi.rcMonitor.Top + 2 &&
+               winW >= monW - 4 &&
+               winH >= monH - 4;
     }
 
     // System Power Status (Battery)
