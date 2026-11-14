@@ -225,6 +225,7 @@ public partial class SettingsWindow : Window
                 case "CyberMatrix": SurfMatrixBtn.IsChecked = true; break;
                 case "RoyalAmethyst": SurfAmethystBtn.IsChecked = true; break;
                 case "CrimsonObsidian": SurfCrimsonBtn.IsChecked = true; break;
+                case "AuroraOcean": SurfAuroraBtn.IsChecked = true; break;
                 default: SurfOledBtn.IsChecked = true; break;
             }
 
@@ -254,6 +255,7 @@ public partial class SettingsWindow : Window
 
             switch (_settings.RimGlowStyle)
             {
+                case "PrismGlass": RimPrismBtn.IsChecked = true; break;
                 case "AccentNeon": RimNeonBtn.IsChecked = true; break;
                 case "Hidden": RimHiddenBtn.IsChecked = true; break;
                 default: RimSubtleBtn.IsChecked = true; break;
@@ -522,6 +524,7 @@ public partial class SettingsWindow : Window
         _settings.SystemNotificationToastEnabled = ChkSystemNotifToast.IsChecked == true;
         _settings.SpotlightHotkeyEnabled = ChkSpotlightHotkey.IsChecked == true;
         _settings.Battery80PercentAlertEnabled = ChkBattery80Alert.IsChecked == true;
+        UpdateLiveThemePreview();
     }
 
     private void OnTabVisibilityToggleClicked(object sender, RoutedEventArgs e)
@@ -871,6 +874,7 @@ public partial class SettingsWindow : Window
     {
         if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string style) return;
         _settings.IslandPlacementStyle = style;
+        UpdateLiveThemePreview();
     }
 
     private void OnSurfaceThemeClicked(object sender, RoutedEventArgs e)
@@ -884,6 +888,7 @@ public partial class SettingsWindow : Window
     {
         if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string corner) return;
         _settings.NotchCornerStyle = corner;
+        UpdateLiveThemePreview();
     }
 
     private void OnNotchOpacityClicked(object sender, RoutedEventArgs e)
@@ -892,6 +897,7 @@ public partial class SettingsWindow : Window
         if (double.TryParse(tagStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double op))
         {
             _settings.NotchBackgroundOpacity = op;
+            UpdateLiveThemePreview();
         }
     }
 
@@ -899,6 +905,58 @@ public partial class SettingsWindow : Window
     {
         if (_isLoadingUi || sender is not RadioButton rb || rb.Tag is not string theme) return;
         _settings.AccentTheme = theme;
+        ApplyThemeToSettingsWindow();
+    }
+
+    private void OnThemePresetClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi || sender is not Button btn || btn.Tag is not string preset) return;
+
+        switch (preset)
+        {
+            case "Titanium":
+                _settings.IslandSurfaceTheme = "FrostedGraphite";
+                _settings.AccentTheme = "Cyan";
+                _settings.RimGlowStyle = "PrismGlass";
+                _settings.ShowContourRim = true;
+                _settings.NotchCornerStyle = "Squircle";
+                _settings.NotchBackgroundOpacity = 0.94;
+                _settings.GlowIntensity = 1.0;
+                break;
+            case "OledStealth":
+                _settings.IslandSurfaceTheme = "OledBlack";
+                _settings.AccentTheme = "Auto";
+                _settings.RimGlowStyle = "Subtle";
+                _settings.ShowContourRim = true;
+                _settings.NotchCornerStyle = "Squircle";
+                _settings.NotchBackgroundOpacity = 1.0;
+                _settings.GlowIntensity = 0.5;
+                break;
+            case "CyberNeon":
+                _settings.IslandSurfaceTheme = "MidnightCarbon";
+                _settings.AccentTheme = "Purple";
+                _settings.RimGlowStyle = "AccentNeon";
+                _settings.ShowContourRim = true;
+                _settings.NotchCornerStyle = "UltraPill";
+                _settings.NotchBackgroundOpacity = 0.94;
+                _settings.GlowIntensity = 1.5;
+                break;
+            case "PureMono":
+                _settings.IslandSurfaceTheme = "Monochrome";
+                _settings.AccentTheme = "Monochrome";
+                _settings.RimGlowStyle = "Subtle";
+                _settings.ShowContourRim = true;
+                _settings.NotchCornerStyle = "Squircle";
+                _settings.NotchBackgroundOpacity = 1.0;
+                _settings.GlowIntensity = 0.5;
+                break;
+        }
+
+        LoadSettingsIntoControls();
+        foreach (var g in _segmentedGroups)
+        {
+            UpdateSegmentedPill(g, animate: true);
+        }
         ApplyThemeToSettingsWindow();
     }
 
@@ -983,6 +1041,12 @@ public partial class SettingsWindow : Window
                     Color.FromRgb(39, 17, 25),
                     Color.FromRgb(26, 11, 16),
                     Color.FromArgb(54, 244, 63, 94)),
+                "AuroraOcean" => (
+                    Color.FromRgb(8, 22, 33),
+                    Color.FromRgb(5, 15, 23),
+                    Color.FromRgb(14, 35, 51),
+                    Color.FromRgb(9, 24, 36),
+                    Color.FromArgb(54, 45, 212, 191)),
                 _ => ( // FrostedGraphite / Default macOS Dark
                     Color.FromRgb(22, 22, 26),
                     Color.FromRgb(17, 17, 20),
@@ -1020,10 +1084,17 @@ public partial class SettingsWindow : Window
                 subCardBg = MonochromeThemeHelper.ToMonochromeColor(subCardBg);
             }
 
-            SettingsOuterFrame.Background = BrushCache.Get(winBg);
+            Color winBgBottom = Color.FromRgb(
+                (byte)Math.Max(0, winBg.R - 4),
+                (byte)Math.Max(0, winBg.G - 4),
+                (byte)Math.Max(0, winBg.B - 4));
+            var winGrad = new LinearGradientBrush(winBg, winBgBottom, new Point(0.5, 0.0), new Point(0.5, 1.0));
+            winGrad.Freeze();
+
+            SettingsOuterFrame.Background = winGrad;
             SettingsOuterFrame.BorderBrush = BrushCache.Get(frameBorder);
             SettingsSidebarBorder.Background = BrushCache.Get(sidebarBg);
-            SettingsContentPaneGrid.Background = BrushCache.Get(winBg);
+            SettingsContentPaneGrid.Background = winGrad;
             SettingsDividerBorder.Background = BrushCache.Get(Color.FromArgb(32, frameBorder.R, frameBorder.G, frameBorder.B));
 
             var primaryCardBrush = BrushCache.Get(cardBg);
@@ -1104,11 +1175,128 @@ public partial class SettingsWindow : Window
             RefreshSystemControlCenterCard();
             RefreshBluetoothCard();
             RefreshUpdateCard(_updateService.LastResult);
+            UpdateLiveThemePreview();
         }
         catch (Exception ex)
         {
             AppLogger.LogError("SettingsTheme", "Error applying theme to SettingsWindow", ex);
         }
+    }
+
+    private void UpdateLiveThemePreview()
+    {
+        try
+        {
+            if (PreviewIslandBody == null) return;
+
+            bool isMono = IsMonochromeTheme;
+            byte alpha = (byte)Math.Clamp((int)Math.Round(_settings.NotchBackgroundOpacity * 255.0), 200, 255);
+
+            (Color surfTop, Color surfBottom, string surfLabel) = _settings.IslandSurfaceTheme switch
+            {
+                "MidnightCarbon" => (Color.FromArgb(alpha, 5, 8, 15), Color.FromArgb(alpha, 16, 25, 44), "Midnight Carbon"),
+                "FrostedGraphite" => (Color.FromArgb(alpha, 13, 14, 19), Color.FromArgb(alpha, 28, 30, 39), "Titanium Graphite"),
+                "CyberMatrix" => (Color.FromArgb(alpha, 3, 12, 10), Color.FromArgb(alpha, 9, 32, 25), "Cyber Matrix"),
+                "RoyalAmethyst" => (Color.FromArgb(alpha, 10, 6, 19), Color.FromArgb(alpha, 26, 14, 46), "Royal Amethyst"),
+                "CrimsonObsidian" => (Color.FromArgb(alpha, 14, 5, 9), Color.FromArgb(alpha, 35, 11, 20), "Crimson Obsidian"),
+                "AuroraOcean" => (Color.FromArgb(alpha, 4, 13, 21), Color.FromArgb(alpha, 10, 33, 48), "Aurora Ocean"),
+                "Monochrome" => (Color.FromArgb(alpha, 10, 10, 12), Color.FromArgb(alpha, 23, 23, 27), "Monochrome"),
+                _ => (Color.FromArgb(alpha, 0, 0, 0), Color.FromArgb(alpha, 8, 8, 12), "OLED Black")
+            };
+
+            if (isMono && _settings.IslandSurfaceTheme != "Monochrome")
+            {
+                surfTop = MonochromeThemeHelper.ToMonochromeColor(surfTop);
+                surfBottom = MonochromeThemeHelper.ToMonochromeColor(surfBottom);
+            }
+
+            var islandGrad = new LinearGradientBrush(surfTop, surfBottom, new Point(0.5, 0.0), new Point(0.5, 1.0));
+            islandGrad.Freeze();
+            PreviewIslandBody.Background = islandGrad;
+
+            (Color previewAccent, string accentLabel) = _settings.AccentTheme switch
+            {
+                "Monochrome" => (Color.FromRgb(226, 232, 240), "Monochrome"),
+                "Cyan" => (Color.FromRgb(56, 189, 248), "Cyan"),
+                "Green" => (Color.FromRgb(34, 197, 94), "Emerald"),
+                "Purple" => (Color.FromRgb(168, 85, 247), "Purple"),
+                "Orange" => (Color.FromRgb(249, 115, 22), "Amber"),
+                "Rose" => (Color.FromRgb(244, 63, 94), "Rose"),
+                "Gold" => (Color.FromRgb(251, 191, 36), "Gold"),
+                "White" => (Color.FromRgb(248, 250, 252), "Starlight"),
+                _ => isMono
+                    ? (Color.FromRgb(226, 232, 240), "Monochrome")
+                    : (Color.FromRgb(56, 189, 248), "Auto")
+            };
+
+            bool isPunchHole = _settings.IslandPlacementStyle == "PunchHole";
+            double radiusVal = _settings.NotchCornerStyle switch
+            {
+                "UltraPill" => 18.0,
+                "Sharp" => 8.0,
+                _ => 15.0
+            };
+
+            PreviewIslandBody.CornerRadius = isPunchHole
+                ? new CornerRadius(radiusVal)
+                : new CornerRadius(0, 0, radiusVal, radiusVal);
+            PreviewIslandBody.Margin = isPunchHole ? new Thickness(0, 10, 0, 0) : new Thickness(0);
+
+            PreviewAmbientGlow.CornerRadius = PreviewIslandBody.CornerRadius;
+            PreviewAmbientGlow.Margin = PreviewIslandBody.Margin;
+            PreviewAmbientGlow.Background = BrushCache.Get(previewAccent);
+            PreviewAmbientGlow.Opacity = Math.Clamp(_settings.GlowIntensity * 0.32, 0.0, 0.65);
+
+            bool showRim = _settings.ShowContourRim && _settings.RimGlowStyle != "Hidden";
+            string rimLabel = _settings.RimGlowStyle switch
+            {
+                "PrismGlass" => "Prism Glass",
+                "AccentNeon" => "Neon",
+                "Hidden" => "Hidden",
+                _ => "Subtle"
+            };
+
+            if (!showRim)
+            {
+                PreviewIslandBody.BorderThickness = new Thickness(0);
+            }
+            else if (_settings.RimGlowStyle == "AccentNeon")
+            {
+                PreviewIslandBody.BorderThickness = isPunchHole ? new Thickness(1.4) : new Thickness(1.4, 0, 1.4, 1.4);
+                PreviewIslandBody.BorderBrush = BrushCache.Get(Color.FromArgb(200, previewAccent.R, previewAccent.G, previewAccent.B));
+            }
+            else if (_settings.RimGlowStyle == "PrismGlass")
+            {
+                var prism = new LinearGradientBrush(
+                    Color.FromArgb(140, 255, 255, 255),
+                    Color.FromArgb(165, previewAccent.R, previewAccent.G, previewAccent.B),
+                    new Point(0.0, 0.0),
+                    new Point(1.0, 1.0));
+                prism.Freeze();
+                PreviewIslandBody.BorderThickness = isPunchHole ? new Thickness(1.3) : new Thickness(1.3, 0, 1.3, 1.3);
+                PreviewIslandBody.BorderBrush = prism;
+            }
+            else
+            {
+                PreviewIslandBody.BorderThickness = isPunchHole ? new Thickness(1.0) : new Thickness(1.0, 0, 1.0, 1.0);
+                PreviewIslandBody.BorderBrush = BrushCache.Get(Color.FromArgb(52, 255, 255, 255));
+            }
+
+            var accentBrush = BrushCache.Get(previewAccent);
+            PreviewLivePulseDot.Fill = accentBrush;
+            PreviewAccentMiniDot.Fill = accentBrush;
+            PreviewAccentBadge.Background = BrushCache.Get(Color.FromArgb(36, previewAccent.R, previewAccent.G, previewAccent.B));
+            PreviewAccentBadge.BorderBrush = BrushCache.Get(Color.FromArgb(90, previewAccent.R, previewAccent.G, previewAccent.B));
+            PreviewCameraLens.BorderBrush = BrushCache.Get(Color.FromArgb(85, previewAccent.R, previewAccent.G, previewAccent.B));
+            PreviewEqBar1.Background = accentBrush;
+            PreviewEqBar2.Background = accentBrush;
+            PreviewEqBar3.Background = accentBrush;
+            PreviewEqBar4.Background = accentBrush;
+            PreviewBatteryFill.Background = isMono ? BrushCache.Get(Color.FromRgb(228, 228, 231)) : BrushCache.Get(Color.FromRgb(34, 197, 94));
+            PreviewClockText.Text = DateTime.Now.ToString(_settings.Use24HourClock ? "HH:mm" : "h:mm");
+            PreviewThemeSummaryText.Text = $"{surfLabel} • {accentLabel} • {rimLabel}";
+        }
+        catch { }
     }
 
     private void OnRimStyleClicked(object sender, RoutedEventArgs e)
@@ -1125,6 +1313,7 @@ public partial class SettingsWindow : Window
             ChkShowContourRim.IsChecked = true;
             _settings.ShowContourRim = true;
         }
+        UpdateLiveThemePreview();
     }
 
     private void OnGlowIntensityClicked(object sender, RoutedEventArgs e)
@@ -1133,6 +1322,7 @@ public partial class SettingsWindow : Window
         if (double.TryParse(tagStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double val))
         {
             _settings.GlowIntensity = val;
+            UpdateLiveThemePreview();
         }
     }
 

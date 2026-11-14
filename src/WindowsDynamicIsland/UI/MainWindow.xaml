@@ -89,7 +89,8 @@
                         VerticalAlignment="Stretch"
                         Click="OnLeftWingClick">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Path Data="{StaticResource GeomChevronLeft}"
+                        <Path x:Name="LeftWingChevron"
+                              Data="{StaticResource GeomChevronLeft}"
                               Width="10" Height="10"
                               Stretch="Uniform"
                               Fill="#38BDF8"
@@ -137,7 +138,8 @@
                         VerticalAlignment="Stretch"
                         Click="OnRightWingClick">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Path Data="{StaticResource GeomChevronRight}"
+                        <Path x:Name="RightWingChevron"
+                              Data="{StaticResource GeomChevronRight}"
                               Width="10" Height="10"
                               Stretch="Uniform"
                               Fill="#38BDF8"
@@ -278,12 +280,14 @@
                                     BorderThickness="1"
                                     VerticalAlignment="Center">
                                 <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Border Width="8.5" Height="8.5"
+                                    <Border x:Name="IdleSensorInnerRing"
+                                            Width="8.5" Height="8.5"
                                             CornerRadius="4.25"
                                             Background="#060913"
                                             BorderBrush="#2E38BDF8"
                                             BorderThickness="1">
-                                        <Ellipse Width="2.4" Height="2.4"
+                                        <Ellipse x:Name="IdleSensorGlossDot"
+                                                 Width="2.4" Height="2.4"
                                                  Fill="#7038BDF8"
                                                  HorizontalAlignment="Left"
                                                  VerticalAlignment="Top"

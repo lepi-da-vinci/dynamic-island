@@ -470,6 +470,14 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Settings_TopOffsetSub"] = "Vertical gap between Dynamic Island and the top edge of the monitor";
 
         // Appearance Cards
+        _idStrings["Settings_ThemeStudioHeader"] = "Studio Pratinjau & Preset Tema Modern";
+        _enStrings["Settings_ThemeStudioHeader"] = "Modern Theme Studio & Live Preview";
+        _idStrings["Settings_ThemePreviewLabel"] = "PRATINJAU LANGSUNG";
+        _enStrings["Settings_ThemePreviewLabel"] = "LIVE PREVIEW";
+        _idStrings["Settings_QuickPresets"] = "Preset Desain Kurasi (1-Klik)";
+        _enStrings["Settings_QuickPresets"] = "Curated Designer Presets (1-Click)";
+        _idStrings["Settings_QuickPresetsSub"] = "Terapkan kombinasi material permukaan, aksen warna, dan efek kaca secara instan";
+        _enStrings["Settings_QuickPresetsSub"] = "Instantly apply curated combinations of surface material, accent color, and glass rim";
         _idStrings["Settings_HeaderContour"] = "Model Kontur, Tema Permukaan & Material";
         _enStrings["Settings_HeaderContour"] = "Contour Shape, Surface Theme & Material";
         _idStrings["Settings_NotchMode"] = "Notch Menempel Atas";
@@ -490,11 +498,13 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Settings_OpacitySub"] = "Background opacity level for OLED and Glassmorphism materials";
         _idStrings["Settings_HeaderGlass"] = "Glassmorphism & Aksen";
         _enStrings["Settings_HeaderGlass"] = "Glassmorphism & Accent";
-        _idStrings["Settings_RimSubtle"] = "Kaca Tipis (Default)";
-        _enStrings["Settings_RimSubtle"] = "Subtle Glass (Default)";
-        _idStrings["Settings_RimNeon"] = "Neon Warna Aksen";
+        _idStrings["Settings_RimSubtle"] = "Kaca Tipis";
+        _enStrings["Settings_RimSubtle"] = "Subtle Glass";
+        _idStrings["Settings_RimPrism"] = "Kaca Prisma";
+        _enStrings["Settings_RimPrism"] = "Prism Glass";
+        _idStrings["Settings_RimNeon"] = "Neon Aksen";
         _enStrings["Settings_RimNeon"] = "Accent Neon";
-        _idStrings["Settings_RimHidden"] = "Tanpa Garis Tepi";
+        _idStrings["Settings_RimHidden"] = "Tanpa Garis";
         _enStrings["Settings_RimHidden"] = "Hidden";
         _idStrings["Settings_GlowStyleSub"] = "Tampilan garis kilau kaca atau neon di sekeliling kontur pulau";
         _enStrings["Settings_GlowStyleSub"] = "Edge rim highlight appearance around the island contour";

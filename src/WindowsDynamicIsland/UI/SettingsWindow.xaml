@@ -1460,6 +1460,202 @@
                             <!-- PAGE 2: APPEARANCE                                    -->
                             <!-- ===================================================== -->
                             <StackPanel x:Name="PageAppearance" Visibility="Collapsed">
+                                <!-- LIVE INTERACTIVE THEME STUDIO & CURATED PRESETS -->
+                                <TextBlock Text="{Binding [Settings_ThemeStudioHeader], Source={x:Static svc:LocalizationService.Instance}}"
+                                           Foreground="#64748B"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,0,6"/>
+
+                                <Border Background="#1F1F25"
+                                        BorderBrush="#1AFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="16,14"
+                                        Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <!-- Simulated Desktop Bezel & Live Dynamic Island Preview Stage -->
+                                        <Border x:Name="PreviewStageBorder"
+                                                Height="88"
+                                                CornerRadius="10"
+                                                BorderBrush="#24FFFFFF"
+                                                BorderThickness="1"
+                                                ClipToBounds="True"
+                                                Margin="0,0,0,14">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                    <GradientStop Color="#0B111E" Offset="0.0"/>
+                                                    <GradientStop Color="#131B2E" Offset="0.5"/>
+                                                    <GradientStop Color="#090D16" Offset="1.0"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Grid>
+                                                <!-- Top Bezel Line -->
+                                                <Border Height="1" VerticalAlignment="Top" Background="#28FFFFFF"/>
+
+                                                <!-- Live Preview Label Pill (Bottom Left) -->
+                                                <Border Background="#18FFFFFF"
+                                                        BorderBrush="#24FFFFFF"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6"
+                                                        Padding="7,2.5"
+                                                        HorizontalAlignment="Left"
+                                                        VerticalAlignment="Bottom"
+                                                        Margin="10,0,0,8">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Ellipse x:Name="PreviewLivePulseDot" Width="5.5" Height="5.5" Fill="#38BDF8" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding [Settings_ThemePreviewLabel], Source={x:Static svc:LocalizationService.Instance}}"
+                                                                   Foreground="#CBD5E1"
+                                                                   FontSize="9"
+                                                                   FontWeight="Bold"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <!-- Active Theme Combination Summary Pill (Bottom Right) -->
+                                                <Border Background="#18FFFFFF"
+                                                        BorderBrush="#24FFFFFF"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6"
+                                                        Padding="8,2.5"
+                                                        HorizontalAlignment="Right"
+                                                        VerticalAlignment="Bottom"
+                                                        Margin="0,0,10,8">
+                                                    <TextBlock x:Name="PreviewThemeSummaryText"
+                                                               Text="OLED Black • Auto • Subtle"
+                                                               Foreground="#E2E8F0"
+                                                               FontSize="9.5"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </Border>
+
+                                                <!-- Ambient Backlight Halo in Preview -->
+                                                <Border x:Name="PreviewAmbientGlow"
+                                                        Width="226"
+                                                        Height="38"
+                                                        CornerRadius="0,0,18,18"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Top"
+                                                        Background="#38BDF8"
+                                                        Opacity="0.35">
+                                                    <Border.Effect>
+                                                        <BlurEffect Radius="20" KernelType="Gaussian"/>
+                                                    </Border.Effect>
+                                                </Border>
+
+                                                <!-- Simulated Dynamic Island Body -->
+                                                <Border x:Name="PreviewIslandBody"
+                                                        Width="228"
+                                                        Height="36"
+                                                        CornerRadius="0,0,16,16"
+                                                        Background="#040406"
+                                                        BorderBrush="#38FFFFFF"
+                                                        BorderThickness="1.2"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Top"
+                                                        Padding="12,0">
+                                                    <Border.Effect>
+                                                        <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.65" Color="#000000"/>
+                                                    </Border.Effect>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Left: Active Accent Badge & Clock -->
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Border x:Name="PreviewAccentBadge"
+                                                                    Background="#2438BDF8"
+                                                                    BorderBrush="#5538BDF8"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="6"
+                                                                    Padding="5.5,1.5"
+                                                                    Margin="0,0,6,0"
+                                                                    VerticalAlignment="Center">
+                                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                    <Ellipse x:Name="PreviewAccentMiniDot" Width="5" Height="5" Fill="#38BDF8" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                                    <TextBlock x:Name="PreviewClockText" Text="14:28" Foreground="#F8FAFC" FontSize="9.5" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </StackPanel>
+
+                                                        <!-- Center: TrueDepth Optical Lens -->
+                                                        <Border Grid.Column="1"
+                                                                Width="22" Height="12"
+                                                                CornerRadius="6"
+                                                                Background="#0DFFFFFF"
+                                                                BorderBrush="#1EFFFFFF"
+                                                                BorderThickness="1"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center">
+                                                            <Border x:Name="PreviewCameraLens"
+                                                                    Width="7.5" Height="7.5"
+                                                                    CornerRadius="3.75"
+                                                                    Background="#050811"
+                                                                    BorderBrush="#4538BDF8"
+                                                                    BorderThickness="1"
+                                                                    HorizontalAlignment="Center"
+                                                                    VerticalAlignment="Center"/>
+                                                        </Border>
+
+                                                        <!-- Right: Live Equalizer Bars + Battery Pill -->
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,7,0">
+                                                                <Border x:Name="PreviewEqBar1" Width="2.5" Height="8" CornerRadius="1.2" Background="#38BDF8" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                                <Border x:Name="PreviewEqBar2" Width="2.5" Height="13" CornerRadius="1.2" Background="#38BDF8" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                                <Border x:Name="PreviewEqBar3" Width="2.5" Height="10" CornerRadius="1.2" Background="#38BDF8" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                                <Border x:Name="PreviewEqBar4" Width="2.5" Height="6" CornerRadius="1.2" Background="#38BDF8" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                            <Border Width="18" Height="9.5" CornerRadius="2.5" BorderBrush="#80FFFFFF" BorderThickness="1" Background="#18FFFFFF" Padding="1.2" VerticalAlignment="Center">
+                                                                <Border x:Name="PreviewBatteryFill" CornerRadius="1.2" Background="#22C55E" HorizontalAlignment="Stretch"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Curated Designer Presets (1-Click) -->
+                                        <TextBlock Text="{Binding [Settings_QuickPresets], Source={x:Static svc:LocalizationService.Instance}}"
+                                                   Foreground="#F8FAFC"
+                                                   FontSize="12.5"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding [Settings_QuickPresetsSub], Source={x:Static svc:LocalizationService.Instance}}"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="10.8"
+                                                   Margin="0,2,0,9"/>
+
+                                        <UniformGrid Columns="4">
+                                            <Button Tag="Titanium" Click="OnThemePresetClicked" Style="{StaticResource IslandIconButtonStyle}" Padding="8,7" Margin="0,0,4,0">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Border Width="12" Height="12" CornerRadius="6" Background="#1C1E26" BorderBrush="#38BDF8" BorderThickness="1.5" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="iOS Titanium" Foreground="#F8FAFC" FontSize="10.8" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Tag="OledStealth" Click="OnThemePresetClicked" Style="{StaticResource IslandIconButtonStyle}" Padding="8,7" Margin="2,0,2,0">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Border Width="12" Height="12" CornerRadius="6" Background="#020204" BorderBrush="#22C55E" BorderThickness="1.5" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="OLED Stealth" Foreground="#F8FAFC" FontSize="10.8" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Tag="CyberNeon" Click="OnThemePresetClicked" Style="{StaticResource IslandIconButtonStyle}" Padding="8,7" Margin="2,0,2,0">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Border Width="12" Height="12" CornerRadius="6" Background="#0D1526" BorderBrush="#A855F7" BorderThickness="1.5" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Cyber Neon" Foreground="#F8FAFC" FontSize="10.8" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Tag="PureMono" Click="OnThemePresetClicked" Style="{StaticResource IslandIconButtonStyle}" Padding="8,7" Margin="4,0,0,0">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Border Width="12" Height="12" CornerRadius="6" Background="#18181B" BorderBrush="#E4E4E7" BorderThickness="1.5" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Monochrome" Foreground="#F8FAFC" FontSize="10.8" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </Border>
+
                                 <TextBlock Text="{Binding [Settings_HeaderContour], Source={x:Static svc:LocalizationService.Instance}}"
                                            Foreground="#64748B"
                                            FontSize="11.5"
@@ -1510,13 +1706,54 @@
                                                 CornerRadius="8"
                                                 Padding="2">
                                             <UniformGrid Columns="4" Rows="2">
-                                                <RadioButton x:Name="SurfOledBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="OLED Black" Tag="OledBlack" Click="OnSurfaceThemeClicked"/>
-                                                <RadioButton x:Name="SurfMonochromeBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Monochrome" Tag="Monochrome" Click="OnSurfaceThemeClicked"/>
-                                                <RadioButton x:Name="SurfCarbonBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Midnight Carbon" Tag="MidnightCarbon" Click="OnSurfaceThemeClicked"/>
-                                                <RadioButton x:Name="SurfGraphiteBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Frosted Graphite" Tag="FrostedGraphite" Click="OnSurfaceThemeClicked"/>
-                                                <RadioButton x:Name="SurfMatrixBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Cyber Matrix" Tag="CyberMatrix" Click="OnSurfaceThemeClicked"/>
-                                                <RadioButton x:Name="SurfAmethystBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Royal Amethyst" Tag="RoyalAmethyst" Click="OnSurfaceThemeClicked"/>
-                                                <RadioButton x:Name="SurfCrimsonBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Crimson Obsidian" Tag="CrimsonObsidian" Click="OnSurfaceThemeClicked"/>
+                                                <RadioButton x:Name="SurfOledBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="OledBlack" Click="OnSurfaceThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="11" Height="11" CornerRadius="3.5" Background="#020204" BorderBrush="#50FFFFFF" BorderThickness="1.1" Margin="0,0,5.5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="OLED Black" FontSize="10.8" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="SurfMonochromeBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Monochrome" Click="OnSurfaceThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="11" Height="11" CornerRadius="3.5" Background="#18181B" BorderBrush="#D4D4D8" BorderThickness="1.1" Margin="0,0,5.5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Monochrome" FontSize="10.8" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="SurfCarbonBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="MidnightCarbon" Click="OnSurfaceThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="11" Height="11" CornerRadius="3.5" Background="#0D1627" BorderBrush="#38BDF8" BorderThickness="1.1" Margin="0,0,5.5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Midnight Carbon" FontSize="10.8" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="SurfGraphiteBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="FrostedGraphite" Click="OnSurfaceThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="11" Height="11" CornerRadius="3.5" Background="#1D1F27" BorderBrush="#94A3B8" BorderThickness="1.1" Margin="0,0,5.5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Titanium Graphite" FontSize="10.8" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="SurfMatrixBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="CyberMatrix" Click="OnSurfaceThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="11" Height="11" CornerRadius="3.5" Background="#071E17" BorderBrush="#22C55E" BorderThickness="1.1" Margin="0,0,5.5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Cyber Matrix" FontSize="10.8" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="SurfAmethystBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="RoyalAmethyst" Click="OnSurfaceThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="11" Height="11" CornerRadius="3.5" Background="#180D2C" BorderBrush="#A855F7" BorderThickness="1.1" Margin="0,0,5.5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Royal Amethyst" FontSize="10.8" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="SurfCrimsonBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="CrimsonObsidian" Click="OnSurfaceThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="11" Height="11" CornerRadius="3.5" Background="#230A12" BorderBrush="#F43F5E" BorderThickness="1.1" Margin="0,0,5.5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Crimson Obsidian" FontSize="10.8" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="SurfAuroraBtn" GroupName="SurfaceTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="AuroraOcean" Click="OnSurfaceThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="11" Height="11" CornerRadius="3.5" Background="#082030" BorderBrush="#2DD4BF" BorderThickness="1.1" Margin="0,0,5.5,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Aurora Ocean" FontSize="10.8" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
                                             </UniformGrid>
                                         </Border>
 
@@ -1595,15 +1832,67 @@
                                                 CornerRadius="8"
                                                 Padding="2">
                                             <UniformGrid Columns="3" Rows="3">
-                                                <RadioButton x:Name="ThemeAutoBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Auto" Tag="Auto" Click="OnAccentThemeClicked"/>
-                                                <RadioButton x:Name="ThemeMonochromeBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Monochrome" Tag="Monochrome" Click="OnAccentThemeClicked"/>
-                                                <RadioButton x:Name="ThemeCyanBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Cyan" Tag="Cyan" Click="OnAccentThemeClicked"/>
-                                                <RadioButton x:Name="ThemeGreenBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Emerald" Tag="Green" Click="OnAccentThemeClicked"/>
-                                                <RadioButton x:Name="ThemePurpleBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Purple" Tag="Purple" Click="OnAccentThemeClicked"/>
-                                                <RadioButton x:Name="ThemeOrangeBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Amber" Tag="Orange" Click="OnAccentThemeClicked"/>
-                                                <RadioButton x:Name="ThemeRoseBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Rose" Tag="Rose" Click="OnAccentThemeClicked"/>
-                                                <RadioButton x:Name="ThemeGoldBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Gold" Tag="Gold" Click="OnAccentThemeClicked"/>
-                                                <RadioButton x:Name="ThemeWhiteBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Content="Pure White" Tag="White" Click="OnAccentThemeClicked"/>
+                                                <RadioButton x:Name="ThemeAutoBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Auto" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center">
+                                                            <Border.Background>
+                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                                    <GradientStop Color="#38BDF8" Offset="0.0"/>
+                                                                    <GradientStop Color="#22C55E" Offset="1.0"/>
+                                                                </LinearGradientBrush>
+                                                            </Border.Background>
+                                                        </Border>
+                                                        <TextBlock Text="Auto Adaptive" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="ThemeMonochromeBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Monochrome" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="#D4D4D8" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Monochrome" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="ThemeCyanBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Cyan" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="#38BDF8" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Cyan iOS" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="ThemeGreenBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Green" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="#22C55E" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Emerald" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="ThemePurpleBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Purple" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="#A855F7" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Electric Purple" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="ThemeOrangeBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Orange" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="#F97316" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Sunset Amber" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="ThemeRoseBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Rose" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="#F43F5E" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Coral Rose" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="ThemeGoldBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="Gold" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="#FBBF24" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Titanium Gold" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
+                                                <RadioButton x:Name="ThemeWhiteBtn" GroupName="AccentTheme" Style="{StaticResource AppleSegmentOptionStyle}" Tag="White" Click="OnAccentThemeClicked">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="#F8FAFC" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Pure Starlight" FontSize="11" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </RadioButton>
                                             </UniformGrid>
                                         </Border>
 
@@ -1623,8 +1912,9 @@
                                                 BorderThickness="1"
                                                 CornerRadius="8"
                                                 Padding="2">
-                                            <UniformGrid Columns="3">
+                                            <UniformGrid Columns="4">
                                                 <RadioButton x:Name="RimSubtleBtn" GroupName="RimStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="{Binding [Settings_RimSubtle], Source={x:Static svc:LocalizationService.Instance}}" Tag="Subtle" Click="OnRimStyleClicked"/>
+                                                <RadioButton x:Name="RimPrismBtn" GroupName="RimStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="{Binding [Settings_RimPrism], Source={x:Static svc:LocalizationService.Instance}}" Tag="PrismGlass" Click="OnRimStyleClicked"/>
                                                 <RadioButton x:Name="RimNeonBtn" GroupName="RimStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="{Binding [Settings_RimNeon], Source={x:Static svc:LocalizationService.Instance}}" Tag="AccentNeon" Click="OnRimStyleClicked"/>
                                                 <RadioButton x:Name="RimHiddenBtn" GroupName="RimStyle" Style="{StaticResource AppleSegmentOptionStyle}" Content="{Binding [Settings_RimHidden], Source={x:Static svc:LocalizationService.Instance}}" Tag="Hidden" Click="OnRimStyleClicked"/>
                                             </UniformGrid>

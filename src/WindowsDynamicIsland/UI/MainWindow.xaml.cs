@@ -609,22 +609,49 @@ public partial class MainWindow : Window
             _stateMachine.SetCornerStyle(_settingsService.NotchCornerStyle);
 
             byte surfaceAlpha = (byte)Math.Clamp((int)Math.Round(_settingsService.NotchBackgroundOpacity * 255.0), 200, 255);
-            Color baseSurface = _settingsService.IslandSurfaceTheme switch
+            (Color topSurface, Color bottomSurface) = _settingsService.IslandSurfaceTheme switch
             {
-                "MidnightCarbon" => Color.FromArgb(surfaceAlpha, 9, 13, 22),
-                "FrostedGraphite" => Color.FromArgb(surfaceAlpha, 18, 19, 24),
-                "CyberMatrix" => Color.FromArgb(surfaceAlpha, 4, 18, 14),
-                "RoyalAmethyst" => Color.FromArgb(surfaceAlpha, 15, 8, 26),
-                "CrimsonObsidian" => Color.FromArgb(surfaceAlpha, 22, 7, 12),
-                "Monochrome" => Color.FromArgb(surfaceAlpha, 14, 14, 16),
-                _ => Color.FromArgb(surfaceAlpha, 0, 0, 0)
+                "MidnightCarbon" => (
+                    Color.FromArgb(surfaceAlpha, 5, 8, 15),
+                    Color.FromArgb(surfaceAlpha, 14, 22, 38)),
+                "FrostedGraphite" => (
+                    Color.FromArgb(surfaceAlpha, 12, 13, 17),
+                    Color.FromArgb(surfaceAlpha, 26, 28, 36)),
+                "CyberMatrix" => (
+                    Color.FromArgb(surfaceAlpha, 3, 11, 9),
+                    Color.FromArgb(surfaceAlpha, 8, 28, 22)),
+                "RoyalAmethyst" => (
+                    Color.FromArgb(surfaceAlpha, 9, 5, 17),
+                    Color.FromArgb(surfaceAlpha, 24, 13, 42)),
+                "CrimsonObsidian" => (
+                    Color.FromArgb(surfaceAlpha, 13, 4, 8),
+                    Color.FromArgb(surfaceAlpha, 32, 10, 18)),
+                "AuroraOcean" => (
+                    Color.FromArgb(surfaceAlpha, 4, 12, 19),
+                    Color.FromArgb(surfaceAlpha, 9, 30, 44)),
+                "Monochrome" => (
+                    Color.FromArgb(surfaceAlpha, 9, 9, 11),
+                    Color.FromArgb(surfaceAlpha, 21, 21, 25)),
+                _ => (
+                    Color.FromArgb(surfaceAlpha, 0, 0, 0),
+                    Color.FromArgb(surfaceAlpha, 7, 7, 10))
             };
 
             if (IsMonochromeTheme && _settingsService.IslandSurfaceTheme != "Monochrome")
             {
-                baseSurface = MonochromeThemeHelper.ToMonochromeColor(baseSurface);
+                topSurface = MonochromeThemeHelper.ToMonochromeColor(topSurface);
+                bottomSurface = MonochromeThemeHelper.ToMonochromeColor(bottomSurface);
             }
-            UnifiedNotchPath.Fill = BrushCache.Get(baseSurface);
+
+            var surfaceGrad = new LinearGradientBrush
+            {
+                StartPoint = new Point(0.5, 0.0),
+                EndPoint = new Point(0.5, 1.0)
+            };
+            surfaceGrad.GradientStops.Add(new GradientStop(topSurface, 0.0));
+            surfaceGrad.GradientStops.Add(new GradientStop(bottomSurface, 1.0));
+            surfaceGrad.Freeze();
+            UnifiedNotchPath.Fill = surfaceGrad;
 
             Color themeColor = _settingsService.AccentTheme switch
             {
@@ -656,8 +683,13 @@ public partial class MainWindow : Window
             }
 
             _currentThemeAccentColor = themeColor;
-            Application.Current.Resources["AppAccentBrush"] = BrushCache.Get(themeColor);
-            HeaderSettingsGearIcon.Fill = BrushCache.Get(themeColor);
+            var accentBrush = BrushCache.Get(themeColor);
+            Application.Current.Resources["AppAccentBrush"] = accentBrush;
+            HeaderSettingsGearIcon.Fill = accentBrush;
+            LeftWingChevron.Fill = accentBrush;
+            RightWingChevron.Fill = accentBrush;
+            IdleSensorInnerRing.BorderBrush = BrushCache.Get(Color.FromArgb(68, themeColor.R, themeColor.G, themeColor.B));
+            IdleSensorGlossDot.Fill = BrushCache.Get(Color.FromArgb(145, themeColor.R, themeColor.G, themeColor.B));
 
             MonochromeThemeHelper.ApplyToSubtree(UnifiedMasterGrid, IsMonochromeTheme, MonochromeExcludedNames);
 
@@ -665,13 +697,45 @@ public partial class MainWindow : Window
             UnifiedNotchRimPath.Visibility = showRim ? Visibility.Visible : Visibility.Collapsed;
             if (_settingsService.RimGlowStyle == "AccentNeon")
             {
-                UnifiedNotchRimPath.Stroke = BrushCache.Get(Color.FromArgb(145, themeColor.R, themeColor.G, themeColor.B));
-                UnifiedNotchRimPath.StrokeThickness = 1.35;
+                Color brightAccent = Color.FromArgb(
+                    210,
+                    (byte)Math.Min(255, themeColor.R + 45),
+                    (byte)Math.Min(255, themeColor.G + 45),
+                    (byte)Math.Min(255, themeColor.B + 45));
+                var neonGrad = new LinearGradientBrush(
+                    Color.FromArgb(140, themeColor.R, themeColor.G, themeColor.B),
+                    brightAccent,
+                    new Point(0.0, 0.0),
+                    new Point(1.0, 1.0));
+                neonGrad.Freeze();
+                UnifiedNotchRimPath.Stroke = neonGrad;
+                UnifiedNotchRimPath.StrokeThickness = 1.45;
+            }
+            else if (_settingsService.RimGlowStyle == "PrismGlass")
+            {
+                var prismGrad = new LinearGradientBrush
+                {
+                    StartPoint = new Point(0.0, 0.0),
+                    EndPoint = new Point(1.0, 1.0)
+                };
+                prismGrad.GradientStops.Add(new GradientStop(Color.FromArgb(120, 255, 255, 255), 0.0));
+                prismGrad.GradientStops.Add(new GradientStop(Color.FromArgb(140, themeColor.R, themeColor.G, themeColor.B), 0.48));
+                prismGrad.GradientStops.Add(new GradientStop(Color.FromArgb(40, 255, 255, 255), 0.78));
+                prismGrad.GradientStops.Add(new GradientStop(Color.FromArgb(125, themeColor.R, themeColor.G, themeColor.B), 1.0));
+                prismGrad.Freeze();
+                UnifiedNotchRimPath.Stroke = prismGrad;
+                UnifiedNotchRimPath.StrokeThickness = 1.25;
             }
             else
             {
-                UnifiedNotchRimPath.Stroke = BrushCache.Get(Color.FromArgb(34, 255, 255, 255));
-                UnifiedNotchRimPath.StrokeThickness = 1.0;
+                var subtleGrad = new LinearGradientBrush(
+                    Color.FromArgb(22, 255, 255, 255),
+                    Color.FromArgb(56, 255, 255, 255),
+                    new Point(0.5, 0.0),
+                    new Point(0.5, 1.0));
+                subtleGrad.Freeze();
+                UnifiedNotchRimPath.Stroke = subtleGrad;
+                UnifiedNotchRimPath.StrokeThickness = 1.05;
             }
 
             // 2b. Customizable Notch Tabs & DWM Capture Shield
