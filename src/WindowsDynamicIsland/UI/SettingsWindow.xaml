@@ -286,7 +286,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                     <TextBlock Text="Dynamic Island" Foreground="#E2E8F0" FontSize="11" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="SidebarVersionText" Text="v2.1.0 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
+                                    <TextBlock x:Name="SidebarVersionText" Text="v2.2.0 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -1294,7 +1294,7 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock x:Name="SettingsUpdateTitleText"
-                                                           Text="Windows Dynamic Island v2.1.0"
+                                                           Text="Windows Dynamic Island v2.2.0"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
                                                            FontWeight="SemiBold"/>

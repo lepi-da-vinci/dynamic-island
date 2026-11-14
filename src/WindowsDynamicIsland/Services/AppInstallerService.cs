@@ -22,7 +22,7 @@ public static class AppInstallerService
         get
         {
             var v = typeof(AppInstallerService).Assembly.GetName().Version;
-            return v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.0";
+            return v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.2.0";
         }
     }
 
