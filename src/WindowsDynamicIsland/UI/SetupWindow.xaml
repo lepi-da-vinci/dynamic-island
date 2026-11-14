@@ -2,196 +2,450 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Windows Dynamic Island Setup"
-        Icon="pack://application:,,,/Assets/app_icon.ico"
-        Width="480"
-        Height="415"
+        Width="540" Height="510"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         ResizeMode="NoResize"
-        FontFamily="Segoe UI Variable Display, Segoe UI">
+        Topmost="True"
+        FontFamily="Segoe UI Variable Display, Segoe UI"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="ClearType">
 
-    <Grid Margin="16">
-        <Border Background="#0A0D14"
-                BorderBrush="#2AFFFFFF"
-                BorderThickness="1"
-                CornerRadius="18"
-                ClipToBounds="True">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.65" Color="#000000"/>
-            </Border.Effect>
+    <Window.Resources>
+        <Style x:Key="SetupCardToggleStyle" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="CardBorder" Background="#0DFFFFFF" BorderBrush="#18FFFFFF" BorderThickness="1" CornerRadius="11" Padding="13,10" Margin="0,0,0,7" SnapsToDevicePixels="True">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Grid.Column="0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                                <Border x:Name="CheckPill" Grid.Column="1" Width="36" Height="20" CornerRadius="10" Background="#24FFFFFF" BorderBrush="#28FFFFFF" BorderThickness="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                                    <Ellipse x:Name="CheckKnob" Width="14" Height="14" Fill="#94A3B8" HorizontalAlignment="Left" Margin="2,0,0,0"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CardBorder" Property="Background" Value="#14FFFFFF"/>
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="#2AFFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CardBorder" Property="Background" Value="#1238BDF8"/>
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="#4538BDF8"/>
+                                <Setter TargetName="CheckPill" Property="Background" Value="#38BDF8"/>
+                                <Setter TargetName="CheckPill" Property="BorderBrush" Value="#38BDF8"/>
+                                <Setter TargetName="CheckKnob" Property="Fill" Value="#09090B"/>
+                                <Setter TargetName="CheckKnob" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="CheckKnob" Property="Margin" Value="0,0,2,0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
-            <Grid>
+        <Style x:Key="SetupPrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#38BDF8"/>
+            <Setter Property="Foreground" Value="#09090B"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="20,9"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Opacity" Value="0.78"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="BtnBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SetupSecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#14FFFFFF"/>
+            <Setter Property="Foreground" Value="#CBD5E1"/>
+            <Setter Property="BorderBrush" Value="#22FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="15,9"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="Foreground" Value="#F8FAFC"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="BtnBorder" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- Main Apple Glassmorphic Container -->
+    <Border Margin="14" CornerRadius="20" Background="#09090B" BorderBrush="#24FFFFFF" BorderThickness="1" MouseLeftButtonDown="OnTitleBarDrag">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.65" Color="#000000"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="46"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="62"/>
+            </Grid.RowDefinitions>
+
+            <!-- Top Title Bar -->
+            <Border Grid.Row="0" BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1" Padding="18,0">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="pack://application:,,,/app_logo.ico" Width="18" Height="18" Margin="0,0,9,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <TextBlock x:Name="HeaderTitleText" Text="Windows Dynamic Island Setup" Foreground="#E2E8F0" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Border Background="#1838BDF8" BorderBrush="#3538BDF8" BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="9,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="VersionBadgeText" Text="v2.1.0" Foreground="#38BDF8" FontSize="10" FontWeight="Bold"/>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <!-- Language Toggle Button -->
+                        <Button x:Name="LangToggleBtn" Click="OnLangToggleClick" Cursor="Hand" Margin="0,0,8,0">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="LangPill" Background="#12FFFFFF" BorderBrush="#22FFFFFF" BorderThickness="1" CornerRadius="7" Padding="8,3">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="{StaticResource GeomGlobe}" Stroke="#94A3B8" StrokeThickness="1.3" Width="11" Height="11" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="LangBtnLabel" Text="{TemplateBinding Content}" Foreground="#CBD5E1" FontSize="10.5" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="LangPill" Property="Background" Value="#22FFFFFF"/>
+                                            <Setter TargetName="LangPill" Property="BorderBrush" Value="#38BDF8"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Close Window Button -->
+                        <Button x:Name="CloseBtn" Click="OnCloseClick" Width="26" Height="26" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="Transparent" CornerRadius="7">
+                                        <Path Data="M 6,6 L 14,14 M 14,6 L 6,14" Stroke="#94A3B8" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" Width="20" Height="20"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#25FB7185"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Step Indicator Strip -->
+            <Border Grid.Row="1" Background="#06FFFFFF" BorderBrush="#12FFFFFF" BorderThickness="0,0,0,1" Padding="24,9">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Border x:Name="Step1Badge" Width="18" Height="18" CornerRadius="9" Background="#38BDF8" Margin="0,0,7,0">
+                            <TextBlock Text="1" Foreground="#09090B" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="Step1Text" Text="Konfigurasi" Foreground="#F8FAFC" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Width="28" Height="1" Background="#22FFFFFF" VerticalAlignment="Center" Margin="6,0"/>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border x:Name="Step2Badge" Width="18" Height="18" CornerRadius="9" Background="#1EFFFFFF" Margin="0,0,7,0">
+                            <TextBlock Text="2" Foreground="#94A3B8" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="Step2Text" Text="Eksekusi" Foreground="#64748B" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="3" Width="28" Height="1" Background="#22FFFFFF" VerticalAlignment="Center" Margin="6,0"/>
+
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Border x:Name="Step3Badge" Width="18" Height="18" CornerRadius="9" Background="#1EFFFFFF" Margin="0,0,7,0">
+                            <TextBlock Text="3" Foreground="#94A3B8" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="Step3Text" Text="Selesai" Foreground="#64748B" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Main Content Area -->
+            <Grid Grid.Row="2" Margin="24,16,24,10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Top Custom Title Bar -->
-                <Border Grid.Row="0"
-                        Background="#12FFFFFF"
-                        BorderBrush="#18FFFFFF"
-                        BorderThickness="0,0,0,1"
-                        Padding="20,14"
-                        MouseLeftButtonDown="OnTitleBarDragMove">
+                <!-- Hero Banner -->
+                <Border Grid.Row="0" Background="#0DFFFFFF" BorderBrush="#1AFFFFFF" BorderThickness="1" CornerRadius="14" Padding="15,12" Margin="0,0,0,12">
                     <Grid>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Image Source="pack://application:,,,/Assets/app_logo.png"
-                                   Width="22" Height="22"
-                                   Margin="0,0,10,0"
-                                   RenderOptions.BitmapScalingMode="HighQuality"
-                                   VerticalAlignment="Center"/>
-                            <TextBlock x:Name="HeaderTitleText"
-                                       Text="Windows Dynamic Island Installer"
-                                       Foreground="#F8FAFC"
-                                       FontSize="13.5"
-                                       FontWeight="Bold"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <Button HorizontalAlignment="Right"
-                                Style="{StaticResource IslandIconButtonStyle}"
-                                Width="26" Height="26"
-                                Padding="0"
-                                ToolTip="Tutup"
-                                Click="OnCloseClick">
-                            <Path Data="{StaticResource GeomClosePower}"
-                                  Width="10" Height="10"
-                                  Stretch="Uniform"
-                                  Fill="#94A3B8"/>
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <!-- Main Content Area -->
-                <StackPanel Grid.Row="1" Margin="24,20,24,12" VerticalAlignment="Center">
-                    <Grid Margin="0,0,0,18">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <Image Grid.Column="0"
-                               Source="pack://application:,,,/Assets/app_logo.png"
-                               Width="54" Height="54"
-                               Margin="0,0,14,0"
-                               RenderOptions.BitmapScalingMode="HighQuality"
-                               VerticalAlignment="Center"/>
-
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock x:Name="MainHeadingText"
-                                       Text="Instalasi Standar Windows"
-                                       Foreground="#F8FAFC"
-                                       FontSize="19"
-                                       FontWeight="Bold"
-                                       Margin="0,0,0,4"/>
-
-                            <TextBlock x:Name="SubHeadingText"
-                                       Text="Aplikasi akan dipasang ke sistem Windows Anda dan terdaftar resmi di Installed Apps (Add or Remove Programs)."
-                                       Foreground="#94A3B8"
-                                       FontSize="11.5"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Install Options Panel -->
-                    <StackPanel x:Name="OptionsPanel">
-                        <Border Background="#12FFFFFF"
-                                BorderBrush="#20FFFFFF"
-                                BorderThickness="1"
-                                CornerRadius="12"
-                                Padding="14,12"
-                                Margin="0,0,0,10">
-                            <StackPanel>
-                                <CheckBox x:Name="DesktopShortcutCheck"
-                                          IsChecked="True"
-                                          Foreground="#F8FAFC"
-                                          FontSize="12.5"
-                                          FontWeight="SemiBold"
-                                          Margin="0,0,0,10"
-                                          Content="Buat Shortcut di Desktop"/>
-
-                                <CheckBox x:Name="StartMenuShortcutCheck"
-                                          IsChecked="True"
-                                          Foreground="#F8FAFC"
-                                          FontSize="12.5"
-                                          FontWeight="SemiBold"
-                                          Margin="0,0,0,10"
-                                          Content="Tambahkan ke Start Menu Windows"/>
-
-                                <CheckBox x:Name="AutostartCheck"
-                                          IsChecked="True"
-                                          Foreground="#F8FAFC"
-                                          FontSize="12.5"
-                                          FontWeight="SemiBold"
-                                          Content="Jalankan otomatis saat Windows dinyalakan (Startup)"/>
-                            </StackPanel>
+                        <Border x:Name="HeroIconBorder" Grid.Column="0" Width="44" Height="44" CornerRadius="12" Background="#1638BDF8" BorderBrush="#3538BDF8" BorderThickness="1" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <Grid>
+                                <Image x:Name="HeroAppLogo" Source="pack://application:,,,/app_logo.ico" Width="28" Height="28" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <Path x:Name="HeroModeVector" Data="{StaticResource GeomUpdate}" Stroke="#38BDF8" StrokeThickness="1.8" Width="22" Height="22" Stretch="Uniform" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
                         </Border>
 
-                        <TextBlock x:Name="InstallPathText"
-                                   Text="Lokasi: %LOCALAPPDATA%\Programs\WindowsDynamicIsland"
-                                   Foreground="#64748B"
-                                   FontSize="11"
-                                   TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
-
-                    <!-- Status Text During Action -->
-                    <TextBlock x:Name="StatusProgressText"
-                               Text=""
-                               Foreground="#38BDF8"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Margin="0,12,0,0"
-                               Visibility="Collapsed"/>
-                </StackPanel>
-
-                <!-- Bottom Action Bar -->
-                <Border Grid.Row="2"
-                        Background="#0EFFFFFF"
-                        BorderBrush="#18FFFFFF"
-                        BorderThickness="0,1,0,0"
-                        Padding="24,14">
-                    <Grid>
-                        <Button x:Name="SecondaryUninstallBtn"
-                                HorizontalAlignment="Left"
-                                Style="{StaticResource IslandIconButtonStyle}"
-                                Padding="14,8"
-                                Visibility="Collapsed"
-                                Click="OnUninstallClick">
-                            <TextBlock Text="Uninstall Aplikasi"
-                                       Foreground="#F87171"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"/>
-                        </Button>
-
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button x:Name="CancelBtn"
-                                    Style="{StaticResource IslandIconButtonStyle}"
-                                    Padding="16,8"
-                                    Margin="0,0,10,0"
-                                    Content="Batal"
-                                    FontSize="12"
-                                    Click="OnCloseClick"/>
-
-                            <Button x:Name="PrimaryActionBtn"
-                                    Style="{StaticResource IslandIconButtonStyle}"
-                                    Background="#38BDF8"
-                                    BorderBrush="#7DD3FC"
-                                    Padding="20,8"
-                                    Click="OnPrimaryActionClick">
-                                <TextBlock x:Name="PrimaryActionText"
-                                           Text="Install Sekarang"
-                                           Foreground="#090D16"
-                                           FontSize="12.5"
-                                           FontWeight="Bold"/>
-                            </Button>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="MainHeadingText" Text="Instal Windows Dynamic Island" Foreground="#F8FAFC" FontSize="15.5" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="SubHeadingText" Text="Antarmuka interaktif bergaya macOS untuk Windows 10 dan 11" Foreground="#94A3B8" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
+
+                        <Border x:Name="HeroStatusPill" Grid.Column="2" Background="#1622C55E" BorderBrush="#3822C55E" BorderThickness="1" CornerRadius="8" Padding="8,4" VerticalAlignment="Center" Margin="8,0,0,0" Visibility="Collapsed">
+                            <TextBlock x:Name="HeroStatusPillText" Text="Siap" Foreground="#34D399" FontSize="10.5" FontWeight="Bold"/>
+                        </Border>
                     </Grid>
                 </Border>
-            </Grid>
-        </Border>
-    </Grid>
-</Window>
 
+                <!-- STEP 1A: INSTALL OPTIONS PANEL -->
+                <StackPanel x:Name="InstallConfigPanel" Grid.Row="1" Visibility="Visible">
+                    <CheckBox x:Name="DesktopShortcutCheck" Style="{StaticResource SetupCardToggleStyle}" IsChecked="True">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="30" Height="30" CornerRadius="8" Background="#1838BDF8" Margin="0,0,11,0" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomDisplayMonitor}" Stroke="#38BDF8" StrokeThickness="1.6" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="OptDesktopTitle" Text="Pintasan Desktop (Desktop Shortcut)" Foreground="#F8FAFC" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="OptDesktopSub" Text="Tambahkan ikon peluncur cepat di layar Desktop utama" Foreground="#64748B" FontSize="10.5" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <CheckBox x:Name="StartMenuShortcutCheck" Style="{StaticResource SetupCardToggleStyle}" IsChecked="True">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="30" Height="30" CornerRadius="8" Background="#1834D399" Margin="0,0,11,0" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomHudLayers}" Stroke="#34D399" StrokeThickness="1.6" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="OptStartMenuTitle" Text="Integrasi Start Menu &amp; Windows Search" Foreground="#F8FAFC" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="OptStartMenuSub" Text="Daftarkan ke daftar semua aplikasi dan pencarian Windows" Foreground="#64748B" FontSize="10.5" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <CheckBox x:Name="AutoStartCheck" Style="{StaticResource SetupCardToggleStyle}" IsChecked="True">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="30" Height="30" CornerRadius="8" Background="#18FBBF24" Margin="0,0,11,0" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomBolt}" Stroke="#FBBF24" StrokeThickness="1.6" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="OptStartupTitle" Text="Jalankan Otomatis Saat Windows Menyala" Foreground="#F8FAFC" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="OptStartupSub" Text="Aktifkan Dynamic Island secara instan setiap kali masuk ke Windows" Foreground="#64748B" FontSize="10.5" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <!-- Target Path Info -->
+                    <Border Background="#08FFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,2,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Data="{StaticResource GeomFolderTray}" Stroke="#64748B" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="InstallPathLabelText" Text="Lokasi Instalasi Sistem" Foreground="#64748B" FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="TargetInstallDirText" Text="%LOCALAPPDATA%\Programs\WindowsDynamicIsland" Foreground="#94A3B8" FontSize="10.5" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- STEP 1B: UPDATE RELEASE NOTES & VERIFICATION PANEL -->
+                <Grid x:Name="UpdateConfigPanel" Grid.Row="1" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                        <Path Data="{StaticResource GeomAppearanceSparkle}" Stroke="#38BDF8" StrokeThickness="1.5" Width="13" Height="13" Stretch="Uniform" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="UpdateNotesHeaderText" Text="Catatan Pembaruan &amp; Peningkatan" Foreground="#E2E8F0" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#0AFFFFFF" BorderBrush="#18FFFFFF" BorderThickness="1" CornerRadius="11" Padding="13,10" Margin="0,0,0,9">
+                        <ScrollViewer Style="{StaticResource AppleScrollViewerStyle}" VerticalScrollBarVisibility="Auto">
+                            <TextBlock x:Name="ReleaseNotesBodyText" Text="Memeriksa rincian rilis terbaru dari repositori resmi..." Foreground="#CBD5E1" FontSize="11.5" LineHeight="18" TextWrapping="Wrap"/>
+                        </ScrollViewer>
+                    </Border>
+
+                    <Border Grid.Row="2" Background="#0D22C55E" BorderBrush="#2822C55E" BorderThickness="1" CornerRadius="10" Padding="12,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Data="{StaticResource GeomShield}" Stroke="#34D399" StrokeThickness="1.6" Width="15" Height="15" Stretch="Uniform" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="UpdateSecurityNoteText" Grid.Column="1" Text="Paket rilis diverifikasi dengan SHA-256 dan diterapkan secara langsung tanpa skrip eksternal." Foreground="#94A3B8" FontSize="10.5" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- STEP 1C: UNINSTALL OPTIONS PANEL -->
+                <StackPanel x:Name="UninstallConfigPanel" Grid.Row="1" Visibility="Collapsed">
+                    <Border Background="#10FB7185" BorderBrush="#2CFB7185" BorderThickness="1" CornerRadius="12" Padding="14,12" Margin="0,0,0,10">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                <Path Data="{StaticResource GeomTrash}" Stroke="#FB7185" StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="UninstallInfoTitleText" Text="Komponen yang Akan Dihapus" Foreground="#F8FAFC" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock x:Name="UninstallInfoDescText" Text="Seluruh biner aplikasi, pintasan Desktop/Start Menu, jadwal pengingat baterai, entri Auto-Start, serta registrasi Windows Installed Apps akan dibersihkan secara menyeluruh." Foreground="#CBD5E1" FontSize="11" LineHeight="16.5" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <CheckBox x:Name="RemoveUserDataCheck" Style="{StaticResource SetupCardToggleStyle}" IsChecked="False">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="30" Height="30" CornerRadius="8" Background="#18FB7185" Margin="0,0,11,0" VerticalAlignment="Center">
+                                <Path Data="{StaticResource GeomDiskStorage}" Stroke="#FB7185" StrokeThickness="1.6" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="OptRemoveDataTitle" Text="Hapus Juga Pengaturan &amp; Data Pengguna" Foreground="#F8FAFC" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="OptRemoveDataSub" Text="Bersihkan konfigurasi, jadwal kalender lokal, dan cache di AppData" Foreground="#64748B" FontSize="10.5" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </CheckBox>
+                </StackPanel>
+
+                <!-- STEP 2: DETERMINATE PROGRESS & PHASE CHECKLIST PANEL -->
+                <Border x:Name="ProgressPanel" Grid.Row="1" Visibility="Collapsed" Background="#0AFFFFFF" BorderBrush="#18FFFFFF" BorderThickness="1" CornerRadius="14" Padding="18,15">
+                    <StackPanel VerticalAlignment="Center">
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="StatusProgressText" Grid.Column="0" Text="Menyiapkan komponen sistem..." Foreground="#F8FAFC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="ProgressPercentText" Grid.Column="1" Text="0%" Foreground="#38BDF8" FontSize="12.5" FontWeight="Bold" Margin="10,0,0,0"/>
+                        </Grid>
+
+                        <!-- Custom Smooth Determinate Progress Bar -->
+                        <ProgressBar x:Name="ActionProgressBar" Height="7" Minimum="0" Maximum="100" Value="0" Background="#18FFFFFF" Foreground="#38BDF8" BorderThickness="0" Margin="0,0,0,16">
+                            <ProgressBar.Template>
+                                <ControlTemplate TargetType="ProgressBar">
+                                    <Grid x:Name="TemplateRoot" SnapsToDevicePixels="True">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="3.5"/>
+                                        <Border x:Name="PART_Track" CornerRadius="3.5"/>
+                                        <Decorator x:Name="PART_Indicator" HorizontalAlignment="Left">
+                                            <Border Background="{TemplateBinding Foreground}" CornerRadius="3.5"/>
+                                        </Decorator>
+                                    </Grid>
+                                </ControlTemplate>
+                            </ProgressBar.Template>
+                        </ProgressBar>
+
+                        <!-- 4-Step Phase Checklist -->
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Border x:Name="Phase1Badge" Width="18" Height="18" CornerRadius="9" Background="#18FFFFFF" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <Path x:Name="Phase1Icon" Data="{StaticResource GeomCheckTick}" Stroke="#64748B" StrokeThickness="1.8" Width="9" Height="9" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock x:Name="Phase1Text" Text="Persiapan proses &amp; ruang kerja" Foreground="#94A3B8" FontSize="11.5" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Border x:Name="Phase2Badge" Width="18" Height="18" CornerRadius="9" Background="#18FFFFFF" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <Path x:Name="Phase2Icon" Data="{StaticResource GeomCheckTick}" Stroke="#64748B" StrokeThickness="1.8" Width="9" Height="9" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock x:Name="Phase2Text" Text="Transfer &amp; verifikasi integritas berkas" Foreground="#94A3B8" FontSize="11.5" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Border x:Name="Phase3Badge" Width="18" Height="18" CornerRadius="9" Background="#18FFFFFF" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <Path x:Name="Phase3Icon" Data="{StaticResource GeomCheckTick}" Stroke="#64748B" StrokeThickness="1.8" Width="9" Height="9" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock x:Name="Phase3Text" Text="Konfigurasi pintasan &amp; registri sistem" Foreground="#94A3B8" FontSize="11.5" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal">
+                                <Border x:Name="Phase4Badge" Width="18" Height="18" CornerRadius="9" Background="#18FFFFFF" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <Path x:Name="Phase4Icon" Data="{StaticResource GeomCheckTick}" Stroke="#64748B" StrokeThickness="1.8" Width="9" Height="9" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock x:Name="Phase4Text" Text="Finalisasi &amp; pembersihan cache sementara" Foreground="#94A3B8" FontSize="11.5" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- STEP 3: COMPLETION SUMMARY PANEL -->
+                <Border x:Name="CompletePanel" Grid.Row="1" Visibility="Collapsed" Background="#0AFFFFFF" BorderBrush="#18FFFFFF" BorderThickness="1" CornerRadius="14" Padding="20,18">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Border x:Name="CompleteIconBadge" Width="52" Height="52" CornerRadius="26" Background="#1822C55E" BorderBrush="#4022C55E" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,12">
+                            <Path x:Name="CompleteIconPath" Data="{StaticResource GeomCheckCircle}" Stroke="#22C55E" StrokeThickness="2" Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="CompleteTitleText" Text="Instalasi Berhasil Diselesaikan" Foreground="#F8FAFC" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" TextAlignment="Center"/>
+                        <TextBlock x:Name="CompleteSubText" Text="Windows Dynamic Island telah siap digunakan dan berjalan secara otomatis di bagian atas layar Anda." Foreground="#94A3B8" FontSize="11.5" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="410"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Bottom Action Bar -->
+            <Border Grid.Row="3" Background="#08FFFFFF" BorderBrush="#14FFFFFF" BorderThickness="0,1,0,0" Padding="24,0">
+                <Grid>
+                    <!-- Left Secondary Action (e.g. Switch to Uninstall or View GitHub Release) -->
+                    <Button x:Name="SecondaryActionBtn" Content="Copot Pemasangan" Style="{StaticResource SetupSecondaryButtonStyle}" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed" Click="OnSecondaryActionClick"/>
+
+                    <!-- Right Primary & Cancel Buttons -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="CancelBtn" Content="Batal" Style="{StaticResource SetupSecondaryButtonStyle}" Margin="0,0,10,0" Click="OnCloseClick"/>
+                        <Button x:Name="PrimaryActionBtn" Content="Instal Sekarang" Style="{StaticResource SetupPrimaryButtonStyle}" Click="OnPrimaryActionClick"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

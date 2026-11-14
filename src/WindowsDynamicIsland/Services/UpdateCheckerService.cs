@@ -3,7 +3,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -24,15 +23,16 @@ public sealed record UpdateCheckResult(
 
 /// <summary>
 /// Background service that checks GitHub Releases for new application updates,
-/// notifies the user via Dynamic Island OSD Toasts, and updates the System Status Tab.
+/// streams the release archive with SHA-256 verification, and hands off update installation
+/// to the staged native WinExe process (--apply-update) with zero PowerShell usage.
 /// </summary>
 public sealed class UpdateCheckerService : IDisposable
 {
     private const string RepoOwner = "lepi-da-vinci";
     private const string RepoName = "dynamic-island";
     private const string GitHubApiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
-    private const string GitHubReleasesPageUrl = $"https://github.com/lepi-da-vinci/{RepoName}/releases/latest";
-    private const string OneClickInstallScriptUrl = $"https://raw.githubusercontent.com/{RepoOwner}/{RepoName}/main/install.ps1";
+    private const string GitHubReleasesPageUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/latest";
+    public const string FallbackReleaseZipUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/latest/download/WindowsDynamicIsland-win-x64.zip";
 
     private static readonly HttpClient _httpClient = new()
     {
@@ -49,16 +49,17 @@ public sealed class UpdateCheckerService : IDisposable
         ReleaseTitle: "Versi Terbaru",
         ReleaseNotes: string.Empty,
         ReleaseUrl: GitHubReleasesPageUrl,
-        PublishedAt: string.Empty);
+        PublishedAt: string.Empty,
+        DownloadZipUrl: FallbackReleaseZipUrl);
 
     public bool IsChecking { get; private set; }
+    public bool IsUpdating { get; private set; }
 
     public event Action<UpdateCheckResult>? UpdateStatusChanged;
     public event Action<UpdateCheckResult>? UpdateNotificationTriggered;
 
     public UpdateCheckerService()
     {
-        // First check after 4 seconds (so app startup is instant), then repeat every 4 hours
         _periodicTimer = new System.Threading.Timer(
             _ =>
             {
@@ -87,7 +88,7 @@ public sealed class UpdateCheckerService : IDisposable
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-            request.Headers.Add("User-Agent", "WindowsDynamicIsland-DesktopApp");
+            request.Headers.Add("User-Agent", $"WindowsDynamicIsland/{AppInstallerService.AppVersion}");
             request.Headers.Add("Accept", "application/vnd.github.v3+json");
 
             using var response = await _httpClient.SendAsync(request);
@@ -129,6 +130,11 @@ public sealed class UpdateCheckerService : IDisposable
                         shaUrl = dlUrl;
                     }
                 }
+            }
+
+            if (string.IsNullOrWhiteSpace(zipUrl))
+            {
+                zipUrl = FallbackReleaseZipUrl;
             }
 
             string cleanLatest = CleanVersionString(tagName);
@@ -175,8 +181,6 @@ public sealed class UpdateCheckerService : IDisposable
         }
     }
 
-    public bool IsUpdating { get; private set; }
-
     public async Task<bool> DownloadAndInstallUpdateAsync(Action<int, string>? onProgress = null)
     {
         if (IsUpdating) return false;
@@ -184,16 +188,17 @@ public sealed class UpdateCheckerService : IDisposable
 
         try
         {
+            var loc = LocalizationService.Instance;
+            bool en = loc.IsEnglish;
+
             if (string.IsNullOrWhiteSpace(LastResult.DownloadZipUrl))
             {
                 await CheckForUpdatesAsync(isBackgroundCheck: false);
             }
 
-            if (string.IsNullOrWhiteSpace(LastResult.DownloadZipUrl))
-            {
-                LaunchOneClickInstaller();
-                return true;
-            }
+            string downloadUrl = !string.IsNullOrWhiteSpace(LastResult.DownloadZipUrl)
+                ? LastResult.DownloadZipUrl
+                : FallbackReleaseZipUrl;
 
             string updatesRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -206,12 +211,12 @@ public sealed class UpdateCheckerService : IDisposable
             if (File.Exists(zipPath)) File.Delete(zipPath);
             if (Directory.Exists(stageDir)) Directory.Delete(stageDir, recursive: true);
 
-            onProgress?.Invoke(0, LocalizationService.Instance.Format("Updater_Downloading", 0));
+            onProgress?.Invoke(2, loc.Format("Updater_Downloading", 0));
 
-            using (var dlClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
+            using (var dlClient = new HttpClient { Timeout = TimeSpan.FromMinutes(8) })
             {
                 dlClient.DefaultRequestHeaders.UserAgent.ParseAdd($"WindowsDynamicIsland/{AppInstallerService.AppVersion}");
-                using var response = await dlClient.GetAsync(LastResult.DownloadZipUrl, HttpCompletionOption.ResponseHeadersRead);
+                using var response = await dlClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
 
                 long totalBytes = response.Content.Headers.ContentLength ?? -1L;
@@ -228,11 +233,17 @@ public sealed class UpdateCheckerService : IDisposable
                     readTotal += bytesRead;
                     if (totalBytes > 0)
                     {
-                        int pct = (int)Math.Clamp((readTotal * 100L) / totalBytes, 0, 100);
-                        if (pct != lastPct)
+                        int dlPct = (int)Math.Clamp((readTotal * 100L) / totalBytes, 0, 100);
+                        int overallPct = 5 + (int)(dlPct * 0.70);
+                        if (dlPct != lastPct)
                         {
-                            lastPct = pct;
-                            onProgress?.Invoke(pct, LocalizationService.Instance.Format("Updater_Downloading", pct));
+                            lastPct = dlPct;
+                            double mbRead = readTotal / (1024.0 * 1024.0);
+                            double mbTotal = totalBytes / (1024.0 * 1024.0);
+                            string statusMsg = en
+                                ? $"Downloading update package... {dlPct}% ({mbRead:F1} / {mbTotal:F1} MB)"
+                                : $"Mengunduh paket pembaruan... {dlPct}% ({mbRead:F1} / {mbTotal:F1} MB)";
+                            onProgress?.Invoke(overallPct, statusMsg);
                         }
                     }
                 }
@@ -240,6 +251,7 @@ public sealed class UpdateCheckerService : IDisposable
 
             if (!string.IsNullOrWhiteSpace(LastResult.Sha256AssetUrl))
             {
+                onProgress?.Invoke(78, en ? "Verifying SHA-256 package signature..." : "Memverifikasi tanda tangan paket SHA-256...");
                 using var shaClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
                 shaClient.DefaultRequestHeaders.UserAgent.ParseAdd($"WindowsDynamicIsland/{AppInstallerService.AppVersion}");
                 string expectedContent = await shaClient.GetStringAsync(LastResult.Sha256AssetUrl);
@@ -256,74 +268,38 @@ public sealed class UpdateCheckerService : IDisposable
                 }
             }
 
-            onProgress?.Invoke(100, LocalizationService.Instance.Get("Updater_Installing"));
-
-            // Validate archive & locate directory containing WindowsDynamicIsland.exe
+            onProgress?.Invoke(85, en ? "Extracting update files..." : "Mengekstrak berkas pembaruan...");
             ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
-            string? exeFile = Directory.GetFiles(stageDir, "WindowsDynamicIsland.exe", SearchOption.AllDirectories).FirstOrDefault();
-            if (string.IsNullOrWhiteSpace(exeFile))
+            AppInstallerService.UnblockDirectoryFiles(stageDir);
+
+            string? stagedExe = Directory.GetFiles(stageDir, "WindowsDynamicIsland.exe", SearchOption.AllDirectories).FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(stagedExe))
             {
-                throw new InvalidDataException("Downloaded package missing WindowsDynamicIsland.exe.");
+                throw new InvalidDataException("Downloaded update archive is missing WindowsDynamicIsland.exe.");
             }
 
-            string sourceDir = Path.GetDirectoryName(exeFile)!;
             string installDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string targetExe = Path.Combine(installDir, "WindowsDynamicIsland.exe");
-            string scriptPath = Path.Combine(updatesRoot, "apply_update.ps1");
+            onProgress?.Invoke(96, loc.Get("Updater_Installing", en ? "Applying update & restarting..." : "Menerapkan pembaruan & memulai ulang..."));
 
-            string psScript = $$"""
-                $ErrorActionPreference = 'Stop'
-                $targetPid = {{Environment.ProcessId}}
-                for ($i = 0; $i -lt 40; $i++) {
-                    if (-not (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) { break }
-                    Start-Sleep -Milliseconds 200
-                }
-                Copy-Item -Path "{{sourceDir}}\*" -Destination "{{installDir}}" -Recurse -Force
-                Start-Process -FilePath "{{targetExe}}"
-                Remove-Item -Path "{{stageDir}}" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "{{zipPath}}" -Force -ErrorAction SilentlyContinue
-                """;
-            await File.WriteAllTextAsync(scriptPath, psScript, Encoding.UTF8);
-
+            // Launch the staged native WinExe directly to replace files and restart without PowerShell
             Process.Start(new ProcessStartInfo
             {
-                FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{scriptPath}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
+                FileName = stagedExe,
+                Arguments = $"--apply-update \"{installDir}\" --wait-pid {Environment.ProcessId}",
+                WorkingDirectory = Path.GetDirectoryName(stagedExe) ?? stageDir,
+                UseShellExecute = false
             });
 
-            System.Windows.Application.Current?.Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown());
             return true;
         }
         catch (Exception ex)
         {
-            AppLogger.LogError("UpdateChecker", "In-app auto-update failed; opening releases page or script", ex);
+            AppLogger.LogError("UpdateChecker", "Native in-app auto-update failed", ex);
             return false;
         }
         finally
         {
             IsUpdating = false;
-        }
-    }
-
-    public static void LaunchOneClickInstaller()
-    {
-        try
-        {
-            string psCommand = $"irm {OneClickInstallScriptUrl} | iex";
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{psCommand}\"",
-                UseShellExecute = true,
-                CreateNoWindow = false,
-                WindowStyle = ProcessWindowStyle.Normal
-            });
-        }
-        catch
-        {
-            OpenReleasesInBrowser();
         }
     }
 
@@ -384,7 +360,7 @@ public sealed class UpdateCheckerService : IDisposable
     {
         if (string.IsNullOrWhiteSpace(notes)) return string.Empty;
         string cleaned = notes.Replace("\r", " ").Replace("\n", " ").Trim();
-        return cleaned.Length > 90 ? cleaned[..90] + "..." : cleaned;
+        return cleaned.Length > 120 ? cleaned[..120] + "..." : cleaned;
     }
 
     public void Dispose()
@@ -392,4 +368,3 @@ public sealed class UpdateCheckerService : IDisposable
         _periodicTimer?.Dispose();
     }
 }
-

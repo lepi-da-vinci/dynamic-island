@@ -102,4 +102,17 @@ public sealed class IslandCoreTests
         Assert.Same(first, second);
         Assert.True(first.IsFrozen);
     }
+
+    [Fact]
+    public void AppInstallerAndUpdateServices_ProvideValidPathsAndFallbackUrls()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(AppInstallerService.DefaultInstallDir));
+        Assert.Contains("WindowsDynamicIsland", AppInstallerService.DefaultInstallDir);
+        Assert.EndsWith("WindowsDynamicIsland.exe", AppInstallerService.InstalledExePath);
+        Assert.EndsWith("Uninstall.exe", AppInstallerService.UninstallerExePath);
+        Assert.Contains("https://github.com/lepi-da-vinci/dynamic-island/releases/latest/download/", UpdateCheckerService.FallbackReleaseZipUrl);
+
+        using var updater = new UpdateCheckerService();
+        Assert.False(string.IsNullOrWhiteSpace(updater.LastResult.CurrentVersion));
+    }
 }

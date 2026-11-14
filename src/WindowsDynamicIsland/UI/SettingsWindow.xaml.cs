@@ -1301,34 +1301,19 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async void OnInstallUpdateClicked(object sender, RoutedEventArgs e)
+    private void OnInstallUpdateClicked(object sender, RoutedEventArgs e)
     {
-        var loc = LocalizationService.Instance;
-        SettingsInstallUpdateBtn.IsEnabled = false;
-        SettingsCheckUpdateBtn.IsEnabled = false;
-        SettingsUpdateProgressBar.Visibility = Visibility.Visible;
-        SettingsUpdateProgressBar.Value = 0;
-
-        SettingsUpdateSubText.Text = loc.Format("Updater_Downloading", 0);
-        bool started = await _updateService.DownloadAndInstallUpdateAsync((pct, status) =>
-            Dispatcher.InvokeAsync(() =>
+        try
+        {
+            var updaterWin = new SetupWindow(SetupWindowMode.Update, _updateService)
             {
-                SettingsUpdateProgressBar.Value = pct;
-                SettingsUpdateSubText.Text = string.IsNullOrWhiteSpace(status) ? loc.Format("Updater_Downloading", pct) : status;
-            }));
-        if (started)
-        {
-            SettingsUpdateProgressBar.Value = 100;
-            SettingsUpdateSubText.Text = loc.Get("Updater_Installing", "Installing update & restarting...");
-            await Task.Delay(650);
-            Application.Current?.Shutdown();
+                Owner = this
+            };
+            updaterWin.ShowDialog();
         }
-        else
+        catch (Exception ex)
         {
-            SettingsUpdateProgressBar.Visibility = Visibility.Collapsed;
-            SettingsInstallUpdateBtn.IsEnabled = true;
-            SettingsCheckUpdateBtn.IsEnabled = true;
-            RefreshUpdateCard(_updateService.LastResult);
+            AppLogger.LogError("SettingsWindow.OnInstallUpdateClicked", ex.Message, ex);
         }
     }
 

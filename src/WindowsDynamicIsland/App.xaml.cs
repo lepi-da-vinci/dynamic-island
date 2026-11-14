@@ -1,201 +1,261 @@
+using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Interop;
 using WindowsDynamicIsland.Services;
 using WindowsDynamicIsland.UI;
 
-namespace WindowsDynamicIsland;
-
-public partial class App : Application
+namespace WindowsDynamicIsland
 {
-    private static Mutex? _singleInstanceMutex;
-
-    protected override void OnStartup(StartupEventArgs e)
+    public partial class App : Application
     {
-        AppLogger.LogInfo("Lifecycle", $"=== Windows Dynamic Island Starting === PID={Environment.ProcessId}, Args='{string.Join(" ", e.Args)}', OS={Environment.OSVersion}, Is64Bit={Environment.Is64BitProcess}, CLR={Environment.Version}");
+        private static Mutex? _appMutex;
 
-        DispatcherUnhandledException += (s, args) =>
-        {
-            AppLogger.LogCrash("DispatcherUnhandledException", args.Exception);
-            args.Handled = true;
-        };
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessDPIAware();
 
-        TaskScheduler.UnobservedTaskException += (s, args) =>
+        protected override void OnStartup(StartupEventArgs e)
         {
-            AppLogger.LogCrash("UnobservedTaskException", args.Exception);
-            args.SetObserved();
-        };
-
-        AppDomain.CurrentDomain.UnhandledException += (s, args) =>
-        {
-            if (args.ExceptionObject is Exception ex)
+            try
             {
-                AppLogger.LogCrash("AppDomainUnhandledException", ex);
+                RenderOptions.ProcessRenderMode = RenderMode.Default;
+                SetProcessDPIAware();
             }
-        };
+            catch { }
 
-        AppDomain.CurrentDomain.ProcessExit += (s, args) =>
-        {
-            AppLogger.LogInfo("Lifecycle", $"AppDomain.ProcessExit triggered. ExitCode={Environment.ExitCode}");
-        };
+            string currentExePath = Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
+            string exeName = Path.GetFileNameWithoutExtension(currentExePath);
 
-        try
-        {
-            Microsoft.Win32.SystemEvents.SessionSwitch += (s, args) =>
+            bool isArgUninstall = false;
+            bool isArgInstall = false;
+            bool isArgSetup = false;
+            bool isArgUpdate = false;
+            bool isArgApplyUpdate = false;
+            bool isArgRelocated = false;
+            bool isArgQuiet = false;
+            int waitPid = 0;
+            string? targetInstallDir = null;
+
+            for (int i = 0; i < e.Args.Length; i++)
             {
-                AppLogger.LogInfo("SystemEvents", $"SessionSwitch Reason={args.Reason}");
-            };
-        }
-        catch { }
+                string arg = e.Args[i];
+                if (arg.Equals("--uninstall", StringComparison.OrdinalIgnoreCase) ||
+                    arg.Equals("/uninstall", StringComparison.OrdinalIgnoreCase))
+                {
+                    isArgUninstall = true;
+                }
+                else if (arg.Equals("--quiet", StringComparison.OrdinalIgnoreCase) ||
+                         arg.Equals("/quiet", StringComparison.OrdinalIgnoreCase) ||
+                         arg.Equals("--silent", StringComparison.OrdinalIgnoreCase) ||
+                         arg.Equals("/s", StringComparison.OrdinalIgnoreCase))
+                {
+                    isArgQuiet = true;
+                }
+                else if (arg.Equals("--install", StringComparison.OrdinalIgnoreCase) ||
+                         arg.Equals("--silent-install", StringComparison.OrdinalIgnoreCase) ||
+                         arg.Equals("/install", StringComparison.OrdinalIgnoreCase))
+                {
+                    isArgInstall = true;
+                }
+                else if (arg.Equals("--setup", StringComparison.OrdinalIgnoreCase) ||
+                         arg.Equals("/setup", StringComparison.OrdinalIgnoreCase))
+                {
+                    isArgSetup = true;
+                }
+                else if (arg.Equals("--update", StringComparison.OrdinalIgnoreCase) ||
+                         arg.Equals("/update", StringComparison.OrdinalIgnoreCase))
+                {
+                    isArgUpdate = true;
+                }
+                else if (arg.Equals("--apply-update", StringComparison.OrdinalIgnoreCase))
+                {
+                    isArgApplyUpdate = true;
+                    if (i + 1 < e.Args.Length && !e.Args[i + 1].StartsWith('-'))
+                    {
+                        targetInstallDir = e.Args[++i];
+                    }
+                }
+                else if (arg.Equals("--relocated", StringComparison.OrdinalIgnoreCase))
+                {
+                    isArgRelocated = true;
+                }
+                else if (arg.Equals("--wait-pid", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (i + 1 < e.Args.Length && int.TryParse(e.Args[i + 1], out int parsedPid))
+                    {
+                        waitPid = parsedPid;
+                        i++;
+                    }
+                }
+            }
 
-        base.OnStartup(e);
-
-        string exeName = Path.GetFileNameWithoutExtension(Environment.ProcessPath ?? string.Empty);
-        bool isArgUninstall = e.Args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase) || a.Equals("/uninstall", StringComparison.OrdinalIgnoreCase));
-        bool isArgQuiet = e.Args.Any(a => a.Equals("--quiet", StringComparison.OrdinalIgnoreCase) || a.Equals("--silent", StringComparison.OrdinalIgnoreCase) || a.Equals("/quiet", StringComparison.OrdinalIgnoreCase) || a.Equals("/S", StringComparison.OrdinalIgnoreCase));
-        bool isArgSilentInstall = e.Args.Any(a => a.Equals("--install", StringComparison.OrdinalIgnoreCase) || a.Equals("--silent-install", StringComparison.OrdinalIgnoreCase) || a.Equals("/install", StringComparison.OrdinalIgnoreCase));
-        bool isArgSetupGui = e.Args.Any(a => a.Equals("--setup", StringComparison.OrdinalIgnoreCase));
-
-        bool isExeUninstaller = exeName.Equals("Uninstall", StringComparison.OrdinalIgnoreCase);
-        bool isExeSetup = exeName.Contains("Setup", StringComparison.OrdinalIgnoreCase) || exeName.Contains("Installer", StringComparison.OrdinalIgnoreCase);
-
-        // 1. Handle Uninstall Mode (CLI or Uninstall.exe)
-        if (isArgUninstall || isExeUninstaller)
-        {
-            if (isArgQuiet)
+            if (!isArgRelocated && !isArgApplyUpdate)
             {
-                try { AppInstallerService.UninstallApplication(); } catch { }
+                AppInstallerService.CleanupTempInstallerDirectories();
+            }
+
+            // 0. Staged Update Applicator Mode (--apply-update <targetInstallDir> --wait-pid <pid>)
+            if (isArgApplyUpdate)
+            {
+                string resolvedTarget = string.IsNullOrWhiteSpace(targetInstallDir)
+                    ? AppInstallerService.DefaultInstallDir
+                    : targetInstallDir;
+
+                if (isArgQuiet)
+                {
+                    AppInstallerService.ApplyStagedUpdate(resolvedTarget, waitPid);
+                    Shutdown();
+                    return;
+                }
+
+                base.OnStartup(e);
+                var applyWin = new SetupWindow(
+                    SetupWindowMode.ApplyStagedUpdate,
+                    updateService: null,
+                    targetInstallDir: resolvedTarget,
+                    waitPid: waitPid);
+                MainWindow = applyWin;
+                applyWin.Show();
+                return;
+            }
+
+            // 1. Uninstall Mode (--uninstall or Uninstall.exe)
+            if (isArgUninstall || exeName.Equals("Uninstall", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!isArgRelocated && AppInstallerService.TryRelocateUninstallerIfLocked(e.Args))
+                {
+                    Shutdown();
+                    return;
+                }
+
+                if (isArgQuiet)
+                {
+                    if (waitPid > 0)
+                    {
+                        AppInstallerService.WaitForProcessExit(waitPid, 6000);
+                    }
+                    AppInstallerService.UninstallApplication();
+                    Shutdown();
+                    return;
+                }
+
+                base.OnStartup(e);
+                var uninstallWin = new SetupWindow(
+                    SetupWindowMode.Uninstall,
+                    updateService: null,
+                    targetInstallDir: AppInstallerService.DefaultInstallDir,
+                    waitPid: waitPid);
+                MainWindow = uninstallWin;
+                uninstallWin.Show();
+                return;
+            }
+
+            // 2. Silent Auto-Install Mode (--install)
+            if (isArgInstall)
+            {
+                if (waitPid > 0)
+                {
+                    AppInstallerService.WaitForProcessExit(waitPid, 5000);
+                }
+                AppInstallerService.InstallApplication(true, true, true, true);
                 Shutdown();
                 return;
             }
 
-            var uninstallWin = new SetupWindow(isUninstallMode: true);
-            MainWindow = uninstallWin;
-            uninstallWin.Show();
-            return;
-        }
-
-        // 2. Handle Silent Install Mode (--install)
-        if (isArgSilentInstall)
-        {
-            try
+            // 3. Dedicated Standalone Updater Mode (--update)
+            if (isArgUpdate)
             {
-                AppInstallerService.InstallApplication(
-                    createDesktopShortcut: true,
-                    createStartMenuShortcut: true,
-                    enableAutostart: true,
-                    launchAfterInstall: true);
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogCrash("SilentInstall", ex);
-            }
-            Shutdown();
-            return;
-        }
-
-        // 3. Handle Interactive Setup Wizard Mode (WindowsDynamicIsland-Setup.exe or --setup)
-        if (isArgSetupGui || isExeSetup)
-        {
-            var setupWin = new SetupWindow(isUninstallMode: false);
-            MainWindow = setupWin;
-            setupWin.Show();
-            return;
-        }
-
-        // 4. Normal Dynamic Island Overlay Launch
-        try
-        {
-            int currentPid = Environment.ProcessId;
-            foreach (var proc in Process.GetProcessesByName("WindowsDynamicIsland"))
-            {
-                if (proc.Id != currentPid)
-                {
-                    try
-                    {
-                        proc.Kill();
-                        proc.WaitForExit(1000);
-                    }
-                    catch { }
-                }
+                base.OnStartup(e);
+                var updateWin = new SetupWindow(SetupWindowMode.Update, new UpdateCheckerService());
+                MainWindow = updateWin;
+                updateWin.Show();
+                return;
             }
 
-            foreach (var proc in Process.GetProcessesByName("dotnet"))
+            // 4. Interactive Setup Wizard Mode (--setup or *Setup*.exe / *Installer*.exe)
+            if (isArgSetup ||
+                exeName.Contains("Setup", StringComparison.OrdinalIgnoreCase) ||
+                exeName.Contains("Installer", StringComparison.OrdinalIgnoreCase))
             {
-                if (proc.Id == currentPid) continue;
+                base.OnStartup(e);
+                var setupWin = new SetupWindow(SetupWindowMode.Install, waitPid: waitPid);
+                MainWindow = setupWin;
+                setupWin.Show();
+                return;
+            }
+
+            // 5. Normal Application Startup (Single-Instance Guard)
+            const string mutexName = "Global\\WindowsDynamicIsland_SingleInstance_Mutex_v2";
+            _appMutex = new Mutex(true, mutexName, out bool createdNew);
+
+            if (!createdNew)
+            {
                 try
                 {
-                    if (proc.MainWindowTitle.Contains("Dynamic Island", StringComparison.OrdinalIgnoreCase))
+                    int currentPid = Environment.ProcessId;
+                    foreach (var proc in Process.GetProcessesByName("WindowsDynamicIsland"))
                     {
-                        proc.Kill();
-                        proc.WaitForExit(1000);
+                        using (proc)
+                        {
+                            if (proc.Id != currentPid)
+                            {
+                                proc.Kill();
+                                proc.WaitForExit(1500);
+                            }
+                        }
                     }
                 }
                 catch { }
             }
-        }
-        catch { }
 
-        bool hasHandle = false;
-        try
-        {
-            _singleInstanceMutex = new Mutex(true, @"Local\WindowsDynamicIsland_SingleInstance_Mutex", out bool createdNew);
-            hasHandle = createdNew || _singleInstanceMutex.WaitOne(1500, false);
-        }
-        catch (AbandonedMutexException)
-        {
-            hasHandle = true;
-        }
-        catch
-        {
-            hasHandle = true;
-        }
+            base.OnStartup(e);
 
-        if (!hasHandle)
-        {
-            AppLogger.LogWarning("Lifecycle", $"[PID {Environment.ProcessId}] Mutex not acquired on first pass, killing lingering instances to take over.");
+            DispatcherUnhandledException += (s, args) =>
+            {
+                AppLogger.LogError("App.DispatcherUnhandledException", args.Exception.Message, args.Exception);
+                args.Handled = true;
+            };
+
+            AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+            {
+                if (args.ExceptionObject is Exception ex)
+                {
+                    AppLogger.LogError("AppDomain.UnhandledException", ex.Message, ex);
+                }
+            };
+
+            TaskScheduler.UnobservedTaskException += (s, args) =>
+            {
+                AppLogger.LogError("TaskScheduler.UnobservedTaskException", args.Exception.Message, args.Exception);
+                args.SetObserved();
+            };
+
             try
             {
-                int currentPid = Environment.ProcessId;
-                foreach (var proc in Process.GetProcessesByName("WindowsDynamicIsland"))
-                {
-                    if (proc.Id != currentPid)
-                    {
-                        proc.Kill();
-                        proc.WaitForExit(1000);
-                    }
-                }
+                var mainWin = new MainWindow();
+                MainWindow = mainWin;
+                mainWin.Show();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("OnStartup.MainWindow", ex.Message, ex);
+            }
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                _appMutex?.ReleaseMutex();
+                _appMutex?.Dispose();
             }
             catch { }
+            base.OnExit(e);
         }
-
-        AppLogger.LogInfo("Lifecycle", $"[PID {Environment.ProcessId}] Proceeding to MainWindow creation.");
-        try
-        {
-            var islandWindow = new MainWindow();
-            MainWindow = islandWindow;
-            AppLogger.LogInfo("Lifecycle", $"[PID {Environment.ProcessId}] MainWindow instance created. Calling Show().");
-            islandWindow.Show();
-            AppLogger.LogInfo("Lifecycle", $"[PID {Environment.ProcessId}] islandWindow.Show() succeeded.");
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogCrash("MainWindowCreation", ex);
-            throw;
-        }
-    }
-
-    protected override void OnExit(ExitEventArgs e)
-    {
-        AppLogger.LogInfo("Lifecycle", $"App.OnExit called. ApplicationExitCode={e.ApplicationExitCode}. CallStack:\r\n{new StackTrace(1, true)}");
-        try
-        {
-            _singleInstanceMutex?.ReleaseMutex();
-            _singleInstanceMutex?.Dispose();
-        }
-        catch { }
-
-        base.OnExit(e);
     }
 }

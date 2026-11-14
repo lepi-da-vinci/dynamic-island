@@ -23,15 +23,13 @@
     <InternalsVisibleTo Include="WindowsDynamicIsland.Tests" />
     <Resource Include="Assets\app_icon.ico" />
     <Resource Include="Assets\app_logo.png" />
-    <None Include="setup_battery_tasks.ps1" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Aktifkan-Smart-Charge.bat" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Automatically stop any previous running instance before build/run so MSB3027 file-lock never happens -->
   <Target Name="StopRunningDynamicIsland" BeforeTargets="BeforeBuild;PrepareForBuild;CopyFilesToOutputDirectory">
-    <Exec Command="powershell -NoProfile -Command &quot;Get-Process -Name 'WindowsDynamicIsland' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue&quot;"
+    <Exec Command="taskkill /F /IM WindowsDynamicIsland.exe >nul 2>&amp;1"
           IgnoreExitCode="true"
-           EchoOff="true" />
+          EchoOff="true" />
   </Target>
 
   <!-- Ensure design-time *.g.i.cs exists for Visual Studio / VS Code Roslyn IntelliSense -->

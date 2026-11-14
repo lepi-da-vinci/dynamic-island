@@ -925,35 +925,17 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void OnInstallUpdateClick(object sender, RoutedEventArgs e)
+    private void OnInstallUpdateClick(object sender, RoutedEventArgs e)
     {
-        var loc = LocalizationService.Instance;
-        SysInstallUpdateBtn.IsEnabled = false;
-        SysCheckUpdateBtn.IsEnabled = false;
-
-        TriggerToast(new ToastPayload(
-            Icon: "BOLT",
-            Title: "Windows Dynamic Island Updater",
-            Subtitle: loc.Format("Updater_Downloading", 0),
-            AccentHex: "#22C55E",
-            Duration: TimeSpan.FromSeconds(4.0)));
-
-        bool started = await _updateService.DownloadAndInstallUpdateAsync((pct, status) =>
-            Dispatcher.InvokeAsync(() =>
-            {
-                SysUpdateSubText.Text = string.IsNullOrWhiteSpace(status) ? loc.Format("Updater_Downloading", pct) : status;
-            }));
-        if (started)
+        try
         {
-            SysUpdateSubText.Text = loc.Get("Updater_Installing", "Installing update & restarting...");
-            await Task.Delay(650);
-            Application.Current.Shutdown();
+            var updaterWin = new SetupWindow(SetupWindowMode.Update, _updateService);
+            updaterWin.Show();
+            updaterWin.Activate();
         }
-        else
+        catch (Exception ex)
         {
-            SysInstallUpdateBtn.IsEnabled = true;
-            SysCheckUpdateBtn.IsEnabled = true;
-            UpdateSystemUpdateUi(_updateService.LastResult);
+            AppLogger.LogError("MainWindow.OnInstallUpdateClick", ex.Message, ex);
         }
     }
 
