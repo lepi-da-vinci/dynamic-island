@@ -86,9 +86,6 @@ public sealed class IslandMorphController
     public SpringValue TopEarRadius { get; } = new(13, stiffness: 380, damping: 28);
     public SpringValue GlowOpacity { get; } = new(0.12, stiffness: 240, damping: 22, precision: 0.01);
 
-    public bool IsAnimating =>
-        !Width.IsAtRest || !Height.IsAtRest || !BottomCornerRadius.IsAtRest || !TopEarRadius.IsAtRest || !GlowOpacity.IsAtRest;
-
     public void MorphTo(double width, double height, double bottomCornerRadius, double topEarRadius, double glowOpacity, bool bouncy = true)
     {
         Width.Stiffness = bouncy ? 330 : 410;

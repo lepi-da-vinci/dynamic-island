@@ -521,7 +521,6 @@ public partial class MainWindow
             if (_audioService.SetDefaultOutputDevice(devId))
             {
                 AudioDevicePickerBorder.Visibility = Visibility.Collapsed;
-                UpdateSlidersAndMuteUi();
                 UpdateMediaAndLyricsUi();
                 TriggerToast(new ToastPayload(
                     Icon: _audioService.IsHeadphoneOrTws ? "HEADPHONES" : "SPEAKER",

@@ -27,7 +27,6 @@ public sealed partial class LyricsService
     private double _loadedDurationSeconds;
     private int _requestVersion;
 
-    public bool HasSyncedLyrics => _currentLines.Count > 0;
     public string StatusMessage { get; private set; } = "Putar musik di Spotify / Browser";
 
     public event Action? LyricsUpdated;

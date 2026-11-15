@@ -129,11 +129,6 @@ public sealed class FileShelfService
         }
     }
 
-    public void RemoveItem(ShelfItem item)
-    {
-        Items.Remove(item);
-    }
-
     public void Clear()
     {
         Items.Clear();

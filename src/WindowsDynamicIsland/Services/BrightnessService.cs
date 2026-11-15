@@ -172,12 +172,6 @@ public sealed class BrightnessService
         return _lastKnownBrightness;
     }
 
-    public int AdjustBrightness(int deltaPercent)
-    {
-        int current = GetBrightnessPercent();
-        return SetBrightnessPercent(current + deltaPercent);
-    }
-
     [StructLayout(LayoutKind.Sequential)]
     private struct DISPLAY_BRIGHTNESS
     {

@@ -1573,10 +1573,6 @@ public partial class SettingsWindow : Window
         catch { }
     }
 
-    public void AnimateBatLimitPill(int colIndex)
-    {
-    }
-
     public void AnimateNotchSizePill(int colIndex)
     {
         var group = _segmentedGroups.FirstOrDefault(g => g.HostGrid == NotchSizeHostGrid);

@@ -303,20 +303,6 @@ public sealed class UpdateCheckerService : IDisposable
         }
     }
 
-    public static void OpenReleasesInBrowser(string? url = null)
-    {
-        try
-        {
-            string targetUrl = !string.IsNullOrWhiteSpace(url) ? url : GitHubReleasesPageUrl;
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = targetUrl,
-                UseShellExecute = true
-            });
-        }
-        catch { }
-    }
-
     private static string CleanVersionString(string ver)
     {
         string trimmed = ver.Trim().TrimStart('v', 'V');

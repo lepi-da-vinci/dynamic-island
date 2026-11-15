@@ -29,26 +29,14 @@ public static class Win32Interop
     public const int WM_HOTKEY = 0x0312;
 
     public const uint MOD_ALT = 0x0001;
-    public const uint MOD_CONTROL = 0x0002;
-    public const uint MOD_SHIFT = 0x0004;
-    public const uint MOD_WIN = 0x0008;
     public const uint MOD_NOREPEAT = 0x4000;
     public const int VK_SPACE = 0x20;
 
     public const int HOTKEY_ID_SPOTLIGHT = 9001;
 
-    public const uint MONITOR_DEFAULTTONULL = 0x00000000;
-    public const uint MONITOR_DEFAULTTOPRIMARY = 0x00000001;
     public const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
 
     public const int HTTRANSPARENT = -1;
-    public const int HTCLIENT = 1;
-
-    public const int VK_SHIFT = 0x10;
-    public const int VK_SNAPSHOT = 0x2C;
-    public const int VK_S = 0x53;
-    public const int VK_LWIN = 0x5B;
-    public const int VK_RWIN = 0x5C;
 
     public const uint WDA_NONE = 0x00000000;
     public const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
@@ -454,7 +442,6 @@ public static class Win32Interop
     public const int NIF_ICON = 0x00000002;
     public const int NIF_TIP = 0x00000004;
     public const int NIM_ADD = 0x00000000;
-    public const int NIM_MODIFY = 0x00000001;
     public const int NIM_DELETE = 0x00000002;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -518,7 +505,6 @@ public static class Win32Interop
     public const uint SHGFI_ICON = 0x000000100;
     public const uint SHGFI_LARGEICON = 0x000000000;
     public const uint SHGFI_SMALLICON = 0x000000001;
-    public const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct SHFILEINFO

@@ -31,7 +31,6 @@ public sealed class AppSettingsData
     public bool ScreenshotAutoTuckEnabled { get; set; } = true;
     public bool ExcludeFromScreenCapture { get; set; } = false;
     public int TopOffsetPx { get; set; } = 0;
-    public int TopEdgeHoverSensitivityMs { get; set; } = 60;
     public string TargetMonitorMode { get; set; } = "Primary"; // Primary, Monitor2, Monitor3, FollowCursor
 
     // Appearance & Design Themes
@@ -331,18 +330,6 @@ public sealed class AppSettingsService
             int clamped = Math.Clamp(value, 0, 24);
             if (_data.TopOffsetPx == clamped) return;
             _data.TopOffsetPx = clamped;
-            Save();
-            SettingsChanged?.Invoke();
-        }
-    }
-
-    public int TopEdgeHoverSensitivityMs
-    {
-        get => _data.TopEdgeHoverSensitivityMs;
-        set
-        {
-            if (_data.TopEdgeHoverSensitivityMs == value) return;
-            _data.TopEdgeHoverSensitivityMs = value;
             Save();
             SettingsChanged?.Invoke();
         }

@@ -22,8 +22,6 @@ public partial class MainWindow
 {
     private void ShowVolumeToast(int volumePercent, bool isMuted, bool muteToggled)
     {
-        UpdateSlidersAndMuteUi();
-
         bool isHeadphones = _audioService.IsHeadphoneOrTws;
         string devName = _audioService.ActiveOutputDeviceName;
 
@@ -55,8 +53,6 @@ public partial class MainWindow
 
     private void ShowBrightnessToast(int brightnessPercent)
     {
-        UpdateSlidersAndMuteUi();
-
         TriggerToast(new ToastPayload(
             Icon: "SUN",
             Title: $"Kecerahan {brightnessPercent}%",
@@ -69,8 +65,6 @@ public partial class MainWindow
 
     private void ShowMicMuteToast(bool isMicMuted)
     {
-        UpdateSlidersAndMuteUi();
-
         TriggerToast(new ToastPayload(
             Icon: isMicMuted ? "MIC_MUTE" : "MIC_ON",
             Title: isMicMuted ? "Mikrofon: MUTED" : "Mikrofon: ON (Aktif)",
@@ -126,99 +120,6 @@ public partial class MainWindow
             return GetVectorGeometry("GeomFocusTimer");
 
         return GetVectorGeometry("GeomBellNotif");
-    }
-
-    private void UpdateSlidersAndMuteUi()
-    {
-        int vol = _audioService.GetMasterVolumePercent();
-        bool soundMuted = _audioService.IsMuted();
-        bool micMuted = _audioService.IsMicrophoneMuted();
-        bool isHeadphones = _audioService.IsHeadphoneOrTws;
-        int brt = _brightnessService.GetBrightnessPercent();
-
-        bool isMono = IsMonochromeTheme;
-        SysVolumePercentText.Text = soundMuted ? "MUTED" : $"{vol}%";
-        var volColor = isMono
-            ? (soundMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
-            : (soundMuted
-                ? Color.FromRgb(248, 113, 113)
-                : isHeadphones
-                    ? Color.FromRgb(192, 132, 252)
-                    : Color.FromRgb(56, 189, 248));
-
-        var volBrush = BrushCache.Get(volColor);
-        SysVolumePercentText.Foreground = volBrush;
-        SysVolumeHeaderIconPath.Fill = volBrush;
-        SysVolumeHeaderIconPath.Data = soundMuted
-            ? GetVectorGeometry("GeomSpeakerMuted")
-            : isHeadphones
-                ? GetVectorGeometry("GeomHeadphones")
-                : GetVectorGeometry("GeomSpeakerOn");
-
-        SysVolumeLabelText.Text = soundMuted
-            ? "AUDIO MUTED"
-            : _audioService.ActiveOutputDeviceName.ToUpperInvariant();
-
-        double volTrackW = SysVolumeTrackBorder.ActualWidth > 10 ? SysVolumeTrackBorder.ActualWidth : 185.0;
-        double volFillPx = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
-        SysVolumeFillBorder.Width = volFillPx;
-        SysVolumeFillBorder.Background = volBrush;
-
-        SysBrightnessPercentText.Text = $"{brt}%";
-        SysBrightnessPercentText.Foreground = isMono ? BrushCache.Get(Color.FromRgb(228, 228, 231)) : (Brush)FindResource("AppAccentBrush");
-        SysBrightnessFillBorder.Background = isMono ? BrushCache.Get(Color.FromRgb(228, 228, 231)) : (Brush)FindResource("AppAccentBrush");
-        double brtTrackW = SysBrightnessTrackBorder.ActualWidth > 10 ? SysBrightnessTrackBorder.ActualWidth : 185.0;
-        double brtFillPx = brtTrackW * Math.Clamp(brt / 100.0, 0.0, 1.0);
-        SysBrightnessFillBorder.Width = brtFillPx;
-
-        ToggleMuteIconPath.Data = soundMuted
-            ? GetVectorGeometry("GeomSpeakerMuted")
-            : GetVectorGeometry("GeomSpeakerOn");
-        var soundBtnBrush = BrushCache.Get(
-            isMono
-                ? (soundMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
-                : (soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(56, 189, 248)));
-        ToggleMuteIconPath.Fill = soundBtnBrush;
-        ToggleMuteText.Text = soundMuted ? "Sound: MUTED" : "Sound: ON";
-        ToggleMuteText.Foreground = isMono ? soundBtnBrush : BrushCache.Get(
-            soundMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(248, 250, 252));
-
-        ToggleMicIconPath.Data = micMuted
-            ? GetVectorGeometry("GeomMicMuted")
-            : GetVectorGeometry("GeomMicOn");
-        var micBtnBrush = BrushCache.Get(
-            isMono
-                ? (micMuted ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
-                : (micMuted ? Color.FromRgb(248, 113, 113) : Color.FromRgb(34, 197, 94)));
-        ToggleMicIconPath.Fill = micBtnBrush;
-        ToggleMicText.Text = micMuted ? "Mic: MUTED" : "Mic: ON";
-        ToggleMicText.Foreground = micBtnBrush;
-
-        bool autoTuck = _settingsService.AutoTuckEnabled;
-        var autoTuckColor = isMono
-            ? (autoTuck ? Color.FromRgb(228, 228, 231) : Color.FromRgb(113, 113, 122))
-            : (autoTuck ? Color.FromRgb(34, 197, 94) : Color.FromRgb(148, 163, 184));
-        var autoTuckBrush = BrushCache.Get(autoTuckColor);
-        ToggleAutoTuckIconPath.Fill = autoTuckBrush;
-        ToggleAutoTuckText.Text = autoTuck ? $"Auto-Simpan ({_settingsService.IdleCycleSeconds}s): ON" : "Auto-Simpan: OFF";
-        ToggleAutoTuckText.Foreground = autoTuckBrush;
-        ToggleAutoTuckBtn.Background = BrushCache.Get(Color.FromArgb((byte)(autoTuck ? 28 : 14), autoTuckColor.R, autoTuckColor.G, autoTuckColor.B));
-
-        var hw = _hardwareService.Current;
-        bool btOn = hw.IsBluetoothRadioOn;
-        bool btConnected = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName);
-        var btColor = isMono
-            ? (!btOn ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
-            : (!btOn
-                ? Color.FromRgb(148, 163, 184)
-                : btConnected
-                    ? Color.FromRgb(34, 197, 94)
-                    : Color.FromRgb(56, 189, 248));
-        var btBrush = BrushCache.Get(btColor);
-        SysBluetoothIconPath.Data = btOn ? GetVectorGeometry("GeomBluetooth") : GetVectorGeometry("GeomBluetoothOff");
-        SysBluetoothIconPath.Fill = btBrush;
-        SysBluetoothBtnText.Text = !btOn ? "BT: OFF" : (btConnected ? "BT: Aktif" : "Bluetooth");
-        SysBluetoothBtnText.Foreground = btBrush;
     }
 
     private static Color GetBatteryStatusColor(int batteryPercent, bool isCharging, bool isMonochrome = false)
@@ -402,36 +303,6 @@ public partial class MainWindow
                             (_settingsService.ShowTodoBadgeOnIdle && (_todoAndWaterService.TotalTodosCount - _todoAndWaterService.CompletedTodosCount > 0));
         _stateMachine.SetMinimalNotch(minimal, hasExtraIdle);
         _stateMachine.UpdateDynamicIdleWidth(hasExtraIdle);
-
-        SysBatteryDetailText.Text = hw.HasBattery
-            ? $"{(hw.IsCharging ? "Charging" : "Baterai")} • {hw.BatteryPercent}%{batteryEstimate}{limitModeInfo}"
-            : "Daya Desktop AC (100%)";
-
-        SysNetworkDetailText.Text = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName)
-            ? $"{hw.ConnectedBluetoothName} • {hw.NetworkName}"
-            : hw.NetworkName;
-
-        if (hw.IsCameraInUse || hw.IsMicrophoneInUse)
-        {
-            string activeDevices = (hw.IsCameraInUse && hw.IsMicrophoneInUse)
-                ? "Kamera & Mic Aktif"
-                : hw.IsCameraInUse ? "Kamera Aktif" : $"Mic Aktif ({hw.ActiveMicApp})";
-            var warnColor = isMono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(249, 115, 22);
-            var warnBrush = BrushCache.Get(warnColor);
-            SysPrivacyDetailText.Text = activeDevices;
-            SysPrivacyDetailText.Foreground = warnBrush;
-            SysPrivacyIconPath.Fill = warnBrush;
-        }
-        else
-        {
-            var safeColor = isMono ? Color.FromRgb(161, 161, 170) : Color.FromRgb(34, 197, 94);
-            var safeBrush = BrushCache.Get(safeColor);
-            SysPrivacyDetailText.Text = "Kamera & Mic Aman (Idle)";
-            SysPrivacyDetailText.Foreground = safeBrush;
-            SysPrivacyIconPath.Fill = safeBrush;
-        }
-
-        SysMemoryDetailText.Text = $"RAM: {hw.AppMemoryMb:0.0} MB • {(_isRenderLoopAttached ? "Active 60FPS" : "0% CPU Idle")}";
     }
 
     private void OnPrivacyDotClick(object sender, MouseButtonEventArgs e)
@@ -633,86 +504,6 @@ public partial class MainWindow
         }
     }
 
-    // --- INTERACTIVE SYSTEM TAB VOLUME & BRIGHTNESS SLIDER HANDLERS ---
-
-    private void OnSysVolumeMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        _isDraggingSysVolume = true;
-        SysVolumeSliderHitArea.CaptureMouse();
-        ApplySysVolumeFromMouse(e.GetPosition(SysVolumeTrackBorder).X);
-        e.Handled = true;
-    }
-
-    private void OnSysVolumeMouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_isDraggingSysVolume) return;
-        ApplySysVolumeFromMouse(e.GetPosition(SysVolumeTrackBorder).X);
-        e.Handled = true;
-    }
-
-    private void OnSysVolumeMouseUp(object sender, MouseButtonEventArgs e)
-    {
-        if (!_isDraggingSysVolume) return;
-        ApplySysVolumeFromMouse(e.GetPosition(SysVolumeTrackBorder).X);
-        _isDraggingSysVolume = false;
-        SysVolumeSliderHitArea.ReleaseMouseCapture();
-        e.Handled = true;
-    }
-
-    private void ApplySysVolumeFromMouse(double mouseX)
-    {
-        double trackW = Math.Max(1.0, SysVolumeTrackBorder.ActualWidth);
-        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100);
-        _audioService.SetMasterVolumePercent(pct);
-        UpdateSlidersAndMuteUi();
-    }
-
-    private void OnSysBrightnessMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        _isDraggingSysBrightness = true;
-        SysBrightnessSliderHitArea.CaptureMouse();
-        ApplySysBrightnessFromMouse(e.GetPosition(SysBrightnessTrackBorder).X);
-        e.Handled = true;
-    }
-
-    private void OnSysBrightnessMouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_isDraggingSysBrightness) return;
-        ApplySysBrightnessFromMouse(e.GetPosition(SysBrightnessTrackBorder).X);
-        e.Handled = true;
-    }
-
-    private void OnSysBrightnessMouseUp(object sender, MouseButtonEventArgs e)
-    {
-        if (!_isDraggingSysBrightness) return;
-        ApplySysBrightnessFromMouse(e.GetPosition(SysBrightnessTrackBorder).X);
-        _isDraggingSysBrightness = false;
-        SysBrightnessSliderHitArea.ReleaseMouseCapture();
-        e.Handled = true;
-    }
-
-    private void ApplySysBrightnessFromMouse(double mouseX)
-    {
-        double trackW = Math.Max(1.0, SysBrightnessTrackBorder.ActualWidth);
-        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100);
-        _brightnessService.SetBrightnessPercent(pct);
-        UpdateSlidersAndMuteUi();
-    }
-
-    // --- INTERACTIVE TIMELINE SCRUBBER HANDLERS ---
-
-    private void OnToggleMuteClick(object sender, RoutedEventArgs e)
-    {
-        _audioService.ToggleMute();
-        UpdateSlidersAndMuteUi();
-    }
-
-    private void OnToggleMicMuteClick(object sender, RoutedEventArgs e)
-    {
-        _audioService.ToggleMicrophoneMute();
-        UpdateSlidersAndMuteUi();
-    }
-
     private void OnOpenSettingsClick(object sender, RoutedEventArgs e)
     {
         OpenSettingsWindow();
@@ -722,7 +513,6 @@ public partial class MainWindow
     {
         await _hardwareService.ToggleBluetoothRadioAsync();
         _hardwareService.RefreshFullTelemetry(emitToasts: false);
-        UpdateSlidersAndMuteUi();
         UpdateHardwareUi();
         _settingsWindow?.RefreshBluetoothCard();
     }

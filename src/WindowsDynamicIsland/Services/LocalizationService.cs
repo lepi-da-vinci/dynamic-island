@@ -72,17 +72,6 @@ public sealed class LocalizationService : INotifyPropertyChanged
     private void InitializeStrings()
     {
         // ==================== INDONESIAN (id) ====================
-        _idStrings["Tab_Media"] = "Musik & Lirik";
-        _idStrings["Tab_Todo"] = "Daftar Tugas";
-        _idStrings["Tab_Pomodoro"] = "Timer Fokus";
-        _idStrings["Tab_Shortcuts"] = "Pintasan";
-        _idStrings["Tab_Performance"] = "Performa";
-        _idStrings["Tab_Shelf"] = "File Shelf";
-        _idStrings["Tab_Calendar"] = "Kalender";
-        _idStrings["Tab_Weather"] = "Cuaca";
-        _idStrings["Tab_Notifications"] = "Notifikasi";
-        _idStrings["Tab_System"] = "Sistem";
-
         _idStrings["Status_Tuck"] = "Simpan";
         _idStrings["Status_Exit"] = "Keluar";
         _idStrings["Status_Charging"] = "Mengisi Daya";
@@ -93,36 +82,19 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _idStrings["Status_MicSafe"] = "Kamera & Mic Aman (Idle)";
 
         _idStrings["Media_NoActive"] = "Tidak Ada Media Aktif";
-        _idStrings["Media_PlayPrompt"] = "Putar lagu di Spotify, Chrome, Edge, atau VLC";
-        _idStrings["Media_MixerBtn"] = "Mixer";
-        _idStrings["Media_LyricsBtn"] = "Lirik";
-        _idStrings["Media_AppMixerTitle"] = "Mixer Volume Aplikasi";
-        _idStrings["Media_PrevTooltip"] = "Lagu Sebelumnya";
-        _idStrings["Media_PlayTooltip"] = "Putar / Jeda";
-        _idStrings["Media_NextTooltip"] = "Lagu Selanjutnya";
-        _idStrings["Media_LoadingLyrics"] = "Memuat lirik lagu...";
 
-        _idStrings["Todo_Title"] = "Daftar Tugas";
-        _idStrings["Todo_DoneSuffix"] = "Selesai";
         _idStrings["Todo_ClearDone"] = "Hapus Selesai";
         _idStrings["Todo_Placeholder"] = "Ketik tugas baru lalu tekan Enter atau klik Tambah...";
         _idStrings["Todo_AddBtn"] = "Tambah";
         _idStrings["Todo_EmptyTitle"] = "Belum ada daftar tugas hari ini";
         _idStrings["Todo_EmptySub"] = "Klik kolom input di atas, ketik tugas baru, lalu tekan Enter";
-        _idStrings["Water_Title"] = "Target Minum Harian";
-        _idStrings["Water_LogCup"] = "+ Segelas";
         _idStrings["Water_Reset"] = "Reset";
 
-        _idStrings["Pomo_Title"] = "Timer Fokus";
         _idStrings["Pomo_Start"] = "Mulai Fokus";
         _idStrings["Pomo_Pause"] = "Jeda";
-        _idStrings["Pomo_Reset"] = "Reset";
         _idStrings["Pomo_FocusMode"] = "Sesi Fokus";
         _idStrings["Pomo_BreakMode"] = "Istirahat Singkat";
 
-        _idStrings["Sys_Volume"] = "VOLUME AUDIO";
-        _idStrings["Sys_Brightness"] = "KECERAHAN LAYAR";
-        _idStrings["Sys_Settings"] = "Pengaturan";
         _idStrings["Shortcuts_Title"] = "Pintasan Aplikasi";
         _idStrings["Shortcuts_Add"] = "Tambah App";
         _idStrings["Perf_Title"] = "Performa Sistem";
@@ -132,39 +104,21 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _idStrings["Notif_EmptyTitle"] = "Belum Ada Notifikasi Sesi Ini";
         _idStrings["Notif_EmptySub"] = "Notifikasi yang masuk akan otomatis dicatat di sini";
         _idStrings["Sys_ControlCenter"] = "System Control Center";
-        _idStrings["Sys_PowerControls"] = "Kontrol Daya Sistem";
-        _idStrings["Sys_PowerSub"] = "Aksi daya cepat untuk menghemat baterai atau menidurkan sistem seketika";
         _idStrings["Sys_PowerReady"] = "Siap Digunakan";
         _idStrings["Sys_Sleep"] = "Mode Tidur (Sleep)";
         _idStrings["Sys_SleepSub"] = "Stand-by hemat daya";
         _idStrings["Sys_Hibernate"] = "Hibernasi (Hibernate)";
         _idStrings["Sys_HibernateSub"] = "Simpan sesi & matikan";
 
-        _idStrings["Perf_Cpu"] = "BEBAN PROSESOR";
-        _idStrings["Perf_Gpu"] = "BEBAN GRAFIS";
-        _idStrings["Perf_Ram"] = "PENGGUNAAN MEMORI";
-        _idStrings["Perf_Storage"] = "PENYIMPANAN SISTEM";
-        _idStrings["Perf_NetDown"] = "UNDUH";
-        _idStrings["Perf_NetUp"] = "UNGGAH";
         _idStrings["Perf_Uptime"] = "WAKTU AKTIF";
 
-        _idStrings["Weather_Title"] = "Cuaca & Prakiraan";
-        _idStrings["Weather_FeelsLike"] = "Terasa";
-        _idStrings["Weather_Humidity"] = "Kelembapan";
-        _idStrings["Weather_Wind"] = "Angin";
-        _idStrings["Weather_RefreshTooltip"] = "Perbarui Data Cuaca";
-
-        _idStrings["Cal_Title"] = "Kalender & Jadwal";
         _idStrings["Cal_Agenda"] = "Jadwal & Agenda Hari Ini";
         _idStrings["Cal_Add"] = "Tambah";
         _idStrings["Cal_Save"] = "Simpan";
 
-        _idStrings["Notif_Title"] = "Riwayat Notifikasi";
-        _idStrings["Notif_SessionSuffix"] = "Sesi Ini";
         _idStrings["Notif_Clear"] = "Bersihkan";
         _idStrings["Notif_Empty"] = "Belum Ada Notifikasi Sesi Ini";
 
-        _idStrings["Shelf_Title"] = "File Shelf";
         _idStrings["Shelf_DropHint"] = "Tarik dan lepaskan file ke sini";
         _idStrings["Shelf_Clear"] = "Kosongkan";
 
@@ -192,10 +146,6 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _idStrings["Settings_MinimalNotchSub"] = "Tampilan notch ultra-ramping untuk ruang kerja maksimal";
         _idStrings["Settings_AutoTuck"] = "Simpan Otomatis (Auto-Tuck)";
         _idStrings["Settings_AutoTuckSub"] = "Kecilkan notch menjadi garis tipis di atas layar saat idle";
-        _idStrings["Settings_IdleDuration"] = "Durasi Sebelum Simpan";
-        _idStrings["Settings_IdleDurationSub"] = "Waktu tunggu dalam detik sebelum notch masuk ke mode simpan";
-        _idStrings["Settings_DashboardTabs"] = "Pilihan Tab Notch";
-        _idStrings["Settings_DashboardTabsSub"] = "Aktifkan atau nonaktifkan tab dashboard yang ingin ditampilkan";
         _idStrings["Settings_AutoHideFullscreen"] = "Sembunyikan Saat Layar Penuh";
         _idStrings["Settings_AutoHideFullscreenSub"] = "Sembunyikan otomatis saat membuka game atau video layar penuh";
         _idStrings["Settings_ScreenshotTuck"] = "Simpan Otomatis Saat Screenshot";
@@ -232,17 +182,6 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _idStrings["Settings_ToastDuration"] = "Durasi Tampilan Notifikasi";
 
         // ==================== ENGLISH (en) ====================
-        _enStrings["Tab_Media"] = "Music & Lyrics";
-        _enStrings["Tab_Todo"] = "To-Do List";
-        _enStrings["Tab_Pomodoro"] = "Focus Timer";
-        _enStrings["Tab_Shortcuts"] = "Shortcuts";
-        _enStrings["Tab_Performance"] = "Performance";
-        _enStrings["Tab_Shelf"] = "File Shelf";
-        _enStrings["Tab_Calendar"] = "Calendar";
-        _enStrings["Tab_Weather"] = "Weather";
-        _enStrings["Tab_Notifications"] = "Notifications";
-        _enStrings["Tab_System"] = "System";
-
         _enStrings["Status_Tuck"] = "Tuck";
         _enStrings["Status_Exit"] = "Exit";
         _enStrings["Status_Charging"] = "Charging";
@@ -253,36 +192,19 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Status_MicSafe"] = "Camera & Mic Safe (Idle)";
 
         _enStrings["Media_NoActive"] = "No Active Media";
-        _enStrings["Media_PlayPrompt"] = "Play media in Spotify, Chrome, Edge, or VLC";
-        _enStrings["Media_MixerBtn"] = "Mixer";
-        _enStrings["Media_LyricsBtn"] = "Lyrics";
-        _enStrings["Media_AppMixerTitle"] = "App Volume Mixer";
-        _enStrings["Media_PrevTooltip"] = "Previous Track";
-        _enStrings["Media_PlayTooltip"] = "Play / Pause";
-        _enStrings["Media_NextTooltip"] = "Next Track";
-        _enStrings["Media_LoadingLyrics"] = "Loading lyrics...";
 
-        _enStrings["Todo_Title"] = "To-Do List";
-        _enStrings["Todo_DoneSuffix"] = "Done";
         _enStrings["Todo_ClearDone"] = "Clear Done";
         _enStrings["Todo_Placeholder"] = "Type a new task then press Enter or click Add...";
         _enStrings["Todo_AddBtn"] = "Add";
         _enStrings["Todo_EmptyTitle"] = "No tasks for today";
         _enStrings["Todo_EmptySub"] = "Click the input box above, type a new task, and press Enter";
-        _enStrings["Water_Title"] = "Daily Water Intake";
-        _enStrings["Water_LogCup"] = "+ 1 Cup";
         _enStrings["Water_Reset"] = "Reset";
 
-        _enStrings["Pomo_Title"] = "Focus Timer";
         _enStrings["Pomo_Start"] = "Start Focus";
         _enStrings["Pomo_Pause"] = "Pause";
-        _enStrings["Pomo_Reset"] = "Reset";
         _enStrings["Pomo_FocusMode"] = "Focus Session";
         _enStrings["Pomo_BreakMode"] = "Short Break";
 
-        _enStrings["Sys_Volume"] = "AUDIO VOLUME";
-        _enStrings["Sys_Brightness"] = "SCREEN BRIGHTNESS";
-        _enStrings["Sys_Settings"] = "Settings";
         _enStrings["Shortcuts_Title"] = "App Shortcuts";
         _enStrings["Shortcuts_Add"] = "Add App";
         _enStrings["Perf_Title"] = "System Performance";
@@ -292,39 +214,21 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Notif_EmptyTitle"] = "No Notifications This Session";
         _enStrings["Notif_EmptySub"] = "Incoming notifications will automatically appear here";
         _enStrings["Sys_ControlCenter"] = "System Control Center";
-        _enStrings["Sys_PowerControls"] = "System Power Controls";
-        _enStrings["Sys_PowerSub"] = "Quick power actions to save power or sleep system immediately";
         _enStrings["Sys_PowerReady"] = "Ready";
         _enStrings["Sys_Sleep"] = "Sleep Mode";
         _enStrings["Sys_SleepSub"] = "Low-power standby";
         _enStrings["Sys_Hibernate"] = "Hibernate";
         _enStrings["Sys_HibernateSub"] = "Save session & shut down";
 
-        _enStrings["Perf_Cpu"] = "PROCESSOR LOAD";
-        _enStrings["Perf_Gpu"] = "GRAPHICS LOAD";
-        _enStrings["Perf_Ram"] = "MEMORY USAGE";
-        _enStrings["Perf_Storage"] = "SYSTEM STORAGE";
-        _enStrings["Perf_NetDown"] = "DOWNLOAD";
-        _enStrings["Perf_NetUp"] = "UPLOAD";
         _enStrings["Perf_Uptime"] = "UPTIME";
 
-        _enStrings["Weather_Title"] = "Weather & Forecast";
-        _enStrings["Weather_FeelsLike"] = "Feels like";
-        _enStrings["Weather_Humidity"] = "Humidity";
-        _enStrings["Weather_Wind"] = "Wind";
-        _enStrings["Weather_RefreshTooltip"] = "Refresh Weather Data";
-
-        _enStrings["Cal_Title"] = "Calendar & Schedule";
         _enStrings["Cal_Agenda"] = "Today's Agenda & Schedule";
         _enStrings["Cal_Add"] = "Add";
         _enStrings["Cal_Save"] = "Save";
 
-        _enStrings["Notif_Title"] = "Notification History";
-        _enStrings["Notif_SessionSuffix"] = "This Session";
         _enStrings["Notif_Clear"] = "Clear All";
         _enStrings["Notif_Empty"] = "No Notifications This Session";
 
-        _enStrings["Shelf_Title"] = "File Shelf";
         _enStrings["Shelf_DropHint"] = "Drag and drop files here";
         _enStrings["Shelf_Clear"] = "Clear";
 
@@ -353,10 +257,6 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Settings_MinimalNotchSub"] = "Ultra-slim notch layout for maximum screen real estate";
         _enStrings["Settings_AutoTuck"] = "Auto-Tuck Mode";
         _enStrings["Settings_AutoTuckSub"] = "Tuck notch into a thin line at the top when idle";
-        _enStrings["Settings_IdleDuration"] = "Idle Delay Before Tuck";
-        _enStrings["Settings_IdleDurationSub"] = "Wait time in seconds before notch enters tucked mode";
-        _enStrings["Settings_DashboardTabs"] = "Dashboard Tab Selection";
-        _enStrings["Settings_DashboardTabsSub"] = "Enable or disable dashboard tabs to display";
         _enStrings["Settings_AutoHideFullscreen"] = "Hide on Fullscreen";
         _enStrings["Settings_AutoHideFullscreenSub"] = "Automatically hide when running full-screen games or videos";
         _enStrings["Settings_ScreenshotTuck"] = "Auto-Tuck on Screenshot";
@@ -394,8 +294,6 @@ public sealed class LocalizationService : INotifyPropertyChanged
 
         // ==================== EXTENDED LOCALIZATION (v2.1.0) ====================
         // Settings Window Sidebar, Headers & Controls
-        _idStrings["Settings_CloseTooltip"] = "Tutup Pengaturan";
-        _enStrings["Settings_CloseTooltip"] = "Close Settings";
         _idStrings["Settings_DoneBtn"] = "Selesai";
         _enStrings["Settings_DoneBtn"] = "Done";
         _idStrings["Settings_HeaderLangSection"] = "Bahasa & Lokalisasi";
@@ -654,30 +552,14 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Toast_ChargerUnpluggedSub"] = "Charger unplugged • Running on battery power";
         _idStrings["Toast_BtConnectedTitle"] = "Bluetooth Terhubung";
         _enStrings["Toast_BtConnectedTitle"] = "Bluetooth Connected";
-        _idStrings["Toast_BtConnectedSub"] = "{0} siap digunakan";
-        _enStrings["Toast_BtConnectedSub"] = "{0} ready for audio and control";
         _idStrings["Toast_BtDisconnectedTitle"] = "Bluetooth Terputus";
         _enStrings["Toast_BtDisconnectedTitle"] = "Bluetooth Disconnected";
-        _idStrings["Toast_BtDisconnectedSub"] = "{0} tidak lagi terhubung";
-        _enStrings["Toast_BtDisconnectedSub"] = "{0} is no longer connected";
-        _idStrings["Toast_BtOnTitle"] = "Bluetooth Aktif";
-        _enStrings["Toast_BtOnTitle"] = "Bluetooth Turned On";
-        _idStrings["Toast_BtOnSub"] = "Radio Bluetooth menyala & siap menghubungkan perangkat";
-        _enStrings["Toast_BtOnSub"] = "Bluetooth radio is on and ready to connect";
-        _idStrings["Toast_BtOffTitle"] = "Bluetooth Dimatikan";
-        _enStrings["Toast_BtOffTitle"] = "Bluetooth Turned Off";
-        _idStrings["Toast_BtOffSub"] = "Radio Bluetooth dimatikan untuk menghemat baterai";
-        _enStrings["Toast_BtOffSub"] = "Bluetooth radio turned off to conserve battery";
         _idStrings["Toast_WifiConnectedTitle"] = "Wi-Fi Terhubung";
         _enStrings["Toast_WifiConnectedTitle"] = "Wi-Fi Connected";
-        _idStrings["Toast_WifiConnectedSub"] = "Koneksi ke {0} aktif";
-        _enStrings["Toast_WifiConnectedSub"] = "Connected to {0}";
         _idStrings["Toast_WifiDisconnectedTitle"] = "Wi-Fi Terputus";
         _enStrings["Toast_WifiDisconnectedTitle"] = "Wi-Fi Disconnected";
         _idStrings["Toast_WifiDisconnectedSub"] = "Tidak ada koneksi jaringan aktif";
         _enStrings["Toast_WifiDisconnectedSub"] = "No active network connection";
-        _idStrings["Toast_CapsLockTitle"] = "Caps Lock";
-        _enStrings["Toast_CapsLockTitle"] = "Caps Lock";
         _idStrings["Toast_CapsLockSubOn"] = "Huruf kapital aktif (ON)";
         _enStrings["Toast_CapsLockSubOn"] = "Uppercase lock enabled (ON)";
         _idStrings["Toast_CapsLockSubOff"] = "Huruf kapital nonaktif (OFF)";
@@ -686,12 +568,8 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Toast_MicInUse"] = "Microphone In Use";
         _idStrings["Toast_CamInUse"] = "Kamera Sedang Digunakan";
         _enStrings["Toast_CamInUse"] = "Camera In Use";
-        _idStrings["Toast_AppUsingDevice"] = "{0} sedang mengakses perangkat ini";
-        _enStrings["Toast_AppUsingDevice"] = "{0} is accessing this device";
         _idStrings["Perf_UptimeFmt"] = "{0}j {1}m";
         _enStrings["Perf_UptimeFmt"] = "{0}h {1}m";
-        _idStrings["Perf_UptimeMinFmt"] = "{0}m {1}d";
-        _enStrings["Perf_UptimeMinFmt"] = "{0}m {1}s";
 
         // Notifications & Pomodoro & Weather
         _idStrings["Notif_NewFallback"] = "Notifikasi baru";
@@ -750,8 +628,6 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Lyrics_NotFound"] = "Lyrics not found for this track";
         _idStrings["Lyrics_Fetching"] = "Mencari lirik lagu...";
         _enStrings["Lyrics_Fetching"] = "Searching for lyrics...";
-        _idStrings["Lyrics_NoTiming"] = "Lirik tersedia (tanpa timestamp)";
-        _enStrings["Lyrics_NoTiming"] = "Static lyrics loaded (no timestamps)";
         _idStrings["Spotlight_ShortcutApp"] = "Aplikasi Pintasan";
         _enStrings["Spotlight_ShortcutApp"] = "Shortcut App";
         _idStrings["Spotlight_WindowsApp"] = "Aplikasi Windows";

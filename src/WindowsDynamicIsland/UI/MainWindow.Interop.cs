@@ -67,6 +67,7 @@ public partial class MainWindow
         {
             PositionTopCenter();
             UpdateTabHighlight();
+            RefreshCachedDpi();
             _hardwareService.RefreshFullTelemetry(emitToasts: false);
             _audioService.PollExternalChanges();
             _brightnessService.PollExternalChanges();
@@ -74,7 +75,6 @@ public partial class MainWindow
             UpdateHardwareUi();
             UpdatePerformanceUi();
             UpdateShortcutsUi();
-            UpdateSlidersAndMuteUi();
             UpdatePomodoroAndClockUi();
             UpdateTodoAndWaterUi();
             UpdatePaginationDots();
@@ -280,8 +280,6 @@ public partial class MainWindow
             bool isDraggingControl =
                 _isDraggingTimeline ||
                 _isDraggingToastSlider ||
-                _isDraggingSysVolume ||
-                _isDraggingSysBrightness ||
                 _isDraggingAppMixer;
 
             if (isAltBypass || isHidden || (!IsCursorInsideIslandBounds() && !isDraggingControl))
@@ -336,7 +334,7 @@ public partial class MainWindow
         }
         else if (msg == Win32Interop.WM_CLOSE)
         {
-            AppLogger.LogWarning("WndProc", $"WM_CLOSE received via WndProc. CallStack:\r\n{new StackTrace(true)}");
+            AppLogger.LogWarning("WndProc", "WM_CLOSE received via WndProc.");
         }
         else if (msg == Win32Interop.WM_DESTROY)
         {
@@ -356,6 +354,7 @@ public partial class MainWindow
         else if (msg == Win32Interop.WM_DPICHANGED)
         {
             AppLogger.LogInfo("WndProc", "WM_DPICHANGED received -> Scheduling reposition.");
+            RefreshCachedDpi();
             ScheduleDebouncedReposition();
         }
 
@@ -373,7 +372,6 @@ public partial class MainWindow
                 _autoTuckTimer.Stop();
                 _toastDismissTimer.Stop();
                 _topHandleHoverTicks = 0;
-                _topBezelHoldTicks = 0;
             }
             _stateMachine.SetScreenshotMode(active);
             UpdateWindowClickThroughState();
@@ -382,9 +380,8 @@ public partial class MainWindow
 
     private (double GridDipX, double GridDipY) ScreenCursorToMasterGridDip(Win32Interop.POINT pt)
     {
-        DpiScale dpi = VisualTreeHelper.GetDpi(this);
-        double winDipX = (pt.X / dpi.DpiScaleX) - Left;
-        double winDipY = (pt.Y / dpi.DpiScaleY) - Top;
+        double winDipX = (pt.X / _cachedDpiScaleX) - Left;
+        double winDipY = (pt.Y / _cachedDpiScaleY) - Top;
         double scale = Math.Max(0.5, _settingsService.EffectiveNotchScale);
         double winCenterX = Width / 2.0;
         double gridDipX = (MasterGridWidth / 2.0) + ((winDipX - winCenterX) / scale);
@@ -450,8 +447,6 @@ public partial class MainWindow
         bool isDraggingControl =
             _isDraggingTimeline ||
             _isDraggingToastSlider ||
-            _isDraggingSysVolume ||
-            _isDraggingSysBrightness ||
             _isDraggingAppMixer;
 
         bool cursorInside = IsCursorInsideIslandBounds();
@@ -895,7 +890,6 @@ public partial class MainWindow
             IslandDashboardTab.CalendarSchedule => ("GeomCalendar", loc.IsEnglish ? "Calendar" : "Kalender"),
             IslandDashboardTab.Weather => ("GeomWeatherSunCloud", loc.IsEnglish ? "Weather" : "Cuaca"),
             IslandDashboardTab.NotificationHistory => ("GeomBellNotif", loc.IsEnglish ? "Notifs" : "Notifikasi"),
-            IslandDashboardTab.SystemStatus => ("GeomSliders", loc.IsEnglish ? "System" : "Sistem"),
             _ => ("GeomMusic", loc.IsEnglish ? "Music" : "Musik")
         };
     }

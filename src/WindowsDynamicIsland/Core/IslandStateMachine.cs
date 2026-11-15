@@ -22,8 +22,7 @@ public enum IslandDashboardTab
     NotificationHistory = 5,
     AppShortcuts = 6,
     PerformanceMonitor = 7,
-    FileShelf = 8,
-    SystemStatus = 9
+    FileShelf = 8
 }
 
 public enum ToastSliderKind
@@ -303,20 +302,6 @@ public sealed class IslandStateMachine
         StateChanged?.Invoke(CurrentState, ActiveTab);
     }
 
-    public void CycleNextTab()
-    {
-        int count = Enum.GetValues<IslandDashboardTab>().Length;
-        int next = ((int)ActiveTab + 1) % count;
-        SetActiveTab((IslandDashboardTab)next);
-    }
-
-    public void CyclePrevTab()
-    {
-        int count = Enum.GetValues<IslandDashboardTab>().Length;
-        int prev = ((int)ActiveTab - 1 + count) % count;
-        SetActiveTab((IslandDashboardTab)prev);
-    }
-
     public void SetSpotlightActive(bool active)
     {
         if (IsSpotlightActive == active) return;
@@ -328,8 +313,6 @@ public sealed class IslandStateMachine
         }
         RecalculateState();
     }
-
-    public void ToggleSpotlight() => SetSpotlightActive(!IsSpotlightActive);
 
     public void SetSpotlightHeight(double height)
     {

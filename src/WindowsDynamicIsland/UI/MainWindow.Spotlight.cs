@@ -289,7 +289,6 @@ public sealed class AppMixerItemViewModel
     public bool IsMuted { get; init; }
     public Geometry? MuteIconGeometry { get; init; }
     public Brush? MuteIconBrush { get; init; }
-    public string MuteToolTip => IsMuted ? "Bunyikan audio aplikasi" : "Bisukan audio aplikasi";
 }
 
 public sealed class TodoItemViewModel

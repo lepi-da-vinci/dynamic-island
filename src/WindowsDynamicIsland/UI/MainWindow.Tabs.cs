@@ -90,13 +90,20 @@ public partial class MainWindow
             state == IslandVisualState.PinnedPerformancePill ||
             (state == IslandVisualState.ExpandedDashboard && tab == IslandDashboardTab.PerformanceMonitor);
 
-        if (state is IslandVisualState.TuckedTopEdge or IslandVisualState.Hidden || _stateMachine.IsFullScreenHidden)
+        if (state is IslandVisualState.Hidden || _stateMachine.IsFullScreenHidden)
         {
             _fastUpdateTimer.Interval = TimeSpan.FromMilliseconds(400);
+            _hitTestTimer.Interval = TimeSpan.FromMilliseconds(220);
+        }
+        else if (state == IslandVisualState.TuckedTopEdge)
+        {
+            _fastUpdateTimer.Interval = TimeSpan.FromMilliseconds(400);
+            _hitTestTimer.Interval = TimeSpan.FromMilliseconds(85);
         }
         else
         {
             _fastUpdateTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _hitTestTimer.Interval = TimeSpan.FromMilliseconds(30);
         }
 
         MediaTabGrid.Visibility = tab == IslandDashboardTab.MediaLyrics ? Visibility.Visible : Visibility.Collapsed;
@@ -105,10 +112,9 @@ public partial class MainWindow
         ShortcutsTabGrid.Visibility = tab == IslandDashboardTab.AppShortcuts ? Visibility.Visible : Visibility.Collapsed;
         PerformanceTabGrid.Visibility = tab == IslandDashboardTab.PerformanceMonitor ? Visibility.Visible : Visibility.Collapsed;
         ShelfTabGrid.Visibility = tab == IslandDashboardTab.FileShelf ? Visibility.Visible : Visibility.Collapsed;
-                CalendarScheduleTabGrid.Visibility = tab == IslandDashboardTab.CalendarSchedule ? Visibility.Visible : Visibility.Collapsed;
+        CalendarScheduleTabGrid.Visibility = tab == IslandDashboardTab.CalendarSchedule ? Visibility.Visible : Visibility.Collapsed;
         WeatherTabGrid.Visibility = tab == IslandDashboardTab.Weather ? Visibility.Visible : Visibility.Collapsed;
         NotificationHistoryTabGrid.Visibility = tab == IslandDashboardTab.NotificationHistory ? Visibility.Visible : Visibility.Collapsed;
-        SystemTabGrid.Visibility = tab == IslandDashboardTab.SystemStatus ? Visibility.Visible : Visibility.Collapsed;
 
         if (state == IslandVisualState.ExpandedDashboard)
         {
@@ -118,10 +124,6 @@ public partial class MainWindow
             if (tab == IslandDashboardTab.MediaLyrics)
             {
                 UpdateAppMixerUi();
-            }
-            else if (tab == IslandDashboardTab.SystemStatus)
-            {
-                UpdateSlidersAndMuteUi();
             }
             else if (tab == IslandDashboardTab.TodoAndWater)
             {
@@ -248,10 +250,9 @@ public partial class MainWindow
         SetTabVisual(TabShortcutsBtn, _stateMachine.ActiveTab == IslandDashboardTab.AppShortcuts);
         SetTabVisual(TabPerformanceBtn, _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor);
         SetTabVisual(TabShelfBtn, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
-                SetTabVisual(TabCalendarBtn, _stateMachine.ActiveTab == IslandDashboardTab.CalendarSchedule);
+        SetTabVisual(TabCalendarBtn, _stateMachine.ActiveTab == IslandDashboardTab.CalendarSchedule);
         SetTabVisual(TabWeatherBtn, _stateMachine.ActiveTab == IslandDashboardTab.Weather);
         SetTabVisual(TabNotifBtn, _stateMachine.ActiveTab == IslandDashboardTab.NotificationHistory);
-        SetTabVisual(TabSystemBtn, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
 
         UpdatePaginationDots();
         UpdateSideWingVisuals();
@@ -630,11 +631,6 @@ public partial class MainWindow
         UpdatePerformanceUi();
     }
     private void OnTabShelfClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.FileShelf);
-    private void OnTabSystemClick(object sender, RoutedEventArgs e)
-    {
-        SwitchToTab(IslandDashboardTab.SystemStatus);
-        UpdateSlidersAndMuteUi();
-    }
 
     private void OnLeftWingClick(object sender, RoutedEventArgs e)
     {
@@ -656,7 +652,6 @@ public partial class MainWindow
     private void OnDotShortcutsClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.AppShortcuts);
     private void OnDotPerfClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.PerformanceMonitor);
     private void OnDot3Click(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.FileShelf);
-    private void OnDot4Click(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.SystemStatus);
 
     private void UpdatePaginationDots()
     {
@@ -671,7 +666,6 @@ public partial class MainWindow
             PageDotShortcuts.Visibility = _settingsService.ShowTabShortcuts ? Visibility.Visible : Visibility.Collapsed;
             PageDotPerf.Visibility = _settingsService.ShowTabPerformance ? Visibility.Visible : Visibility.Collapsed;
             PageDot3.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
-            PageDot4.Visibility = Visibility.Collapsed;
 
             SetDot(PageDot0, _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics);
             SetDot(PageDot1, _stateMachine.ActiveTab == IslandDashboardTab.TodoAndWater);
@@ -679,10 +673,9 @@ public partial class MainWindow
             SetDot(PageDotShortcuts, _stateMachine.ActiveTab == IslandDashboardTab.AppShortcuts);
             SetDot(PageDotPerf, _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor);
             SetDot(PageDot3, _stateMachine.ActiveTab == IslandDashboardTab.FileShelf);
-                        SetDot(PageDotCal, _stateMachine.ActiveTab == IslandDashboardTab.CalendarSchedule);
+            SetDot(PageDotCal, _stateMachine.ActiveTab == IslandDashboardTab.CalendarSchedule);
             SetDot(PageDotWeather, _stateMachine.ActiveTab == IslandDashboardTab.Weather);
             SetDot(PageDotNotif, _stateMachine.ActiveTab == IslandDashboardTab.NotificationHistory);
-            SetDot(PageDot4, _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus);
 
             void SetDot(Border dot, bool isActive)
             {
@@ -997,11 +990,6 @@ public partial class MainWindow
         }
     }
 
-    private void OnTodoInputBoxMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        ForceActivateAndFocus(NewTodoInputBox);
-    }
-
     private void OnNewTodoInputGotFocus(object sender, RoutedEventArgs e)
     {
         _collapseDebounceTimer.Stop();
@@ -1140,25 +1128,6 @@ public partial class MainWindow
         Keyboard.ClearFocus();
     }
 
-    private void OnToggleAutoTuckClick(object sender, RoutedEventArgs e)
-    {
-        _settingsService.AutoTuckEnabled = !_settingsService.AutoTuckEnabled;
-        _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
-        if (_settingsService.AutoTuckEnabled)
-        {
-            _stateMachine.SetAutoTucked(false);
-            _autoTuckTimer.Stop();
-            _autoTuckTimer.Interval = TimeSpan.FromSeconds(10);
-            _autoTuckTimer.Start();
-        }
-        else
-        {
-            _autoTuckTimer.Stop();
-            _stateMachine.SetAutoTucked(false);
-        }
-        UpdateSlidersAndMuteUi();
-    }
-
     private void OnPomodoroStartPauseClick(object sender, RoutedEventArgs e)
     {
         _pomodoroService.ToggleStartPause();
@@ -1215,9 +1184,6 @@ public partial class MainWindow
     private void OnDotCalClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.CalendarSchedule);
     private void OnDotWeatherClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.Weather);
     private void OnDotNotifClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.NotificationHistory);
-
-    private void OnSystemSleepClick(object sender, RoutedEventArgs e) => SystemPowerService.Sleep();
-    private void OnSystemHibernateClick(object sender, RoutedEventArgs e) => SystemPowerService.Hibernate();
 
     private void OnWeatherRefreshClick(object sender, RoutedEventArgs e) => _ = _weatherService.GetWeatherAsync(forceRefresh: true);
     private void OnClearNotifHistoryClick(object sender, RoutedEventArgs e) => _notificationHistoryService.Clear();

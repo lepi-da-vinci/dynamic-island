@@ -110,7 +110,6 @@ public sealed class HardwareTelemetryService : IDisposable
 
     public bool IsPerformanceViewActive { get; set; }
     public HardwareStatusSnapshot Current { get; private set; } = new();
-    public IReadOnlyList<string> ConnectedBluetoothDevices => _connectedBtDevices.Values.ToList();
 
     public event Action<ToastPayload>? HardwareToastTriggered;
 
@@ -970,6 +969,11 @@ public sealed class HardwareTelemetryService : IDisposable
     {
         gpuPercent = 0;
         dedicatedVramMb = _lastGpuVramMb;
+        if (!IsPerformanceViewActive)
+        {
+            _pdhPrimed = false;
+            return false;
+        }
 
         if (!_pdhInitAttempted)
         {

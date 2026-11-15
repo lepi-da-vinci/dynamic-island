@@ -71,16 +71,15 @@ public partial class MainWindow : Window
     private string? _lastDisplayedCompactRomanizedText;
     private double _currentLyricLineProgress;
     private double _currentPanX;
-    private int _topBezelHoldTicks;
     private int _topHandleHoverTicks;
     private int _tuckCooldownTicks;
+    private double _cachedDpiScaleX = 1.0;
+    private double _cachedDpiScaleY = 1.0;
 
     // Interactive timeline & slider scrubbing states
     private bool _isDraggingTimeline;
     private double _draggedTimelineRatio;
     private bool _isDraggingToastSlider;
-    private bool _isDraggingSysVolume;
-    private bool _isDraggingSysBrightness;
     private bool _isDraggingAppMixer;
     private int _draggingAppMixerPid;
     private ToastSliderKind _activeToastSliderKind = ToastSliderKind.None;
@@ -162,8 +161,6 @@ public partial class MainWindow : Window
                 !_stateMachine.IsPinnedExpanded &&
                 _stateMachine.ActiveToast == null &&
                 !_isDraggingTimeline &&
-                !_isDraggingSysVolume &&
-                !_isDraggingSysBrightness &&
                 !_isDraggingToastSlider)
             {
                 _stateMachine.SetAutoTucked(true);
@@ -193,8 +190,6 @@ public partial class MainWindow : Window
             _collapseDebounceTimer.Stop();
             if (!IsCursorInsideIslandBounds() &&
                 !_isDraggingTimeline &&
-                !_isDraggingSysVolume &&
-                !_isDraggingSysBrightness &&
                 !_isDraggingToastSlider)
             {
                 Keyboard.ClearFocus();
@@ -237,23 +232,16 @@ public partial class MainWindow : Window
             TriggerToast(new ToastPayload(
                 Icon: "SHIELD",
                 Title: $"Update Baru: {res.LatestVersion}",
-                Subtitle: "Buka Tab Sistem di Dynamic Island untuk pasang",
+                Subtitle: "Buka Pengaturan di Dynamic Island untuk pasang",
                 AccentHex: "#22C55E",
                 Duration: TimeSpan.FromSeconds(4.5)));
         });
 
-                _batteryLimitService.LimitModeChanged += _ => Dispatcher.InvokeAsync(UpdateHardwareUi);
+        _batteryLimitService.LimitModeChanged += _ => Dispatcher.InvokeAsync(UpdateHardwareUi);
         _notificationHistoryService.HistoryChanged += () => Dispatcher.InvokeAsync(RefreshNotificationHistoryUi);
         _weatherService.WeatherUpdated += _ => Dispatcher.InvokeAsync(RefreshWeatherUi);
         _calendarService.ScheduleChanged += () => Dispatcher.InvokeAsync(RefreshScheduleUi);
         _flyoutSuppressor = new WindowsFlyoutSuppressor(_settingsService.SuppressWindowsNativeOsd);
-        _settingsService.SettingsChanged += () =>
-        {
-            if (_flyoutSuppressor != null)
-            {
-                _flyoutSuppressor.IsEnabled = _settingsService.SuppressWindowsNativeOsd;
-            }
-        };
         LocalizationService.Instance.LanguageChanged += () => Dispatcher.InvokeAsync(ApplyLocalization);
 
         RefreshCalendarMonthGrid();
@@ -276,11 +264,7 @@ public partial class MainWindow : Window
             Dispatcher.InvokeAsync(() => ShowMicMuteToast(micMuted));
 
         _audioService.OutputDeviceChanged += (devName, isHeadphone) =>
-            Dispatcher.InvokeAsync(() =>
-            {
-                UpdateSlidersAndMuteUi();
-                UpdateMediaAndLyricsUi();
-            });
+            Dispatcher.InvokeAsync(UpdateMediaAndLyricsUi);
 
         _brightnessService.BrightnessChanged += brt =>
         {
@@ -297,7 +281,7 @@ public partial class MainWindow : Window
         DpiChanged += OnDpiChanged;
 
         _stateMachine.SetAutoTuckEnabled(_settingsService.AutoTuckEnabled);
-        _settingsService.SettingsChanged += () => Dispatcher.InvokeAsync(ApplyAppSettings);
+        _settingsService.SettingsChanged += OnAppSettingsChanged;
 
         _clipboardHistoryService = new ClipboardHistoryService();
         _clipboardHistoryService.HistoryChanged += () => Dispatcher.InvokeAsync(OnClipboardHistoryChanged);
@@ -312,13 +296,13 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        AppLogger.LogInfo("WindowLifecycle", $"MainWindow.OnClosing called. Cancel={e.Cancel}. CallStack:\r\n{new StackTrace(1, true)}");
+        AppLogger.LogInfo("WindowLifecycle", $"MainWindow.OnClosing called. Cancel={e.Cancel}.");
         base.OnClosing(e);
     }
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {
-        AppLogger.LogInfo("WindowLifecycle", $"MainWindow.OnWindowClosed called. CallStack:\r\n{new StackTrace(1, true)}");
+        AppLogger.LogInfo("WindowLifecycle", "MainWindow.OnWindowClosed called.");
         try { _settingsWindow?.Close(); } catch { }
         StopRenderLoop();
         _heartbeatTimer.Stop();
@@ -334,6 +318,7 @@ public partial class MainWindow : Window
         Microsoft.Win32.SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         DpiChanged -= OnDpiChanged;
+        _settingsService.SettingsChanged -= OnAppSettingsChanged;
 
         try
         {
@@ -369,11 +354,18 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnIdleCycleTick(object? sender, EventArgs e)
+    private void RefreshCachedDpi()
     {
-        // No repeating alternating toggles. The Dynamic Island stays cleanly tucked in AutoTuck mode
-        // and only wakes up when a notification arrives or user explicitly interacts with the island.
+        try
+        {
+            DpiScale dpi = VisualTreeHelper.GetDpi(this);
+            if (dpi.DpiScaleX > 0.1) _cachedDpiScaleX = dpi.DpiScaleX;
+            if (dpi.DpiScaleY > 0.1) _cachedDpiScaleY = dpi.DpiScaleY;
+        }
+        catch { }
     }
+
+    private void OnAppSettingsChanged() => Dispatcher.InvokeAsync(ApplyAppSettings);
 
     private void OnFastUpdateTick(object? sender, EventArgs e)
     {
@@ -391,14 +383,6 @@ public partial class MainWindow : Window
             }
 
             if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
-                _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
-                !_isDraggingSysVolume &&
-                !_isDraggingSysBrightness)
-            {
-                UpdateSlidersAndMuteUi();
-            }
-
-            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
                 _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics &&
                 _isShowingAppMixer &&
                 !_isDraggingAppMixer)
@@ -409,32 +393,6 @@ public partial class MainWindow : Window
             if (!isTuckedOrHidden && _mediaService.CurrentTrack.HasActiveSession)
             {
                 UpdateMediaAndLyricsUi();
-            }
-
-            if (!_stateMachine.IsScreenshotMode &&
-                _stateMachine.CurrentState == IslandVisualState.TuckedTopEdge &&
-                Win32Interop.GetCursorPos(out var pt))
-            {
-                var (dipX, dipY) = ScreenCursorToMasterGridDip(pt);
-                if (dipY >= 0 && dipY <= (_currentPlacementTopDip + 4.0) && Math.Abs(dipX - (MasterGridWidth / 2.0)) <= 85)
-                {
-                    _topBezelHoldTicks++;
-                    if (_topBezelHoldTicks >= 3)
-                    {
-                        _topBezelHoldTicks = 0;
-                        _stateMachine.SetTuckedMode(false);
-                        _stateMachine.SetAutoTucked(false);
-                        _stateMachine.SetHovered(true);
-                    }
-                }
-                else
-                {
-                    _topBezelHoldTicks = 0;
-                }
-            }
-            else
-            {
-                _topBezelHoldTicks = 0;
             }
         }
         catch (Exception ex)
@@ -514,22 +472,6 @@ public partial class MainWindow : Window
                 {
                     UpdatePerformanceUi();
                 }
-            }
-
-            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
-                _stateMachine.ActiveTab == IslandDashboardTab.SystemStatus &&
-                !_isDraggingSysVolume &&
-                !_isDraggingSysBrightness)
-            {
-                UpdateSlidersAndMuteUi();
-            }
-
-            if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
-                _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics &&
-                _isShowingAppMixer &&
-                !_isDraggingAppMixer)
-            {
-                UpdateAppMixerUi();
             }
         }
         catch (Exception ex)
@@ -745,7 +687,6 @@ public partial class MainWindow : Window
             TabShortcutsBtn.Visibility = _settingsService.ShowTabShortcuts ? Visibility.Visible : Visibility.Collapsed;
             TabPerformanceBtn.Visibility = _settingsService.ShowTabPerformance ? Visibility.Visible : Visibility.Collapsed;
             TabShelfBtn.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
-            TabSystemBtn.Visibility = Visibility.Collapsed;
 
             var enabledTabs = GetEnabledTabs();
             if (!enabledTabs.Contains(_stateMachine.ActiveTab))
@@ -811,7 +752,6 @@ public partial class MainWindow : Window
             UpdateHardwareUi();
             UpdatePomodoroAndClockUi();
             UpdateTodoAndWaterUi();
-            UpdateSlidersAndMuteUi();
             UpdateMediaAndLyricsUi();
             UpdatePerformanceUi();
             UpdateSystemUpdateUi(_updateService.LastResult);
@@ -832,14 +772,8 @@ public partial class MainWindow : Window
             var loc = LocalizationService.Instance;
 
             if (TopHeaderTuckText != null) TopHeaderTuckText.Text = loc.Get("Status_Tuck");
-            if (SysTuckBtnText != null) SysTuckBtnText.Text = loc.Get("Status_Tuck");
-            if (SysExitBtnText != null) SysExitBtnText.Text = loc.Get("Status_Exit");
             if (ScheduleSaveBtnText != null) ScheduleSaveBtnText.Text = loc.Get("Cal_Save");
 
-            if (SysVolumeLabelText != null) SysVolumeLabelText.Text = loc.Get("Sys_Volume");
-            if (SysBrightnessLabelText != null) SysBrightnessLabelText.Text = loc.Get("Sys_Brightness");
-            if (SysSettingsBtnText != null) SysSettingsBtnText.Text = loc.Get("Sys_Settings");
-            if (SysCheckUpdateBtnText != null) SysCheckUpdateBtnText.Text = loc.Get("Settings_CheckUpdateBtn", "Check Update");
             UpdateSystemUpdateUi(_updateService.LastResult);
 
             if (TodoInputPlaceholder != null) TodoInputPlaceholder.Text = loc.Get("Todo_Placeholder");
@@ -877,130 +811,19 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    private void OnOpenLogClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            string path = AppLogger.LogFilePath;
-            if (!System.IO.File.Exists(path))
-            {
-                path = AppLogger.TempLogFilePath;
-            }
-
-            if (System.IO.File.Exists(path))
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = path,
-                    UseShellExecute = true
-                });
-            }
-            else
-            {
-                string dir = System.IO.Path.GetDirectoryName(path) ?? System.IO.Path.GetTempPath();
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"\"{dir}\"",
-                    UseShellExecute = true
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogError("OpenLog", "Error opening log file", ex);
-        }
-    }
-
-    private void OnExitAppClick(object sender, RoutedEventArgs e)
-    {
-        AppLogger.LogInfo("Lifecycle", "OnExitAppClick initiated by user.");
-        Application.Current.Shutdown();
-    }
-
     private void UpdateSystemUpdateUi(UpdateCheckResult res)
     {
         bool isMono = IsMonochromeTheme;
-        var loc = LocalizationService.Instance;
         if (res.IsUpdateAvailable)
         {
-            TabSystemUpdateBadge.Visibility = Visibility.Visible;
             HeaderSettingsUpdateDot.Visibility = Visibility.Visible;
             HeaderSettingsUpdateDot.Fill = isMono ? BrushCache.Get(Color.FromRgb(228, 228, 231)) : BrushCache.Get(Color.FromRgb(34, 197, 94));
-            SysUpdateCardBorder.Background = BrushCache.Get(
-                isMono ? Color.FromArgb(32, 228, 228, 231) : Color.FromArgb(32, 34, 197, 94));
-            SysUpdateCardBorder.BorderBrush = BrushCache.Get(
-                isMono ? Color.FromArgb(80, 228, 228, 231) : Color.FromArgb(80, 34, 197, 94));
-            SysUpdateIconPath.Data = (Geometry)FindResource("GeomUpdate");
-            SysUpdateIconPath.Fill = BrushCache.Get(
-                isMono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(34, 197, 94));
-            SysUpdateStatusText.Text = loc.Format("Updater_Available", res.LatestVersion);
-            SysUpdateStatusText.Foreground = BrushCache.Get(
-                isMono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(34, 197, 94));
-            SysUpdateSubText.Text = !string.IsNullOrWhiteSpace(res.ReleaseTitle) && res.ReleaseTitle != res.LatestVersion
-                ? $"{res.ReleaseTitle} ({res.CurrentVersion})"
-                : loc.Format("Updater_UpToDate", res.CurrentVersion);
-            SysInstallUpdateBtn.Visibility = Visibility.Visible;
         }
         else
         {
-            TabSystemUpdateBadge.Visibility = Visibility.Collapsed;
             HeaderSettingsUpdateDot.Visibility = Visibility.Collapsed;
-            SysUpdateCardBorder.Background = BrushCache.Get(Color.FromArgb(18, 255, 255, 255));
-            SysUpdateCardBorder.BorderBrush = BrushCache.Get(Color.FromArgb(32, 255, 255, 255));
-            SysUpdateIconPath.Data = (Geometry)FindResource("GeomCheckCircle");
-            SysUpdateIconPath.Fill = BrushCache.Get(
-                isMono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(34, 197, 94));
-            SysUpdateStatusText.Text = $"Windows Dynamic Island {res.CurrentVersion}";
-            SysUpdateStatusText.Foreground = Brushes.White;
-            SysUpdateSubText.Text = res.HasError
-                ? res.ErrorMessage
-                : loc.Format("Updater_UpToDate", res.CurrentVersion);
-            SysInstallUpdateBtn.Visibility = Visibility.Collapsed;
         }
         _settingsWindow?.RefreshUpdateCard(res);
-    }
-
-    private async void OnCheckUpdateClick(object sender, RoutedEventArgs e)
-    {
-        var loc = LocalizationService.Instance;
-        SysCheckUpdateBtnText.Text = loc.Get("Updater_Checking", "Checking...");
-        SysCheckUpdateBtn.IsEnabled = false;
-
-        try
-        {
-            var res = await _updateService.CheckForUpdatesAsync(isBackgroundCheck: false);
-            UpdateSystemUpdateUi(res);
-
-            if (!res.IsUpdateAvailable && !res.HasError)
-            {
-                TriggerToast(new ToastPayload(
-                    Icon: "SHIELD",
-                    Title: $"Windows Dynamic Island {res.CurrentVersion}",
-                    Subtitle: loc.Format("Updater_UpToDate", res.CurrentVersion),
-                    AccentHex: "#38BDF8",
-                    Duration: TimeSpan.FromSeconds(2.6)));
-            }
-        }
-        finally
-        {
-            SysCheckUpdateBtnText.Text = loc.Get("Settings_CheckUpdateBtn", "Check Update");
-            SysCheckUpdateBtn.IsEnabled = true;
-        }
-    }
-
-    private void OnInstallUpdateClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var updaterWin = new SetupWindow(SetupWindowMode.Update, _updateService);
-            updaterWin.Show();
-            updaterWin.Activate();
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogError("MainWindow.OnInstallUpdateClick", ex.Message, ex);
-        }
     }
 
     private void OnSystemPowerModeChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)

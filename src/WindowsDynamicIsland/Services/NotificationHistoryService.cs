@@ -12,7 +12,6 @@ public sealed class NotificationHistoryItem
     public string Message { get; set; } = string.Empty;
     public string IconKey { get; set; } = "GeomBellNotif";
     public string AccentHex { get; set; } = "#38BDF8";
-    public string TimeString => Timestamp.ToString("HH:mm");
     public string RelativeTime => FormatRelativeTime(Timestamp);
 
     private static string FormatRelativeTime(DateTime dt)
