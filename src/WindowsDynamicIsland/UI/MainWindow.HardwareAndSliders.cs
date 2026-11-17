@@ -205,8 +205,12 @@ public partial class MainWindow
                 : (hw.IsNetworkConnected ? Color.FromRgb(226, 232, 240) : Color.FromRgb(248, 113, 113)));
         var loc = LocalizationService.Instance;
         HeaderWifiBadge.ToolTip = hw.IsNetworkConnected
-            ? (loc.IsEnglish ? $"Wi-Fi Connected: {hw.NetworkName}" : $"Wi-Fi Terhubung: {hw.NetworkName}")
-            : (loc.IsEnglish ? "Not Connected to Network" : "Tidak Terhubung ke Jaringan");
+            ? (loc.IsEnglish
+                ? $"Wi-Fi Connected: {hw.NetworkName} (Left-Click: Wi-Fi Menu | Right-Click: Windows Settings)"
+                : $"Wi-Fi Terhubung: {hw.NetworkName} (Klik Kiri: Menu Wi-Fi | Klik Kanan: Pengaturan)")
+            : (loc.IsEnglish
+                ? "Not Connected (Left-Click: Wi-Fi Menu | Right-Click: Windows Settings)"
+                : "Tidak Terhubung (Klik Kiri: Menu Wi-Fi | Klik Kanan: Pengaturan)");
 
         bool btOn = hw.IsBluetoothRadioOn;
         bool btConnected = !string.IsNullOrWhiteSpace(hw.ConnectedBluetoothName);
@@ -219,16 +223,18 @@ public partial class MainWindow
                     : _currentThemeAccentColor);
         HeaderBluetoothIconPath.Data = btOn ? GetVectorGeometry("GeomBluetooth") : GetVectorGeometry("GeomBluetoothOff");
         HeaderBluetoothIconPath.Fill = BrushCache.Get(headerBtColor);
+        string btBatSuffix = hw.ConnectedBluetoothBatteryPercent.HasValue ? $" {hw.ConnectedBluetoothBatteryPercent.Value}%" : string.Empty;
         HeaderBluetoothText.Text = !btOn
             ? "Off"
-            : (btConnected ? hw.ConnectedBluetoothName : "On");
+            : (btConnected ? $"{hw.ConnectedBluetoothName}{btBatSuffix}" : "On");
         HeaderBluetoothText.Foreground = BrushCache.Get(
             isMono
                 ? (!btOn ? Color.FromRgb(113, 113, 122) : Color.FromRgb(228, 228, 231))
                 : (!btOn ? Color.FromRgb(148, 163, 184) : Color.FromRgb(226, 232, 240)));
+        string btTooltipBat = hw.ConnectedBluetoothBatteryPercent.HasValue ? $" • {hw.ConnectedBluetoothBatteryPercent.Value}%" : string.Empty;
         HeaderBluetoothBtn.ToolTip = loc.IsEnglish
-            ? (btConnected ? $"Bluetooth: {hw.ConnectedBluetoothName} (Left-Click: ON/OFF | Right-Click: Settings)" : $"Bluetooth {(btOn ? "On" : "Off")} (Left-Click: ON/OFF | Right-Click: Settings)")
-            : (btConnected ? $"Bluetooth: {hw.ConnectedBluetoothName} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)" : $"Bluetooth {(btOn ? "Aktif" : "Mati")} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)");
+            ? (btConnected ? $"Bluetooth: {hw.ConnectedBluetoothName}{btTooltipBat} (Left-Click: ON/OFF | Right-Click: Settings)" : $"Bluetooth {(btOn ? "On" : "Off")} (Left-Click: ON/OFF | Right-Click: Settings)")
+            : (btConnected ? $"Bluetooth: {hw.ConnectedBluetoothName}{btTooltipBat} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)" : $"Bluetooth {(btOn ? "Aktif" : "Mati")} (Klik Kiri: ON/OFF | Klik Kanan: Pengaturan)");
 
         HeaderBatteryPercentText.Text = $"{batPct}%";
         HeaderBatteryPercentText.Foreground = BrushCache.Get(
@@ -418,7 +424,7 @@ public partial class MainWindow
         ToastIconPath.Fill = accentBrush;
         ToastIconBadge.Background = BrushCache.Get(Color.FromArgb(38, accent.R, accent.G, accent.B));
         ToastIconBadge.BorderBrush = BrushCache.Get(Color.FromArgb(68, accent.R, accent.G, accent.B));
-        AmbientGlowBrush.Color = accent;
+        SetAmbientGlowColors(accent, accent, animate: false);
 
         if (toast.SliderKind == ToastSliderKind.Battery)
         {
@@ -502,6 +508,23 @@ public partial class MainWindow
             int newBrt = _brightnessService.SetBrightnessPercent(pct);
             ShowBrightnessToast(newBrt);
         }
+    }
+
+    private void OnHeaderClockDateClick(object sender, RoutedEventArgs e)
+    {
+        SwitchToTab(IslandDashboardTab.CalendarSchedule);
+    }
+
+    private void OnHeaderWifiClick(object sender, RoutedEventArgs e)
+    {
+        SwitchToTab(IslandDashboardTab.Wifi);
+        _ = RefreshWifiTabUiAsync(triggerScan: true);
+    }
+
+    private void OnHeaderWifiRightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        WifiService.OpenWindowsWifiSettings();
     }
 
     private void OnOpenSettingsClick(object sender, RoutedEventArgs e)

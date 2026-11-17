@@ -503,7 +503,7 @@ public partial class MainWindow
             Win32Interop.SWP_FRAMECHANGED | Win32Interop.SWP_NOACTIVATE);
     }
 
-    private void ForceActivateAndFocus(TextBox? tb)
+    private void ForceActivateAndFocus(Control? tb)
     {
         if (_hwnd == IntPtr.Zero) return;
         SetWindowActivatable(true);
@@ -849,13 +849,34 @@ public partial class MainWindow
 
     private List<IslandDashboardTab> GetEnabledTabs()
     {
-        var list = new List<IslandDashboardTab>(6);
-        if (_settingsService.ShowTabMedia) list.Add(IslandDashboardTab.MediaLyrics);
-        if (_settingsService.ShowTabTodo) list.Add(IslandDashboardTab.TodoAndWater);
-        if (_settingsService.ShowTabPomodoro) list.Add(IslandDashboardTab.Pomodoro);
-        if (_settingsService.ShowTabShortcuts) list.Add(IslandDashboardTab.AppShortcuts);
-        if (_settingsService.ShowTabPerformance) list.Add(IslandDashboardTab.PerformanceMonitor);
-        if (_settingsService.ShowTabShelf) list.Add(IslandDashboardTab.FileShelf);
+        var order = _settingsService.GetNormalizedTabOrder();
+        var list = new List<IslandDashboardTab>(9);
+        foreach (string key in order)
+        {
+            switch (key)
+            {
+                case "MediaLyrics" when _settingsService.ShowTabMedia:
+                    list.Add(IslandDashboardTab.MediaLyrics); break;
+                case "TodoAndWater" when _settingsService.ShowTabTodo:
+                    list.Add(IslandDashboardTab.TodoAndWater); break;
+                case "Pomodoro" when _settingsService.ShowTabPomodoro:
+                    list.Add(IslandDashboardTab.Pomodoro); break;
+                case "CalendarSchedule" when _settingsService.ShowTabCalendar:
+                    list.Add(IslandDashboardTab.CalendarSchedule); break;
+                case "Weather" when _settingsService.ShowTabWeather:
+                    list.Add(IslandDashboardTab.Weather); break;
+                case "NotificationHistory" when _settingsService.ShowTabNotifications:
+                    list.Add(IslandDashboardTab.NotificationHistory); break;
+                case "AppShortcuts" when _settingsService.ShowTabShortcuts:
+                    list.Add(IslandDashboardTab.AppShortcuts); break;
+                case "PerformanceMonitor" when _settingsService.ShowTabPerformance:
+                    list.Add(IslandDashboardTab.PerformanceMonitor); break;
+                case "FileShelf" when _settingsService.ShowTabShelf:
+                    list.Add(IslandDashboardTab.FileShelf); break;
+                case "Wifi" when _settingsService.ShowTabWifi:
+                    list.Add(IslandDashboardTab.Wifi); break;
+            }
+        }
         if (list.Count == 0) list.Add(IslandDashboardTab.MediaLyrics);
         return list;
     }
@@ -890,6 +911,7 @@ public partial class MainWindow
             IslandDashboardTab.CalendarSchedule => ("GeomCalendar", loc.IsEnglish ? "Calendar" : "Kalender"),
             IslandDashboardTab.Weather => ("GeomWeatherSunCloud", loc.IsEnglish ? "Weather" : "Cuaca"),
             IslandDashboardTab.NotificationHistory => ("GeomBellNotif", loc.IsEnglish ? "Notifs" : "Notifikasi"),
+            IslandDashboardTab.Wifi => ("GeomWifi", "Wi-Fi"),
             _ => ("GeomMusic", loc.IsEnglish ? "Music" : "Musik")
         };
     }

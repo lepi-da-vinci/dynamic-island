@@ -166,12 +166,7 @@ public partial class SettingsWindow : Window
             ChkAutoTuck.IsChecked = _settings.AutoTuckEnabled;
             ChkScreenshotMode.IsChecked = _settings.ScreenshotAutoTuckEnabled;
 
-            ChkTabMedia.IsChecked = _settings.ShowTabMedia;
-            ChkTabTodo.IsChecked = _settings.ShowTabTodo;
-            ChkTabPomodoro.IsChecked = _settings.ShowTabPomodoro;
-            ChkTabShortcuts.IsChecked = _settings.ShowTabShortcuts;
-            ChkTabPerformance.IsChecked = _settings.ShowTabPerformance;
-            ChkTabShelf.IsChecked = _settings.ShowTabShelf;
+            RebuildTabCustomizationRows();
 
             switch (_settings.NotchSizePercent)
             {
@@ -317,6 +312,7 @@ public partial class SettingsWindow : Window
             ChkSystemNotifToast.IsChecked = _settings.SystemNotificationToastEnabled;
             ChkSpotlightHotkey.IsChecked = _settings.SpotlightHotkeyEnabled;
             ChkBattery80Alert.IsChecked = _settings.Battery80PercentAlertEnabled;
+            ChkAutoBatteryEco.IsChecked = _settings.AutoBatteryEcoMode;
 
             double toastDur = _settings.ToastDurationSeconds;
             if (Math.Abs(toastDur - 2.0) < 0.2) Toast20Btn.IsChecked = true;
@@ -390,6 +386,7 @@ public partial class SettingsWindow : Window
             RefreshSystemControlCenterCard();
             RefreshBluetoothCard();
             RefreshWaterCard();
+            RebuildTabCustomizationRows();
 
             int currentCategory = 0;
             if (NavDisplayBtn?.IsChecked == true) currentCategory = 1;
@@ -524,36 +521,240 @@ public partial class SettingsWindow : Window
         _settings.SystemNotificationToastEnabled = ChkSystemNotifToast.IsChecked == true;
         _settings.SpotlightHotkeyEnabled = ChkSpotlightHotkey.IsChecked == true;
         _settings.Battery80PercentAlertEnabled = ChkBattery80Alert.IsChecked == true;
+        _settings.AutoBatteryEcoMode = ChkAutoBatteryEco.IsChecked == true;
         UpdateLiveThemePreview();
     }
 
-    private void OnTabVisibilityToggleClicked(object sender, RoutedEventArgs e)
+    private Point _tabDragStartPoint;
+
+    private void RebuildTabCustomizationRows()
     {
-        if (_isLoadingUi) return;
+        if (TabCustomizationStack == null) return;
+        TabCustomizationStack.Children.Clear();
 
-        bool media = ChkTabMedia.IsChecked == true;
-        bool todo = ChkTabTodo.IsChecked == true;
-        bool pomo = ChkTabPomodoro.IsChecked == true;
-        bool shortcuts = ChkTabShortcuts.IsChecked == true;
-        bool perf = ChkTabPerformance.IsChecked == true;
-        bool shelf = ChkTabShelf.IsChecked == true;
+        var loc = LocalizationService.Instance;
+        var order = _settings.GetNormalizedTabOrder();
 
-        // Ensure at least 1 tab stays enabled
-        if (!media && !todo && !pomo && !shortcuts && !perf && !shelf)
+        for (int i = 0; i < order.Count; i++)
         {
-            if (sender is CheckBox cb)
+            string tabKey = order[i];
+            if (i > 0)
             {
-                cb.IsChecked = true;
+                TabCustomizationStack.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = BrushCache.Get(Color.FromArgb(20, 255, 255, 255)),
+                    Margin = new Thickness(0, 9, 0, 9)
+                });
             }
-            return;
-        }
 
-        _settings.ShowTabMedia = media;
-        _settings.ShowTabTodo = todo;
-        _settings.ShowTabPomodoro = pomo;
-        _settings.ShowTabShortcuts = shortcuts;
-        _settings.ShowTabPerformance = perf;
-        _settings.ShowTabShelf = shelf;
+            var (titleKey, subKey) = tabKey switch
+            {
+                "MediaLyrics" => ("Settings_TabMusic", "Settings_TabMusicSub"),
+                "TodoAndWater" => ("Settings_TabTodo", "Settings_TabTodoSub"),
+                "Pomodoro" => ("Settings_TabFocus", "Settings_TabFocusSub"),
+                "CalendarSchedule" => ("Settings_TabCalendar", "Settings_TabCalendarSub"),
+                "Weather" => ("Settings_TabWeather", "Settings_TabWeatherSub"),
+                "NotificationHistory" => ("Settings_TabNotifications", "Settings_TabNotificationsSub"),
+                "AppShortcuts" => ("Settings_TabShortcuts", "Settings_TabShortcutsSub"),
+                "PerformanceMonitor" => ("Settings_TabPerf", "Settings_TabPerfSub"),
+                "FileShelf" => ("Settings_TabShelf", "Settings_TabShelfSub"),
+                _ => ("Settings_TabWifi", "Settings_TabWifiSub")
+            };
+
+            bool isChecked = tabKey switch
+            {
+                "MediaLyrics" => _settings.ShowTabMedia,
+                "TodoAndWater" => _settings.ShowTabTodo,
+                "Pomodoro" => _settings.ShowTabPomodoro,
+                "CalendarSchedule" => _settings.ShowTabCalendar,
+                "Weather" => _settings.ShowTabWeather,
+                "NotificationHistory" => _settings.ShowTabNotifications,
+                "AppShortcuts" => _settings.ShowTabShortcuts,
+                "PerformanceMonitor" => _settings.ShowTabPerformance,
+                "FileShelf" => _settings.ShowTabShelf,
+                _ => _settings.ShowTabWifi
+            };
+
+            var rowBorder = new Border
+            {
+                Background = Brushes.Transparent,
+                CornerRadius = new CornerRadius(7),
+                Padding = new Thickness(4, 2, 4, 2),
+                AllowDrop = true,
+                Tag = tabKey,
+                Cursor = Cursors.SizeAll
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // Drag handle + Up/Down micro arrows
+            var moveStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
+            };
+            var upBtn = new Button
+            {
+                Style = TryFindResource("IslandIconButtonStyle") as Style,
+                Padding = new Thickness(4, 3, 4, 3),
+                Margin = new Thickness(0, 0, 2, 0),
+                IsEnabled = i > 0,
+                Opacity = i > 0 ? 0.9 : 0.3,
+                Content = new System.Windows.Shapes.Path
+                {
+                    Data = TryFindResource("GeomChevronUp") as Geometry,
+                    Width = 8,
+                    Height = 8,
+                    Stretch = Stretch.Uniform,
+                    Fill = BrushCache.Get(Color.FromRgb(148, 163, 184))
+                }
+            };
+            string keyCapture = tabKey;
+            upBtn.Click += (_, _) => MoveTabInOrder(keyCapture, -1);
+
+            var downBtn = new Button
+            {
+                Style = TryFindResource("IslandIconButtonStyle") as Style,
+                Padding = new Thickness(4, 3, 4, 3),
+                IsEnabled = i < order.Count - 1,
+                Opacity = i < order.Count - 1 ? 0.9 : 0.3,
+                Content = new System.Windows.Shapes.Path
+                {
+                    Data = TryFindResource("GeomChevronUp") as Geometry,
+                    Width = 8,
+                    Height = 8,
+                    Stretch = Stretch.Uniform,
+                    Fill = BrushCache.Get(Color.FromRgb(148, 163, 184)),
+                    RenderTransformOrigin = new Point(0.5, 0.5),
+                    RenderTransform = new RotateTransform(180)
+                }
+            };
+            downBtn.Click += (_, _) => MoveTabInOrder(keyCapture, 1);
+
+            moveStack.Children.Add(upBtn);
+            moveStack.Children.Add(downBtn);
+            Grid.SetColumn(moveStack, 0);
+            grid.Children.Add(moveStack);
+
+            var labelStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+            labelStack.Children.Add(new TextBlock
+            {
+                Text = loc.Get(titleKey),
+                Foreground = BrushCache.Get(Color.FromRgb(0xF8, 0xFA, 0xFC)),
+                FontSize = 12.5,
+                FontWeight = FontWeights.SemiBold
+            });
+            labelStack.Children.Add(new TextBlock
+            {
+                Text = loc.Get(subKey),
+                Foreground = BrushCache.Get(Color.FromRgb(0x94, 0xA3, 0xB8)),
+                FontSize = 10.5,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 1, 0, 0)
+            });
+            Grid.SetColumn(labelStack, 1);
+            grid.Children.Add(labelStack);
+
+            var toggle = new CheckBox
+            {
+                Style = TryFindResource("AppleToggleSwitchStyle") as Style,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsChecked = isChecked
+            };
+            toggle.Click += (_, _) =>
+            {
+                bool next = toggle.IsChecked == true;
+                switch (keyCapture)
+                {
+                    case "MediaLyrics": _settings.ShowTabMedia = next; toggle.IsChecked = _settings.ShowTabMedia; break;
+                    case "TodoAndWater": _settings.ShowTabTodo = next; toggle.IsChecked = _settings.ShowTabTodo; break;
+                    case "Pomodoro": _settings.ShowTabPomodoro = next; toggle.IsChecked = _settings.ShowTabPomodoro; break;
+                    case "CalendarSchedule": _settings.ShowTabCalendar = next; toggle.IsChecked = _settings.ShowTabCalendar; break;
+                    case "Weather": _settings.ShowTabWeather = next; toggle.IsChecked = _settings.ShowTabWeather; break;
+                    case "NotificationHistory": _settings.ShowTabNotifications = next; toggle.IsChecked = _settings.ShowTabNotifications; break;
+                    case "AppShortcuts": _settings.ShowTabShortcuts = next; toggle.IsChecked = _settings.ShowTabShortcuts; break;
+                    case "PerformanceMonitor": _settings.ShowTabPerformance = next; toggle.IsChecked = _settings.ShowTabPerformance; break;
+                    case "FileShelf": _settings.ShowTabShelf = next; toggle.IsChecked = _settings.ShowTabShelf; break;
+                    case "Wifi": _settings.ShowTabWifi = next; toggle.IsChecked = _settings.ShowTabWifi; break;
+                }
+            };
+            Grid.SetColumn(toggle, 3);
+            grid.Children.Add(toggle);
+
+            rowBorder.Child = grid;
+
+            rowBorder.PreviewMouseLeftButtonDown += (_, e) => _tabDragStartPoint = e.GetPosition(rowBorder);
+            rowBorder.MouseMove += (_, e) =>
+            {
+                if (e.LeftButton != MouseButtonState.Pressed) return;
+                if (e.OriginalSource is DependencyObject dep && FindParentButtonOrCheckBox(dep)) return;
+                Point pos = e.GetPosition(rowBorder);
+                if (Math.Abs(pos.X - _tabDragStartPoint.X) > 6 || Math.Abs(pos.Y - _tabDragStartPoint.Y) > 6)
+                {
+                    DragDrop.DoDragDrop(rowBorder, new DataObject("DynamicIslandTabKey", keyCapture), DragDropEffects.Move);
+                }
+            };
+            rowBorder.DragOver += (_, e) =>
+            {
+                if (e.Data.GetDataPresent("DynamicIslandTabKey"))
+                {
+                    e.Effects = DragDropEffects.Move;
+                    rowBorder.Background = BrushCache.Get(Color.FromArgb(24, 56, 189, 248));
+                    e.Handled = true;
+                }
+            };
+            rowBorder.DragLeave += (_, _) => rowBorder.Background = Brushes.Transparent;
+            rowBorder.Drop += (_, e) =>
+            {
+                rowBorder.Background = Brushes.Transparent;
+                if (e.Data.GetDataPresent("DynamicIslandTabKey") &&
+                    e.Data.GetData("DynamicIslandTabKey") is string sourceKey &&
+                    sourceKey != keyCapture)
+                {
+                    var nextOrder = _settings.GetNormalizedTabOrder();
+                    int srcIdx = nextOrder.IndexOf(sourceKey);
+                    int dstIdx = nextOrder.IndexOf(keyCapture);
+                    if (srcIdx >= 0 && dstIdx >= 0)
+                    {
+                        nextOrder.RemoveAt(srcIdx);
+                        nextOrder.Insert(dstIdx, sourceKey);
+                        _settings.SetDashboardTabOrder(nextOrder);
+                        RebuildTabCustomizationRows();
+                    }
+                }
+            };
+
+            TabCustomizationStack.Children.Add(rowBorder);
+        }
+    }
+
+    private static bool FindParentButtonOrCheckBox(DependencyObject? d)
+    {
+        while (d != null)
+        {
+            if (d is Button or CheckBox) return true;
+            d = VisualTreeHelper.GetParent(d);
+        }
+        return false;
+    }
+
+    private void MoveTabInOrder(string tabKey, int delta)
+    {
+        var order = _settings.GetNormalizedTabOrder();
+        int idx = order.IndexOf(tabKey);
+        int target = idx + delta;
+        if (idx < 0 || target < 0 || target >= order.Count) return;
+
+        order.RemoveAt(idx);
+        order.Insert(target, tabKey);
+        _settings.SetDashboardTabOrder(order);
+        RebuildTabCustomizationRows();
     }
 
     private bool IsMonochromeTheme =>

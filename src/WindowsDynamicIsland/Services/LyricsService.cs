@@ -18,16 +18,31 @@ public sealed record ActiveLyricSnapshot(
     bool IsSynced,
     string? CurrentRomanizedLine = null);
 
+public sealed record LyricCandidate(
+    string Id,
+    string Source,
+    string Title,
+    string Artist,
+    double DurationSeconds,
+    bool IsSynced,
+    string LrcText,
+    string? RomanizedText = null);
+
 public sealed partial class LyricsService
 {
     private static readonly HttpClient Http = CreateHttpClient();
     private readonly string _cacheDirectory;
+    private readonly string _offsetsFilePath;
+    private Dictionary<string, double> _trackOffsets = new(StringComparer.OrdinalIgnoreCase);
     private List<LyricLine> _currentLines = [];
     private string _loadedTrackKey = string.Empty;
+    private string _loadedCacheKey = string.Empty;
     private double _loadedDurationSeconds;
     private int _requestVersion;
 
     public string StatusMessage { get; private set; } = "Putar musik di Spotify / Browser";
+    public double CurrentTrackOffsetSeconds => !string.IsNullOrEmpty(_loadedTrackKey) && _trackOffsets.TryGetValue(_loadedTrackKey, out double off) ? off : 0.0;
+    public string CurrentTrackKey => _loadedTrackKey;
 
     public event Action? LyricsUpdated;
 
@@ -38,10 +53,19 @@ public sealed partial class LyricsService
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "WindowsDynamicIsland",
             "LyricsCacheV2");
+        _offsetsFilePath = Path.Combine(_cacheDirectory, "offsets.json");
 
         try
         {
             Directory.CreateDirectory(_cacheDirectory);
+            if (File.Exists(_offsetsFilePath))
+            {
+                var loaded = JsonSerializer.Deserialize<Dictionary<string, double>>(File.ReadAllText(_offsetsFilePath));
+                if (loaded != null)
+                {
+                    _trackOffsets = new Dictionary<string, double>(loaded, StringComparer.OrdinalIgnoreCase);
+                }
+            }
         }
         catch
         {
@@ -111,7 +135,8 @@ public sealed partial class LyricsService
         var (primaryTitle, primaryArtist) = queryPairs[0];
 
         string durBucket = durationSeconds > 15 ? $"|{Math.Round(durationSeconds / 5.0) * 5}" : string.Empty;
-        string cacheFile = GetCacheFilePath($"{trackKey}{durBucket}");
+        _loadedCacheKey = $"{trackKey}{durBucket}";
+        string cacheFile = GetCacheFilePath(_loadedCacheKey);
 
         // 1. Check local disk cache first
         if (File.Exists(cacheFile))
@@ -265,7 +290,170 @@ public sealed partial class LyricsService
         LyricsUpdated?.Invoke();
     }
 
-    internal void LoadLinesForTest(List<LyricLine> lines) => _currentLines = lines;
+    internal void LoadLinesForTest(List<LyricLine> lines, string? trackKey = null)
+    {
+        _currentLines = lines;
+        if (!string.IsNullOrEmpty(trackKey)) _loadedTrackKey = trackKey;
+    }
+
+    public void AdjustTrackOffset(double deltaSeconds)
+    {
+        if (string.IsNullOrEmpty(_loadedTrackKey)) return;
+        double current = CurrentTrackOffsetSeconds;
+        double next = Math.Round(Math.Clamp(current + deltaSeconds, -30.0, 30.0), 1);
+        if (Math.Abs(next) < 0.05)
+        {
+            _trackOffsets.Remove(_loadedTrackKey);
+        }
+        else
+        {
+            _trackOffsets[_loadedTrackKey] = next;
+        }
+        SaveOffsets();
+        LyricsUpdated?.Invoke();
+    }
+
+    public void ResetTrackOffset()
+    {
+        if (string.IsNullOrEmpty(_loadedTrackKey)) return;
+        if (_trackOffsets.Remove(_loadedTrackKey))
+        {
+            SaveOffsets();
+            LyricsUpdated?.Invoke();
+        }
+    }
+
+    private void SaveOffsets()
+    {
+        try
+        {
+            File.WriteAllText(_offsetsFilePath, JsonSerializer.Serialize(_trackOffsets, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch { }
+    }
+
+    public async Task<List<LyricCandidate>> SearchCandidatesAsync(string? customQuery = null, string? fallbackTitle = null, string? fallbackArtist = null, double durationSeconds = 0)
+    {
+        var results = new List<LyricCandidate>();
+        string query = !string.IsNullOrWhiteSpace(customQuery)
+            ? customQuery.Trim()
+            : string.Join(" ", new[] { CleanArtistName(fallbackArtist), CleanTrackTitle(fallbackTitle) }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+        if (string.IsNullOrWhiteSpace(query)) return results;
+
+        try
+        {
+            string lrcUrl = $"https://lrclib.net/api/search?q={Uri.EscapeDataString(query)}";
+            using var lrcResp = await Http.GetAsync(lrcUrl);
+            if (lrcResp.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(await lrcResp.Content.ReadAsStringAsync());
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    int take = 0;
+                    foreach (var item in doc.RootElement.EnumerateArray())
+                    {
+                        if (take >= 8) break;
+                        bool inst = item.TryGetProperty("instrumental", out var ip) && ip.ValueKind == JsonValueKind.True;
+                        if (inst) continue;
+
+                        string? synced = item.TryGetProperty("syncedLyrics", out var sp) && sp.ValueKind == JsonValueKind.String ? sp.GetString() : null;
+                        string? plain = item.TryGetProperty("plainLyrics", out var pp) && pp.ValueKind == JsonValueKind.String ? pp.GetString() : null;
+                        string? rawText = !string.IsNullOrWhiteSpace(synced) ? synced : plain;
+                        if (string.IsNullOrWhiteSpace(rawText)) continue;
+
+                        string title = item.TryGetProperty("trackName", out var tn) ? (tn.GetString() ?? query) : query;
+                        string artist = item.TryGetProperty("artistName", out var an) ? (an.GetString() ?? "") : "";
+                        double dur = item.TryGetProperty("duration", out var dp) && dp.TryGetDouble(out double d) ? d : 0;
+
+                        if (string.IsNullOrWhiteSpace(synced) && !string.IsNullOrWhiteSpace(plain))
+                        {
+                            rawText = FormatAsLrc(ConvertPlainLyricsToTimedLines(plain, dur > 15 ? dur : durationSeconds));
+                        }
+
+                        results.Add(new LyricCandidate(
+                            Id: $"lrclib_{take}",
+                            Source: "LRCLIB",
+                            Title: title,
+                            Artist: artist,
+                            DurationSeconds: dur,
+                            IsSynced: !string.IsNullOrWhiteSpace(synced),
+                            LrcText: rawText));
+                        take++;
+                    }
+                }
+            }
+        }
+        catch { }
+
+        try
+        {
+            string neUrl = $"http://music.163.com/api/cloudsearch/pc?s={Uri.EscapeDataString(query)}&type=1&offset=0&limit=5";
+            using var req = new HttpRequestMessage(HttpMethod.Get, neUrl);
+            req.Headers.TryAddWithoutValidation("Referer", "http://music.163.com");
+            using var neResp = await Http.SendAsync(req);
+            if (neResp.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(await neResp.Content.ReadAsStringAsync());
+                if (doc.RootElement.TryGetProperty("result", out var res) &&
+                    res.TryGetProperty("songs", out var songs) &&
+                    songs.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var song in songs.EnumerateArray().Take(4))
+                    {
+                        if (!song.TryGetProperty("id", out var idProp)) continue;
+                        long sid = idProp.GetInt64();
+                        string title = song.TryGetProperty("name", out var np) ? (np.GetString() ?? query) : query;
+                        double dur = song.TryGetProperty("dt", out var dt) ? dt.GetInt64() / 1000.0 : 0;
+                        string artist = "";
+                        if (song.TryGetProperty("ar", out var ar) && ar.ValueKind == JsonValueKind.Array && ar.GetArrayLength() > 0)
+                        {
+                            artist = ar[0].TryGetProperty("name", out var an) ? (an.GetString() ?? "") : "";
+                        }
+
+                        string lyricUrl = $"http://music.163.com/api/song/lyric?id={sid}&lv=1&kv=1&tv=1";
+                        using var lreq = new HttpRequestMessage(HttpMethod.Get, lyricUrl);
+                        lreq.Headers.TryAddWithoutValidation("Referer", "http://music.163.com");
+                        using var lresp = await Http.SendAsync(lreq);
+                        if (!lresp.IsSuccessStatusCode) continue;
+
+                        using var ldoc = JsonDocument.Parse(await lresp.Content.ReadAsStringAsync());
+                        string? lrcText = ldoc.RootElement.TryGetProperty("lrc", out var lo) && lo.TryGetProperty("lyric", out var lp) ? lp.GetString() : null;
+                        string? romaText = ldoc.RootElement.TryGetProperty("romalrc", out var ro) && ro.TryGetProperty("lyric", out var rp) ? rp.GetString() : null;
+                        if (!string.IsNullOrWhiteSpace(lrcText) && lrcText.Contains('['))
+                        {
+                            results.Add(new LyricCandidate(
+                                Id: $"netease_{sid}",
+                                Source: "NetEase",
+                                Title: title,
+                                Artist: artist,
+                                DurationSeconds: dur,
+                                IsSynced: true,
+                                LrcText: lrcText,
+                                RomanizedText: romaText));
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return results;
+    }
+
+    public async Task ApplyManualCandidateAsync(LyricCandidate candidate)
+    {
+        var parsed = ParseLrc(candidate.LrcText, candidate.RomanizedText);
+        if (parsed.Count == 0) return;
+
+        _currentLines = parsed;
+        StatusMessage = $"Lirik manual ({candidate.Source})";
+        if (!string.IsNullOrEmpty(_loadedCacheKey))
+        {
+            await TrySaveCacheAsync(GetCacheFilePath(_loadedCacheKey), candidate.LrcText);
+        }
+        LyricsUpdated?.Invoke();
+    }
 
     public ActiveLyricSnapshot GetActiveLyrics(TimeSpan position)
     {
@@ -280,8 +468,8 @@ public sealed partial class LyricsService
                 IsSynced: false);
         }
 
-        // Lookahead by 200ms so visual animation lands right on the vocal beat
-        TimeSpan adjusted = position + TimeSpan.FromMilliseconds(200);
+        // Lookahead by 200ms + per-song user offset calibration
+        TimeSpan adjusted = position + TimeSpan.FromMilliseconds(200) + TimeSpan.FromSeconds(CurrentTrackOffsetSeconds);
         int activeIndex = -1;
 
         for (int i = 0; i < _currentLines.Count; i++)

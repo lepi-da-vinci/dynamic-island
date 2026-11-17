@@ -45,7 +45,10 @@
                     Opacity="0.0"
                     IsHitTestVisible="False">
                 <Border.Background>
-                    <SolidColorBrush x:Name="AmbientGlowBrush" Color="#38BDF8"/>
+                    <LinearGradientBrush x:Name="AmbientGlowBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop x:Name="AmbientGlowStop1" Color="#38BDF8" Offset="0.0"/>
+                        <GradientStop x:Name="AmbientGlowStop2" Color="#818CF8" Offset="1.0"/>
+                    </LinearGradientBrush>
                 </Border.Background>
                 <Border.Effect>
                     <BlurEffect Radius="24" KernelType="Gaussian"/>
@@ -546,6 +549,7 @@
                                       Fill="#64748B"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"/>
+                                <Image x:Name="CompactAlbumImagePrev" Stretch="UniformToFill" Opacity="0"/>
                                 <Image x:Name="CompactAlbumImage" Stretch="UniformToFill"/>
                             </Grid>
                         </Border>
@@ -737,15 +741,15 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Left: Clock & Date Pill + Live Privacy Indicator -->
+                            <!-- Left: Clickable Clock & Date Pill (Shortcut to Calendar Tab) + Live Privacy Indicator -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border Background="#12FFFFFF"
-                                        BorderBrush="#1EFFFFFF"
-                                        BorderThickness="1"
-                                        CornerRadius="9"
+                                <Button x:Name="HeaderClockDateBtn"
+                                        Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="9,4"
                                         HorizontalAlignment="Left"
-                                        VerticalAlignment="Center">
+                                        VerticalAlignment="Center"
+                                        ToolTip="{Binding [Header_ClockTooltip], Source={x:Static svc:LocalizationService.Instance}}"
+                                        Click="OnHeaderClockDateClick">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock x:Name="ExpandedClockBadge"
                                                    Text="14:25"
@@ -766,7 +770,7 @@
                                                    FontFamily="Segoe UI Variable Text, Segoe UI"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
-                                </Border>
+                                </Button>
 
                                 <Border x:Name="ExpandedPrivacyBadge"
                                         Background="#1C22C55E"
@@ -794,16 +798,15 @@
 
                             <!-- Right: Wi-Fi, Bluetooth, Battery, Settings & Simpan -->
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                                <!-- Wi-Fi Status Pill -->
-                                <Border x:Name="HeaderWifiBadge"
-                                        Background="#12FFFFFF"
-                                        BorderBrush="#1EFFFFFF"
-                                        BorderThickness="1"
-                                        CornerRadius="9"
+                                <!-- Wi-Fi Status Shortcut Button (Left-Click: Wi-Fi Menu Tab | Right-Click: Windows Settings) -->
+                                <Button x:Name="HeaderWifiBadge"
+                                        Style="{StaticResource IslandIconButtonStyle}"
                                         Padding="7.5,4"
                                         Margin="0,0,5,0"
                                         VerticalAlignment="Center"
-                                        ToolTip="Status Jaringan Wi-Fi">
+                                        ToolTip="Status Jaringan Wi-Fi (Klik: Menu Wi-Fi)"
+                                        Click="OnHeaderWifiClick"
+                                        MouseRightButtonUp="OnHeaderWifiRightClick">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Path x:Name="HeaderWifiIconPath"
                                               Data="{StaticResource GeomWifi}"
@@ -821,7 +824,7 @@
                                                    FontWeight="SemiBold"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
-                                </Border>
+                                </Button>
 
                                 <!-- Bluetooth Status Button (Left-Click Toggle ON/OFF, Right-Click Windows Settings) -->
                                 <Button x:Name="HeaderBluetoothBtn"
@@ -998,6 +1001,7 @@
                                                   Fill="#475569"
                                                   HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"/>
+                                            <Image x:Name="ExpandedAlbumImagePrev" Stretch="UniformToFill" Opacity="0"/>
                                             <Image x:Name="ExpandedAlbumImage" Stretch="UniformToFill"/>
                                         </Grid>
                                     </Border>
@@ -1205,7 +1209,7 @@
                                            VerticalAlignment="Center"/>
                             </Grid>
 
-                            <!-- ANIMATED 3-LINE LIVE LYRICS STAGE (Clean Zero-Glow Typography + Bottom Lyric Duration Bar) -->
+                            <!-- ANIMATED 3-LINE LIVE LYRICS STAGE (Clean Zero-Glow Typography + Offset Calibration + Candidate Picker) -->
                             <Border x:Name="LyricsStageBorder"
                                     Grid.Row="2"
                                     Background="#0EFFFFFF"
@@ -1219,6 +1223,93 @@
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
+
+                                    <!-- Compact Offset Calibration (-0.5s / +0.5s) & Switch Lyrics Trigger -->
+                                    <StackPanel Grid.Row="0"
+                                                Orientation="Horizontal"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Top"
+                                                Margin="0,1,-6,0"
+                                                Panel.ZIndex="4"
+                                                Opacity="0.86">
+                                        <Button x:Name="LyricsOffsetMinusBtn"
+                                                Style="{StaticResource IslandIconButtonStyle}"
+                                                Padding="4.5,1.5"
+                                                Margin="0,0,2,0"
+                                                ToolTip="-0.5s"
+                                                Click="OnLyricsOffsetMinusClick">
+                                            <TextBlock Text="-0.5s" FontSize="8.5" Foreground="#94A3B8" FontWeight="SemiBold"/>
+                                        </Button>
+                                        <TextBlock x:Name="LyricsOffsetReadoutText"
+                                                   Text="0.0s"
+                                                   Foreground="#38BDF8"
+                                                   FontSize="8.5"
+                                                   FontWeight="Bold"
+                                                   Margin="2,0"
+                                                   VerticalAlignment="Center"
+                                                   Visibility="Collapsed"
+                                                   Cursor="Hand"
+                                                   MouseLeftButtonUp="OnLyricsOffsetResetClick"/>
+                                        <Button x:Name="LyricsOffsetPlusBtn"
+                                                Style="{StaticResource IslandIconButtonStyle}"
+                                                Padding="4.5,1.5"
+                                                Margin="0,0,4,0"
+                                                ToolTip="+0.5s"
+                                                Click="OnLyricsOffsetPlusClick">
+                                            <TextBlock Text="+0.5s" FontSize="8.5" Foreground="#94A3B8" FontWeight="SemiBold"/>
+                                        </Button>
+                                        <Button x:Name="LyricsCandidatePickerBtn"
+                                                Style="{StaticResource IslandIconButtonStyle}"
+                                                Padding="5.5,1.5"
+                                                ToolTip="{Binding [Lyrics_SearchBtn], Source={x:Static svc:LocalizationService.Instance}}"
+                                                Click="OnOpenLyricCandidatesClick">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Path Data="{StaticResource GeomSearch}" Width="8.5" Height="8.5" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding [Lyrics_SearchBtn], Source={x:Static svc:LocalizationService.Instance}}" FontSize="8.5" Foreground="#CBD5E1" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <!-- Manual Lyric Candidates Popover Overlay -->
+                                    <Border x:Name="LyricCandidatesOverlayBorder"
+                                            Grid.Row="0" Grid.RowSpan="2"
+                                            Panel.ZIndex="10"
+                                            Margin="-14,-5"
+                                            Padding="10,6"
+                                            Background="#F409090D"
+                                            BorderBrush="#3538BDF8"
+                                            BorderThickness="1"
+                                            CornerRadius="13"
+                                            Visibility="Collapsed">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid Grid.Row="0" Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Background="#16FFFFFF" BorderBrush="#24FFFFFF" BorderThickness="1" CornerRadius="7" Padding="7,2" Margin="0,0,5,0">
+                                                    <Grid>
+                                                        <TextBlock x:Name="LyricCandidateSearchPlaceholder" Text="{Binding [Lyrics_SearchPlaceholder], Source={x:Static svc:LocalizationService.Instance}}" Foreground="#64748B" FontSize="10" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                        <TextBox x:Name="LyricCandidateSearchBox" Background="Transparent" BorderThickness="0" Foreground="#F8FAFC" CaretBrush="#38BDF8" FontSize="10" VerticalAlignment="Center" TextChanged="OnLyricCandidateSearchTextChanged" KeyDown="OnLyricCandidateSearchKeyDown"/>
+                                                    </Grid>
+                                                </Border>
+                                                <Button Grid.Column="1" Style="{StaticResource IslandIconButtonStyle}" Padding="7,2.5" Margin="0,0,4,0" Click="OnSearchLyricCandidatesClick">
+                                                    <TextBlock Text="Cari" FontSize="9.5" Foreground="#38BDF8" FontWeight="SemiBold"/>
+                                                </Button>
+                                                <Button Grid.Column="2" Style="{StaticResource IslandIconButtonStyle}" Padding="6,2.5" Click="OnCloseLyricCandidatesClick">
+                                                    <Path Data="{StaticResource GeomClosePower}" Width="8" Height="8" Stretch="Uniform" Fill="#94A3B8"/>
+                                                </Button>
+                                            </Grid>
+                                            <ScrollViewer Grid.Row="1" Style="{StaticResource AppleScrollViewerStyle}" VerticalScrollBarVisibility="Auto">
+                                                <StackPanel x:Name="LyricCandidatesStack" Margin="0,0,4,0"/>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
 
                                     <StackPanel x:Name="LyricsStageStack"
                                                 Grid.Row="0"
@@ -2369,20 +2460,35 @@
                                                 </StackPanel>
                                             </Button>
 
-                                            <Button x:Name="ShelfPickerBtn"
-                                                    Style="{StaticResource IslandIconButtonStyle}"
-                                                    Background="#14FFFFFF"
-                                                    BorderBrush="#22FFFFFF"
-                                                    BorderThickness="1"
-                                                    Padding="7,3"
-                                                    Margin="0,0,4,0"
-                                                    ToolTip="{Binding [Picker_BtnLabel], Source={x:Static svc:LocalizationService.Instance}}"
-                                                    Click="OnLaunchColorPickerToolClick">
-                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <Path Data="{StaticResource GeomColorPicker}" Width="9.5" Height="9.5" Stretch="Uniform" Fill="#C084FC" Margin="0,0,3.5,0" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding [Picker_BtnLabel], Source={x:Static svc:LocalizationService.Instance}}" FontSize="10" FontWeight="SemiBold" Foreground="#E2E8F0" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Button>
+                                             <Button x:Name="ShelfPickerBtn"
+                                                     Style="{StaticResource IslandIconButtonStyle}"
+                                                     Background="#14FFFFFF"
+                                                     BorderBrush="#22FFFFFF"
+                                                     BorderThickness="1"
+                                                     Padding="6,3"
+                                                     Margin="0,0,4,0"
+                                                     ToolTip="{Binding [Picker_BtnLabel], Source={x:Static svc:LocalizationService.Instance}}"
+                                                     Click="OnLaunchColorPickerToolClick">
+                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                     <Path Data="{StaticResource GeomColorPicker}" Width="9.5" Height="9.5" Stretch="Uniform" Fill="#C084FC" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                                     <TextBlock Text="{Binding [Picker_BtnLabel], Source={x:Static svc:LocalizationService.Instance}}" FontSize="9.5" FontWeight="SemiBold" Foreground="#E2E8F0" VerticalAlignment="Center"/>
+                                                 </StackPanel>
+                                             </Button>
+
+                                             <Button x:Name="ShelfSnipBtn"
+                                                     Style="{StaticResource IslandIconButtonStyle}"
+                                                     Background="#14FFFFFF"
+                                                     BorderBrush="#22FFFFFF"
+                                                     BorderThickness="1"
+                                                     Padding="6,3"
+                                                     Margin="0,0,4,0"
+                                                     ToolTip="{Binding [Snip_BtnLabel], Source={x:Static svc:LocalizationService.Instance}}"
+                                                     Click="OnLaunchRegionSnipToolClick">
+                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                     <Path Data="{StaticResource GeomScreenshot}" Width="9.5" Height="9.5" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                                     <TextBlock Text="{Binding [Snip_BtnLabel], Source={x:Static svc:LocalizationService.Instance}}" FontSize="9.5" FontWeight="SemiBold" Foreground="#E2E8F0" VerticalAlignment="Center"/>
+                                                 </StackPanel>
+                                             </Button>
 
                                             <Button x:Name="ShelfQrShareBtn"
                                                     Style="{StaticResource IslandIconButtonStyle}"
@@ -2460,7 +2566,7 @@
                                                                    FontFamily="Consolas, Segoe UI"
                                                                    Margin="0,3,0,2"
                                                                    TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Text="{Binding [Qr_ScanHint], Source={x:Static svc:LocalizationService.Instance}}"
+                                                        <TextBlock Text="{Binding [Qr_TwoWayHint], Source={x:Static svc:LocalizationService.Instance}}"
                                                                    Foreground="#94A3B8"
                                                                    FontSize="10"
                                                                    TextWrapping="Wrap"
@@ -2587,7 +2693,7 @@
                                         </Grid>
                                     </Border>
 
-                                    <!-- Sub-tab 2: Mini Clipboard History Strip (Item 4 in ide.md) -->
+                                    <!-- Sub-tab 2: Mini Clipboard History Strip (Filter + Pin + Persistence) -->
                                     <Border x:Name="ShelfClipboardContainer"
                                             Grid.Row="1"
                                             Background="#0A38BDF8"
@@ -2597,7 +2703,31 @@
                                             Padding="8"
                                             Visibility="Collapsed">
                                         <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+
+                                            <Border Grid.Row="0"
+                                                    Background="#14FFFFFF"
+                                                    BorderBrush="#20FFFFFF"
+                                                    BorderThickness="1"
+                                                    CornerRadius="7"
+                                                    Padding="7,3"
+                                                    Margin="0,0,0,5">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Path Data="{StaticResource GeomSearch}" Width="10" Height="10" Stretch="Uniform" Fill="#64748B" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="ClipboardSearchPlaceholder" Grid.Column="1" Text="{Binding [Clip_SearchPlaceholder], Source={x:Static svc:LocalizationService.Instance}}" Foreground="#64748B" FontSize="10" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                    <TextBox x:Name="ClipboardSearchBox" Grid.Column="1" Background="Transparent" BorderThickness="0" Foreground="#F8FAFC" CaretBrush="#38BDF8" FontSize="10.5" VerticalAlignment="Center" TextChanged="OnClipboardSearchTextChanged"/>
+                                                </Grid>
+                                            </Border>
+
                                             <StackPanel x:Name="EmptyClipboardHintPanel"
+                                                        Grid.Row="1"
                                                         VerticalAlignment="Center"
                                                         HorizontalAlignment="Center"
                                                         Margin="14,0"
@@ -2629,15 +2759,16 @@
                                                            TextAlignment="Center"/>
                                             </StackPanel>
 
-                                            <ScrollViewer Style="{StaticResource AppleScrollViewerStyle}"
+                                            <ScrollViewer Grid.Row="1"
+                                                          Style="{StaticResource AppleScrollViewerStyle}"
                                                           VerticalScrollBarVisibility="Auto"
                                                           HorizontalScrollBarVisibility="Disabled">
                                                 <ItemsControl x:Name="ClipboardItemsControl">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <Border Margin="0,0,0,5"
-                                                                    Background="#14FFFFFF"
-                                                                    BorderBrush="#20FFFFFF"
+                                                                    Background="{Binding RowBgBrush}"
+                                                                    BorderBrush="{Binding RowBorderBrush}"
                                                                     BorderThickness="1"
                                                                     CornerRadius="9"
                                                                     Padding="8,6">
@@ -2703,6 +2834,20 @@
 
                                                                     <!-- Action Buttons -->
                                                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                                        <Button Style="{StaticResource IslandIconButtonStyle}"
+                                                                                Padding="4.5,3"
+                                                                                Margin="0,0,4,0"
+                                                                                Background="{Binding PinBtnBgBrush}"
+                                                                                BorderBrush="{Binding PinBtnBorderBrush}"
+                                                                                BorderThickness="1"
+                                                                                ToolTip="{Binding [Clip_Pinned], Source={x:Static svc:LocalizationService.Instance}}"
+                                                                                Tag="{Binding}"
+                                                                                Click="OnTogglePinClipboardItemClick">
+                                                                            <Path Data="{StaticResource GeomPin}"
+                                                                                  Width="9" Height="9"
+                                                                                  Stretch="Uniform"
+                                                                                  Fill="{Binding PinIconBrush}"/>
+                                                                        </Button>
                                                                         <Button Style="{StaticResource IslandIconButtonStyle}"
                                                                                 Padding="6,3"
                                                                                 Margin="0,0,4,0"
@@ -3036,9 +3181,17 @@
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- Month Header -->
+                                    <!-- Month Header with < / > Navigation -->
                                     <Grid Grid.Row="0" Margin="0,0,0,6">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Style="{StaticResource IslandIconButtonStyle}" Padding="4,2" Click="OnCalendarPrevMonthClick">
+                                            <Path Data="{StaticResource GeomChevronLeft}" Width="9" Height="9" Stretch="Uniform" Fill="#94A3B8"/>
+                                        </Button>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonUp="OnCalendarJumpTodayClick" ToolTip="Klik untuk kembali ke hari ini">
                                             <Path Data="{StaticResource GeomCalendar}"
                                                   Width="11" Height="11"
                                                   Stretch="Uniform"
@@ -3052,6 +3205,9 @@
                                                        FontWeight="Bold"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
+                                        <Button Grid.Column="2" Style="{StaticResource IslandIconButtonStyle}" Padding="4,2" Click="OnCalendarNextMonthClick">
+                                            <Path Data="{StaticResource GeomChevronRight}" Width="9" Height="9" Stretch="Uniform" Fill="#94A3B8"/>
+                                        </Button>
                                     </Grid>
 
                                     <!-- Day of Week Headers -->
@@ -3169,7 +3325,7 @@
                                     BorderBrush="#1CFFFFFF"
                                     BorderThickness="1"
                                     CornerRadius="13"
-                                    Padding="14,10"
+                                    Padding="11,9"
                                     Margin="0,0,0,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -3188,85 +3344,140 @@
                                                        FontWeight="Bold"
                                                        FontFamily="Segoe UI Variable Display, Segoe UI"
                                                        VerticalAlignment="Center"/>
-                                            <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <StackPanel Margin="9,0,0,0" VerticalAlignment="Center">
                                                 <TextBlock x:Name="WeatherConditionText"
                                                            Text="Cerah Berawan"
                                                            Foreground="#38BDF8"
-                                                           FontSize="13"
+                                                           FontSize="12.5"
                                                            FontWeight="SemiBold"
-                                                           MaxWidth="140"
+                                                           MaxWidth="118"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <TextBlock x:Name="WeatherCityText"
                                                            Text="Jakarta, Indonesia"
                                                            Foreground="#94A3B8"
                                                            FontSize="10.5"
                                                            Margin="0,2,0,0"
-                                                           MaxWidth="140"
+                                                           MaxWidth="118"
                                                            TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
 
                                     <!-- Middle Details -->
-                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
+                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0,10,0">
                                         <TextBlock x:Name="WeatherFeelsLikeText"
                                                    Text="Terasa: 36°C"
                                                    Foreground="#CBD5E1"
-                                                   FontSize="10.5"
-                                                   MaxWidth="180"
+                                                   FontSize="10"
+                                                   MaxWidth="210"
                                                    TextTrimming="CharacterEllipsis"
                                                    HorizontalAlignment="Right"/>
                                         <TextBlock x:Name="WeatherStatsDetailText"
-                                                   Text="Kelembapan: 50% • Angin: 1.6 km/j"
+                                                   Text="93% • 4.3 km/j • AQI 42"
                                                    Foreground="#94A3B8"
-                                                   FontSize="10"
+                                                   FontSize="9.5"
                                                    Margin="0,2,0,0"
-                                                   MaxWidth="180"
+                                                   MaxWidth="210"
                                                    TextTrimming="CharacterEllipsis"
                                                    HorizontalAlignment="Right"/>
                                     </StackPanel>
 
-                                    <!-- Right: Big Weather Icon + Refresh Button -->
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Path x:Name="WeatherMainIconPath"
-                                              Data="{StaticResource GeomWeatherSunCloud}"
-                                              Width="38" Height="38"
-                                              Stretch="Uniform"
-                                              Fill="#38BDF8"
-                                              Margin="0,0,8,0"
-                                              VerticalAlignment="Center"/>
-                                        <Button x:Name="WeatherRefreshBtn"
-                                                Style="{StaticResource IslandIconButtonStyle}"
-                                                Padding="6,6"
-                                                ToolTip="Perbarui Data Cuaca"
-                                                Click="OnWeatherRefreshClick">
-                                            <Path Data="{StaticResource GeomRefresh}" Width="11" Height="11" Stretch="Uniform" Fill="#94A3B8"/>
-                                        </Button>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
+                                     <!-- Right: Big Weather Icon + Controls -->
+                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                         <Path x:Name="WeatherMainIconPath"
+                                               Data="{StaticResource GeomWeatherSunCloud}"
+                                               Width="34" Height="34"
+                                               Stretch="Uniform"
+                                               Fill="#38BDF8"
+                                               Margin="0,0,6,0"
+                                               VerticalAlignment="Center"/>
+                                         <Button x:Name="WeatherUnitBtn"
+                                                 Style="{StaticResource IslandIconButtonStyle}"
+                                                 Padding="6,4"
+                                                 Margin="0,0,4,0"
+                                                 ToolTip="C / F"
+                                                 Click="OnWeatherUnitToggleClick">
+                                             <TextBlock x:Name="WeatherUnitBtnText" Text="°C" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
+                                         </Button>
+                                         <Button x:Name="WeatherSearchToggleBtn"
+                                                 Style="{StaticResource IslandIconButtonStyle}"
+                                                 Padding="5.5,5.5"
+                                                 Margin="0,0,4,0"
+                                                 ToolTip="Cari Kota Manual"
+                                                 Click="OnWeatherSearchToggleClick">
+                                             <Path Data="{StaticResource GeomSearch}" Width="10.5" Height="10.5" Stretch="Uniform" Fill="#94A3B8"/>
+                                         </Button>
+                                         <Button x:Name="WeatherRefreshBtn"
+                                                 Style="{StaticResource IslandIconButtonStyle}"
+                                                 Padding="5.5,5.5"
+                                                 ToolTip="Perbarui Data Cuaca"
+                                                 Click="OnWeatherRefreshClick">
+                                             <Path Data="{StaticResource GeomRefresh}" Width="10.5" Height="10.5" Stretch="Uniform" Fill="#94A3B8"/>
+                                         </Button>
+                                     </StackPanel>
+                                 </Grid>
+                             </Border>
 
-                            <!-- Bottom: Hourly Forecast 5-Hour Glass Strip -->
-                            <Border Grid.Row="1"
-                                    Background="#0EFFFFFF"
-                                    BorderBrush="#1CFFFFFF"
-                                    BorderThickness="1"
-                                    CornerRadius="13"
-                                    Padding="10,6">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0"
-                                               Text="PRAKIRAAN CUACA PER JAM"
-                                               Foreground="#64748B"
-                                               FontSize="9.5"
-                                               FontWeight="Bold"
-                                               Margin="4,0,0,4"/>
-                                    <UniformGrid Grid.Row="1" x:Name="WeatherHourlyUniformGrid" Columns="5"/>
-                                </Grid>
-                            </Border>
+                             <!-- Bottom: Hourly Forecast 5-Hour Glass Strip + Optional City Search Overlay -->
+                             <Grid Grid.Row="1">
+                                 <Border Background="#0EFFFFFF"
+                                         BorderBrush="#1CFFFFFF"
+                                         BorderThickness="1"
+                                         CornerRadius="13"
+                                         Padding="10,6">
+                                     <Grid>
+                                         <Grid.RowDefinitions>
+                                             <RowDefinition Height="Auto"/>
+                                             <RowDefinition Height="*"/>
+                                         </Grid.RowDefinitions>
+                                         <TextBlock Grid.Row="0"
+                                                    Text="PRAKIRAAN CUACA PER JAM"
+                                                    Foreground="#64748B"
+                                                    FontSize="9.5"
+                                                    FontWeight="Bold"
+                                                    Margin="4,0,0,4"/>
+                                         <UniformGrid Grid.Row="1" x:Name="WeatherHourlyUniformGrid" Columns="5"/>
+                                     </Grid>
+                                 </Border>
+
+                                 <Border x:Name="WeatherCitySearchOverlay"
+                                         Panel.ZIndex="8"
+                                         Background="#F409090D"
+                                         BorderBrush="#3538BDF8"
+                                         BorderThickness="1"
+                                         CornerRadius="13"
+                                         Padding="8,6"
+                                         Visibility="Collapsed">
+                                     <Grid>
+                                         <Grid.RowDefinitions>
+                                             <RowDefinition Height="Auto"/>
+                                             <RowDefinition Height="*"/>
+                                         </Grid.RowDefinitions>
+                                         <Grid Grid.Row="0" Margin="0,0,0,4">
+                                             <Grid.ColumnDefinitions>
+                                                 <ColumnDefinition Width="*"/>
+                                                 <ColumnDefinition Width="Auto"/>
+                                                 <ColumnDefinition Width="Auto"/>
+                                             </Grid.ColumnDefinitions>
+                                             <Border Grid.Column="0" Background="#16FFFFFF" BorderBrush="#26FFFFFF" BorderThickness="1" CornerRadius="7" Padding="7,2.5" Margin="0,0,5,0">
+                                                 <Grid>
+                                                     <TextBlock x:Name="WeatherCitySearchPlaceholder" Text="{Binding [Weather_SearchPlaceholder], Source={x:Static svc:LocalizationService.Instance}}" Foreground="#64748B" FontSize="10" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                     <TextBox x:Name="WeatherCitySearchBox" Background="Transparent" BorderThickness="0" Foreground="#F8FAFC" CaretBrush="#38BDF8" FontSize="10.5" VerticalAlignment="Center" TextChanged="OnWeatherCitySearchTextChanged" KeyDown="OnWeatherCitySearchKeyDown"/>
+                                                 </Grid>
+                                             </Border>
+                                             <Button Grid.Column="1" Style="{StaticResource IslandIconButtonStyle}" Padding="7,3" Margin="0,0,4,0" Click="OnWeatherAutoLocationClick">
+                                                 <TextBlock Text="{Binding [Weather_AutoGps], Source={x:Static svc:LocalizationService.Instance}}" FontSize="9.5" Foreground="#38BDF8" FontWeight="SemiBold"/>
+                                             </Button>
+                                             <Button Grid.Column="2" Style="{StaticResource IslandIconButtonStyle}" Padding="6,3" Click="OnWeatherSearchToggleClick">
+                                                 <Path Data="{StaticResource GeomClosePower}" Width="8" Height="8" Stretch="Uniform" Fill="#94A3B8"/>
+                                             </Button>
+                                         </Grid>
+                                         <ScrollViewer Grid.Row="1" Style="{StaticResource AppleScrollViewerStyle}" VerticalScrollBarVisibility="Auto">
+                                             <StackPanel x:Name="WeatherCityResultsStack" Margin="0,0,4,0"/>
+                                         </ScrollViewer>
+                                     </Grid>
+                                 </Border>
+                             </Grid>
                         </Grid>
 
                         <!-- TAB 5: RIWAYAT NOTIFIKASI SESI (In-Memory Ephemeral Notification Center) -->
@@ -3351,6 +3562,230 @@
                                 </StackPanel>
                             </Grid>
                         </Grid>
+
+                        <!-- TAB 9: WI-FI & JARINGAN (macOS Control Center Style Wi-Fi Menu) -->
+                        <Grid x:Name="WifiTabGrid" Grid.Row="1" Visibility="Collapsed" Height="190">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header Bar: Icon, Title, Status Badge, Scan, Win Settings, Master Toggle -->
+                            <Grid Grid.Row="0" Margin="2,0,2,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Path x:Name="WifiTabHeaderIcon"
+                                          Data="{StaticResource GeomWifi}"
+                                          Width="12.5" Height="12.5"
+                                          Stretch="Uniform"
+                                          Fill="#38BDF8"
+                                          Margin="0,0,6,0"
+                                          VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding [Wifi_TabTitle], Source={x:Static svc:LocalizationService.Instance}}"
+                                               Foreground="#F8FAFC"
+                                               FontSize="12"
+                                               FontWeight="Bold"
+                                               VerticalAlignment="Center"/>
+                                    <Border x:Name="WifiStatusBadgeBorder"
+                                            Background="#2038BDF8"
+                                            BorderBrush="#3538BDF8"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="6,1.5"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock x:Name="WifiStatusBadgeText"
+                                                   Text="Siap"
+                                                   Foreground="#38BDF8"
+                                                   FontSize="9.5"
+                                                   FontWeight="SemiBold"/>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button x:Name="WifiScanBtn"
+                                            Style="{StaticResource IslandIconButtonStyle}"
+                                            Padding="6,4"
+                                            Margin="0,0,5,0"
+                                            ToolTip="Pindai Ulang Jaringan Wi-Fi"
+                                            Click="OnWifiRefreshScanClick">
+                                        <Path Data="{StaticResource GeomRefresh}" Width="10.5" Height="10.5" Stretch="Uniform" Fill="#94A3B8"/>
+                                    </Button>
+                                    <Button Style="{StaticResource IslandIconButtonStyle}"
+                                            Padding="6,4"
+                                            Margin="0,0,7,0"
+                                            ToolTip="{Binding [Wifi_OpenWinSettingsTip], Source={x:Static svc:LocalizationService.Instance}}"
+                                            Click="OnWifiOpenWindowsSettingsClick">
+                                        <Path Data="{StaticResource GeomSettingsGear}" Width="10.5" Height="10.5" Stretch="Uniform" Fill="#94A3B8"/>
+                                    </Button>
+                                    <CheckBox x:Name="WifiMasterToggleCheck"
+                                              Style="{StaticResource AppleToggleSwitchStyle}"
+                                              IsChecked="True"
+                                              VerticalAlignment="Center"
+                                              Click="OnWifiMasterToggleClick"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Main Wi-Fi List + Inline Password Prompt Overlay -->
+                            <Grid Grid.Row="1">
+                                <Border Background="#0EFFFFFF"
+                                        BorderBrush="#1CFFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="13"
+                                        Padding="8,6">
+                                    <ScrollViewer Style="{StaticResource AppleScrollViewerStyle}"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel x:Name="WifiNetworksStack" Margin="0,0,4,0"/>
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!-- Radio Off / Empty State -->
+                                <StackPanel x:Name="EmptyWifiPanel"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <Path x:Name="EmptyWifiIconPath"
+                                          Data="{StaticResource GeomWifiOff}"
+                                          Width="24" Height="24"
+                                          Stretch="Uniform"
+                                          Fill="#38FFFFFF"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,6"/>
+                                    <TextBlock x:Name="EmptyWifiTitleText"
+                                               Text="Wi-Fi Nonaktif"
+                                               Foreground="#94A3B8"
+                                               FontSize="11.5"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"/>
+                                    <Button x:Name="EmptyWifiActionBtn"
+                                            Style="{StaticResource IslandIconButtonStyle}"
+                                            Padding="10,4"
+                                            Margin="0,6,0,0"
+                                            HorizontalAlignment="Center"
+                                            Click="OnWifiEmptyActionClick">
+                                        <TextBlock x:Name="EmptyWifiActionText"
+                                                   Text="Aktifkan Wi-Fi"
+                                                   Foreground="#38BDF8"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold"/>
+                                    </Button>
+                                </StackPanel>
+
+                                <!-- Inline Password Prompt Overlay for Unsaved Secured SSIDs -->
+                                <Border x:Name="WifiPasswordOverlay"
+                                        Panel.ZIndex="8"
+                                        Background="#F409090D"
+                                        BorderBrush="#3538BDF8"
+                                        BorderThickness="1"
+                                        CornerRadius="13"
+                                        Padding="12,10"
+                                        Visibility="Collapsed">
+                                    <Grid VerticalAlignment="Center">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
+                                            <Path Data="{StaticResource GeomLock}" Width="11" Height="11" Stretch="Uniform" Fill="#38BDF8" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="WifiPasswordTargetText"
+                                                       Text="SSID"
+                                                       Foreground="#F8FAFC"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Border Grid.Row="1"
+                                                Background="#16FFFFFF"
+                                                BorderBrush="#2CFFFFFF"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="9,4,5,4"
+                                                Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid Grid.Column="0">
+                                                    <TextBlock x:Name="WifiPasswordPlaceholder"
+                                                               Text="{Binding [Wifi_PasswordHint], Source={x:Static svc:LocalizationService.Instance}}"
+                                                               Foreground="#64748B"
+                                                               FontSize="11"
+                                                               VerticalAlignment="Center"
+                                                               IsHitTestVisible="False"/>
+                                                    <PasswordBox x:Name="WifiPasswordInputBox"
+                                                                 Background="Transparent"
+                                                                 BorderThickness="0"
+                                                                 Foreground="#F8FAFC"
+                                                                 CaretBrush="#38BDF8"
+                                                                 FontSize="11.5"
+                                                                 VerticalAlignment="Center"
+                                                                 PasswordChanged="OnWifiPasswordChanged"
+                                                                 KeyDown="OnWifiPasswordKeyDown"/>
+                                                    <TextBox x:Name="WifiPasswordVisibleBox"
+                                                             Background="Transparent"
+                                                             BorderThickness="0"
+                                                             Foreground="#F8FAFC"
+                                                             CaretBrush="#38BDF8"
+                                                             FontSize="11.5"
+                                                             VerticalAlignment="Center"
+                                                             Visibility="Collapsed"
+                                                             TextChanged="OnWifiVisiblePasswordTextChanged"
+                                                             KeyDown="OnWifiPasswordKeyDown"/>
+                                                </Grid>
+                                                <Button x:Name="WifiPasswordEyeBtn"
+                                                        Grid.Column="1"
+                                                        Style="{StaticResource IslandIconButtonStyle}"
+                                                        Padding="6,4"
+                                                        Margin="4,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        ToolTip="{Binding [Wifi_ShowPwdTip], Source={x:Static svc:LocalizationService.Instance}}"
+                                                        Click="OnWifiPasswordEyeClick">
+                                                    <Path x:Name="WifiPasswordEyeIcon"
+                                                          Data="{StaticResource GeomEye}"
+                                                          Width="12.5" Height="12.5"
+                                                          Stretch="Uniform"
+                                                          Fill="#94A3B8"/>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                        <Grid Grid.Row="2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="WifiPasswordErrorText"
+                                                       Grid.Column="0"
+                                                       Foreground="#FB7185"
+                                                       FontSize="10"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Visibility="Collapsed"/>
+                                            <Button Grid.Column="1"
+                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                    Padding="10,4"
+                                                    Margin="0,0,6,0"
+                                                    Click="OnWifiPasswordCancelClick">
+                                                <TextBlock Text="{Binding [Wifi_CancelBtn], Source={x:Static svc:LocalizationService.Instance}}" Foreground="#94A3B8" FontSize="10.5" FontWeight="SemiBold"/>
+                                            </Button>
+                                            <Button Grid.Column="2"
+                                                    Style="{StaticResource IslandIconButtonStyle}"
+                                                    Background="#2838BDF8"
+                                                    BorderBrush="#5538BDF8"
+                                                    Padding="11,4"
+                                                    Click="OnWifiPasswordSubmitClick">
+                                                <TextBlock Text="{Binding [Wifi_ConnectBtn], Source={x:Static svc:LocalizationService.Instance}}" Foreground="#F8FAFC" FontSize="10.5" FontWeight="Bold"/>
+                                            </Button>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Grid>
                         </Grid>
 
                         <!-- BOTTOM MORPHING TAB DOCK (Pagination Dots by default -> Morphs into Tab Vector Logos on Hover) -->
@@ -3380,6 +3815,7 @@
                                 <Border x:Name="PageDotShortcuts" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Pintasan Aplikasi" MouseLeftButtonUp="OnDotShortcutsClick"/>
                                 <Border x:Name="PageDotPerf" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Monitor Performa" MouseLeftButtonUp="OnDotPerfClick"/>
                                 <Border x:Name="PageDot3" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Rak File" MouseLeftButtonUp="OnDot3Click"/>
+                                <Border x:Name="PageDotWifi" Width="4" Height="3.5" CornerRadius="2" Background="#30FFFFFF" Margin="3,0" Cursor="Hand" ToolTip="Wi-Fi &amp; Jaringan" MouseLeftButtonUp="OnDotWifiClick"/>
                             </StackPanel>
 
                             <!-- Layer 2: Morphed Tab Logo Dock Pill (Revealed smoothly when cursor approaches dots) -->
@@ -3397,7 +3833,7 @@
                                 <Border.RenderTransform>
                                     <ScaleTransform x:Name="BottomDockScale" ScaleX="0.86" ScaleY="0.86"/>
                                 </Border.RenderTransform>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel x:Name="BottomDockButtonsPanel" Orientation="Horizontal" VerticalAlignment="Center">
                                     <Button x:Name="TabMediaBtn"
                                             Style="{StaticResource BottomDockIconButtonStyle}"
                                             ToolTip="Musik &amp; Lirik"
@@ -3529,6 +3965,17 @@
                                                            FontWeight="Bold"/>
                                             </Border>
                                         </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="TabWifiBtn"
+                                            Style="{StaticResource BottomDockIconButtonStyle}"
+                                            ToolTip="Wi-Fi &amp; Jaringan"
+                                            Click="OnTabWifiClick">
+                                        <Path Data="{StaticResource GeomWifi}"
+                                              Width="12.5" Height="12.5"
+                                              Stretch="Uniform"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              VerticalAlignment="Center"/>
                                     </Button>
                                 </StackPanel>
                             </Border>

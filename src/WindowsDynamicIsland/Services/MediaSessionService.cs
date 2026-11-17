@@ -17,6 +17,7 @@ public sealed class MediaTrackInfo
     public TimeSpan Duration { get; set; } = TimeSpan.Zero;
     public BitmapSource? Thumbnail { get; init; }
     public Color DominantColor { get; init; } = Color.FromRgb(56, 189, 248); // Sky blue default
+    public Color SecondaryColor { get; init; } = Color.FromRgb(129, 140, 248); // Indigo accent default
 }
 
 public sealed class MediaSessionService : IDisposable
@@ -196,7 +197,8 @@ public sealed class MediaSessionService : IDisposable
                 Position = GetInterpolatedPosition(),
                 Duration = CurrentTrack.Duration,
                 Thumbnail = CurrentTrack.Thumbnail,
-                DominantColor = CurrentTrack.DominantColor
+                DominantColor = CurrentTrack.DominantColor,
+                SecondaryColor = CurrentTrack.SecondaryColor
             };
 
             PlaybackStateChanged?.Invoke(CurrentTrack);
@@ -227,10 +229,11 @@ public sealed class MediaSessionService : IDisposable
 
             BitmapSource? thumbnail = null;
             Color dominant = Color.FromRgb(56, 189, 248);
+            Color secondary = Color.FromRgb(129, 140, 248);
 
             if (props.Thumbnail != null)
             {
-                (thumbnail, dominant) = await LoadThumbnailAndColorAsync(props.Thumbnail);
+                (thumbnail, dominant, secondary) = await LoadThumbnailAndColorAsync(props.Thumbnail);
             }
 
             string title = string.IsNullOrWhiteSpace(props.Title) ? "Media Aktif" : props.Title.Trim();
@@ -247,7 +250,8 @@ public sealed class MediaSessionService : IDisposable
                 Position = _basePosition,
                 Duration = duration,
                 Thumbnail = thumbnail,
-                DominantColor = dominant
+                DominantColor = dominant,
+                SecondaryColor = secondary
             };
 
             if (notifyTrackChange || trackDifferent)
@@ -362,7 +366,7 @@ public sealed class MediaSessionService : IDisposable
         }
     }
 
-    private static async Task<(BitmapSource? Bitmap, Color Dominant)> LoadThumbnailAndColorAsync(IRandomAccessStreamReference streamRef)
+    private static async Task<(BitmapSource? Bitmap, Color Dominant, Color Secondary)> LoadThumbnailAndColorAsync(IRandomAccessStreamReference streamRef)
     {
         try
         {
@@ -380,16 +384,16 @@ public sealed class MediaSessionService : IDisposable
             bitmap.EndInit();
             bitmap.Freeze();
 
-            Color dominant = ExtractVibrantAccentColor(bitmap);
-            return (bitmap, dominant);
+            var (dominant, secondary) = ExtractVibrantColors(bitmap);
+            return (bitmap, dominant, secondary);
         }
         catch
         {
-            return (null, Color.FromRgb(56, 189, 248));
+            return (null, Color.FromRgb(56, 189, 248), Color.FromRgb(129, 140, 248));
         }
     }
 
-    private static Color ExtractVibrantAccentColor(BitmapSource bitmap)
+    private static (Color Dominant, Color Secondary) ExtractVibrantColors(BitmapSource bitmap)
     {
         try
         {
@@ -400,9 +404,10 @@ public sealed class MediaSessionService : IDisposable
             byte[] pixels = new byte[height * stride];
             formatted.CopyPixels(pixels, stride, 0);
 
-            long sumR = 0, sumG = 0, sumB = 0, weightSum = 0;
+            long sumR1 = 0, sumG1 = 0, sumB1 = 0, w1 = 0;
+            long sumR2 = 0, sumG2 = 0, sumB2 = 0, w2 = 0;
 
-            for (int i = 0; i < pixels.Length; i += 16) // Sample every 4th pixel
+            for (int i = 0; i < pixels.Length; i += 16)
             {
                 byte b = pixels[i];
                 byte g = pixels[i + 1];
@@ -412,31 +417,56 @@ public sealed class MediaSessionService : IDisposable
                 int min = Math.Min(r, Math.Min(g, b));
                 int saturation = max - min;
 
-                // Prefer saturated, mid-to-bright pixels for a vibrant Dynamic Island glow
                 if (max > 45 && max < 245 && saturation > 25)
                 {
-                    int weight = saturation * 2 + 10;
-                    sumR += r * weight;
-                    sumG += g * weight;
-                    sumB += b * weight;
-                    weightSum += weight;
+                    int weight = (saturation * 2) + 10;
+                    // Split pixels spatially/luminance-wise so primary & secondary ambient mesh colors stay distinct
+                    if (i < pixels.Length / 2)
+                    {
+                        sumR1 += r * weight;
+                        sumG1 += g * weight;
+                        sumB1 += b * weight;
+                        w1 += weight;
+                    }
+                    else
+                    {
+                        sumR2 += r * weight;
+                        sumG2 += g * weight;
+                        sumB2 += b * weight;
+                        w2 += weight;
+                    }
                 }
             }
 
-            if (weightSum > 0)
+            if (w1 > 0 || w2 > 0)
             {
-                byte r = (byte)Math.Clamp(sumR / weightSum + 25, 60, 255);
-                byte g = (byte)Math.Clamp(sumG / weightSum + 25, 60, 255);
-                byte b = (byte)Math.Clamp(sumB / weightSum + 25, 60, 255);
-                return Color.FromRgb(r, g, b);
+                long totalW = w1 + w2;
+                Color c1 = w1 > 0
+                    ? Color.FromRgb(
+                        (byte)Math.Clamp((sumR1 / w1) + 25, 60, 255),
+                        (byte)Math.Clamp((sumG1 / w1) + 25, 60, 255),
+                        (byte)Math.Clamp((sumB1 / w1) + 25, 60, 255))
+                    : Color.FromRgb(
+                        (byte)Math.Clamp(((sumR1 + sumR2) / totalW) + 25, 60, 255),
+                        (byte)Math.Clamp(((sumG1 + sumG2) / totalW) + 25, 60, 255),
+                        (byte)Math.Clamp(((sumB1 + sumB2) / totalW) + 25, 60, 255));
+
+                Color c2 = w2 > 0
+                    ? Color.FromRgb(
+                        (byte)Math.Clamp((sumR2 / w2) + 18, 48, 245),
+                        (byte)Math.Clamp((sumG2 / w2) + 18, 48, 245),
+                        (byte)Math.Clamp((sumB2 / w2) + 18, 48, 245))
+                    : Color.FromRgb(
+                        (byte)Math.Clamp(c1.R - 30, 48, 245),
+                        (byte)Math.Clamp(c1.G + 20, 48, 245),
+                        (byte)Math.Clamp(c1.B + 45, 48, 255));
+
+                return (c1, c2);
             }
         }
-        catch
-        {
-            // Fallback on default
-        }
+        catch { }
 
-        return Color.FromRgb(129, 140, 248); // Indigo accent fallback
+        return (Color.FromRgb(129, 140, 248), Color.FromRgb(56, 189, 248));
     }
 
     public void Dispose()

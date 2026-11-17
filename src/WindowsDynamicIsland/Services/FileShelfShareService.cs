@@ -24,13 +24,13 @@ public sealed class FileShelfShareService : IDisposable
     public bool IsRunning => _listener != null && _cts != null && !_cts.IsCancellationRequested;
     public string ShareUrl { get; private set; } = string.Empty;
     public event Action? StateChanged;
+    public event Action<string>? FileReceivedFromPhone;
 
     public string StartSharing(IReadOnlyList<ShelfItem> items, TimeSpan? lifetime = null)
     {
         StopSharing();
 
         var valid = items.Where(i => File.Exists(i.FullPath) || Directory.Exists(i.FullPath)).ToList();
-        if (valid.Count == 0) return string.Empty;
 
         _sharedItems.Clear();
         _sharedItems.AddRange(valid);
@@ -96,20 +96,12 @@ public sealed class FileShelfShareService : IDisposable
     {
         using (client)
         {
-            client.ReceiveTimeout = 5000;
+            client.ReceiveTimeout = 15000;
             client.SendTimeout = 30000;
             using var stream = client.GetStream();
-            using var reader = new StreamReader(stream, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 2048, leaveOpen: true);
 
-            string? requestLine = await reader.ReadLineAsync(ct);
+            var (requestLine, headers, leftoverBytes, leftoverCount) = await ReadHttpHeaderBlockAsync(stream, ct);
             if (string.IsNullOrWhiteSpace(requestLine)) return;
-
-            // Drain headers until blank line
-            while (!ct.IsCancellationRequested)
-            {
-                string? headerLine = await reader.ReadLineAsync(ct);
-                if (string.IsNullOrEmpty(headerLine)) break;
-            }
 
             string[] parts = requestLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 2)
@@ -118,19 +110,19 @@ public sealed class FileShelfShareService : IDisposable
                 return;
             }
 
+            string method = parts[0].ToUpperInvariant();
             string rawPath = parts[1].Split('?')[0];
 
-            // Landing index for token: /s/<token>
-            if (string.Equals(rawPath, $"/s/{_token}", StringComparison.OrdinalIgnoreCase))
+            // Upload endpoint: POST /s/<token>/upload (Two-way AirDrop from Phone -> PC)
+            if (method == "POST" && string.Equals(rawPath, $"/s/{_token}/upload", StringComparison.OrdinalIgnoreCase))
             {
-                if (_sharedItems.Count == 1 && File.Exists(_sharedItems[0].FullPath))
-                {
-                    // Single file: serve clean mobile download page with instant download button
-                    string htmlSingle = BuildLandingHtml();
-                    await WriteTextResponseAsync(stream, "200 OK", "text/html; charset=utf-8", htmlSingle, ct);
-                    return;
-                }
+                await HandleUploadRequestAsync(stream, headers, leftoverBytes, leftoverCount, ct);
+                return;
+            }
 
+            // Landing index for token: /s/<token>
+            if (method == "GET" && string.Equals(rawPath, $"/s/{_token}", StringComparison.OrdinalIgnoreCase))
+            {
                 string html = BuildLandingHtml();
                 await WriteTextResponseAsync(stream, "200 OK", "text/html; charset=utf-8", html, ct);
                 return;
@@ -138,7 +130,8 @@ public sealed class FileShelfShareService : IDisposable
 
             // Direct item download: /s/<token>/d/<index>
             string prefix = $"/s/{_token}/d/";
-            if (rawPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+            if (method == "GET" &&
+                rawPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
                 int.TryParse(rawPath[prefix.Length..], out int idx) &&
                 idx >= 0 && idx < _sharedItems.Count)
             {
@@ -148,6 +141,140 @@ public sealed class FileShelfShareService : IDisposable
 
             await WriteTextResponseAsync(stream, "404 Not Found", "text/plain", "Not Found or Expired", ct);
         }
+    }
+
+    private static async Task<(string RequestLine, Dictionary<string, string> Headers, byte[] Leftover, int LeftoverCount)>
+        ReadHttpHeaderBlockAsync(NetworkStream stream, CancellationToken ct)
+    {
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using var headerMs = new MemoryStream();
+        byte[] buf = new byte[4096];
+        int endIdx = -1;
+
+        while (headerMs.Length < 65536)
+        {
+            int read = await stream.ReadAsync(buf, 0, buf.Length, ct);
+            if (read <= 0) break;
+            headerMs.Write(buf, 0, read);
+
+            byte[] all = headerMs.GetBuffer();
+            int len = (int)headerMs.Length;
+            for (int i = 0; i <= len - 4; i++)
+            {
+                if (all[i] == '\r' && all[i + 1] == '\n' && all[i + 2] == '\r' && all[i + 3] == '\n')
+                {
+                    endIdx = i;
+                    break;
+                }
+            }
+            if (endIdx >= 0) break;
+        }
+
+        if (endIdx < 0) return (string.Empty, headers, Array.Empty<byte>(), 0);
+
+        byte[] raw = headerMs.GetBuffer();
+        int totalLen = (int)headerMs.Length;
+        string headerText = Encoding.ASCII.GetString(raw, 0, endIdx);
+        string[] lines = headerText.Split(["\r\n"], StringSplitOptions.None);
+        string requestLine = lines.Length > 0 ? lines[0] : string.Empty;
+
+        for (int i = 1; i < lines.Length; i++)
+        {
+            int colon = lines[i].IndexOf(':');
+            if (colon > 0)
+            {
+                string key = lines[i][..colon].Trim();
+                string val = lines[i][(colon + 1)..].Trim();
+                headers[key] = val;
+            }
+        }
+
+        int bodyStart = endIdx + 4;
+        int leftoverCount = Math.Max(0, totalLen - bodyStart);
+        byte[] leftover = leftoverCount > 0 ? raw.AsSpan(bodyStart, leftoverCount).ToArray() : Array.Empty<byte>();
+        return (requestLine, headers, leftover, leftoverCount);
+    }
+
+    private async Task HandleUploadRequestAsync(
+        NetworkStream stream,
+        Dictionary<string, string> headers,
+        byte[] leftover,
+        int leftoverCount,
+        CancellationToken ct)
+    {
+        const long maxUploadBytes = 250L * 1024 * 1024;
+        if (!headers.TryGetValue("Content-Length", out string? clStr) ||
+            !long.TryParse(clStr, out long contentLength) ||
+            contentLength <= 0 ||
+            contentLength > maxUploadBytes)
+        {
+            await WriteTextResponseAsync(stream, "400 Bad Request", "application/json", "{\"ok\":false,\"error\":\"Invalid file size\"}", ct);
+            return;
+        }
+
+        string rawFileName = headers.TryGetValue("X-File-Name", out string? encodedName)
+            ? Uri.UnescapeDataString(encodedName)
+            : $"PhoneDrop_{DateTime.Now:yyyyMMdd_HHmmss}.bin";
+
+        string safeName = SanitizeFileName(rawFileName);
+        string dropDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Downloads",
+            "DynamicIsland Drops");
+        Directory.CreateDirectory(dropDir);
+
+        string targetPath = GetUniqueTargetPath(dropDir, safeName);
+
+        await using (var fs = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+        {
+            long remaining = contentLength;
+            if (leftoverCount > 0)
+            {
+                int toWrite = (int)Math.Min(leftoverCount, remaining);
+                await fs.WriteAsync(leftover.AsMemory(0, toWrite), ct);
+                remaining -= toWrite;
+            }
+
+            byte[] buffer = new byte[65536];
+            while (remaining > 0)
+            {
+                int toRead = (int)Math.Min(buffer.Length, remaining);
+                int read = await stream.ReadAsync(buffer.AsMemory(0, toRead), ct);
+                if (read <= 0) break;
+                await fs.WriteAsync(buffer.AsMemory(0, read), ct);
+                remaining -= read;
+            }
+        }
+
+        FileReceivedFromPhone?.Invoke(targetPath);
+        string json = $"{{\"ok\":true,\"fileName\":\"{Path.GetFileName(targetPath).Replace("\"", "")}\"}}";
+        await WriteTextResponseAsync(stream, "200 OK", "application/json; charset=utf-8", json, ct);
+    }
+
+    private static string SanitizeFileName(string rawName)
+    {
+        string baseName = Path.GetFileName(rawName.Trim());
+        if (string.IsNullOrWhiteSpace(baseName)) return $"Drop_{DateTime.Now:yyyyMMdd_HHmmss}.bin";
+        foreach (char c in Path.GetInvalidFileNameChars())
+        {
+            baseName = baseName.Replace(c, '_');
+        }
+        return baseName.Length > 120 ? baseName[^120..] : baseName;
+    }
+
+    private static string GetUniqueTargetPath(string directory, string fileName)
+    {
+        string candidate = Path.Combine(directory, fileName);
+        if (!File.Exists(candidate)) return candidate;
+
+        string stem = Path.GetFileNameWithoutExtension(fileName);
+        string ext = Path.GetExtension(fileName);
+        for (int n = 1; n <= 999; n++)
+        {
+            string next = Path.Combine(directory, $"{stem} ({n}){ext}");
+            if (!File.Exists(next)) return next;
+        }
+        return Path.Combine(directory, $"{stem}_{Guid.NewGuid():N}{ext}");
     }
 
     private string BuildLandingHtml()
@@ -160,28 +287,58 @@ public sealed class FileShelfShareService : IDisposable
             body{margin:0;background:#09090b;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:24px;}
             .card{max-width:460px;margin:0 auto;background:#141418;border:1px solid #27272a;border-radius:20px;padding:20px;box-shadow:0 16px 40px rgba(0,0,0,.6);}
             h1{font-size:18px;margin:0 0 6px;font-weight:700;}
-            p{font-size:13px;color:#94a3b8;margin:0 0 18px;}
+            p{font-size:13px;color:#94a3b8;margin:0 0 16px;}
+            .section{font-size:11px;font-weight:700;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px;}
             .item{display:flex;align-items:center;justify-content:space-between;background:#1c1c22;border:1px solid #27272a;border-radius:14px;padding:12px 14px;margin-bottom:10px;gap:12px;}
             .name{font-size:14px;font-weight:600;word-break:break-word;}
             .meta{font-size:11px;color:#94a3b8;margin-top:2px;}
-            a.btn{background:#38bdf8;color:#09090b;text-decoration:none;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;white-space:nowrap;}
-            </style></head><body><div class="card"><h1>Windows Dynamic Island</h1><p>Local Wi-Fi Shelf Transfer</p>
+            a.btn,button.btn{background:#38bdf8;color:#09090b;border:none;text-decoration:none;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;}
+            .uploadBox{border:1.5px dashed #38bdf866;background:#0f172a66;border-radius:14px;padding:16px;text-align:center;}
+            .uploadBox input{display:none;}
+            .status{margin-top:10px;font-size:12px;color:#34d399;min-height:16px;}
+            </style></head><body><div class="card"><h1>Windows Dynamic Island</h1><p>Two-Way Local Wi-Fi AirDrop (PC &lt;-&gt; Phone)</p>
             """);
 
-        for (int i = 0; i < _sharedItems.Count; i++)
+        if (_sharedItems.Count > 0)
         {
-            var item = _sharedItems[i];
-            string safeName = WebUtility.HtmlEncode(item.FileName);
-            string safeSize = WebUtility.HtmlEncode(item.SizeLabel);
-            sb.Append($"""
-                <div class="item">
-                  <div><div class="name">{safeName}</div><div class="meta">{safeSize}</div></div>
-                  <a class="btn" href="/s/{_token}/d/{i}">Download</a>
-                </div>
-                """);
+            sb.Append("<div class=\"section\">Files from PC</div>");
+            for (int i = 0; i < _sharedItems.Count; i++)
+            {
+                var item = _sharedItems[i];
+                string safeName = WebUtility.HtmlEncode(item.FileName);
+                string safeSize = WebUtility.HtmlEncode(item.SizeLabel);
+                sb.Append($"""
+                    <div class="item">
+                      <div><div class="name">{safeName}</div><div class="meta">{safeSize}</div></div>
+                      <a class="btn" href="/s/{_token}/d/{i}">Download</a>
+                    </div>
+                    """);
+            }
         }
 
-        sb.Append("</div></body></html>");
+        sb.Append($$"""
+            <div class="section">Send File to PC Shelf</div>
+            <div class="uploadBox">
+              <p style="margin:0 0 12px;color:#cbd5e1;font-size:12.5px;">Select photos, videos, or documents from your phone to send directly to Windows Dynamic Island.</p>
+              <label class="btn" style="display:inline-block;">Choose File(s)<input id="fileInput" type="file" multiple></label>
+              <div id="status" class="status"></div>
+            </div>
+            <script>
+            const inp=document.getElementById('fileInput');const st=document.getElementById('status');
+            inp.addEventListener('change',async()=>{
+              const files=Array.from(inp.files||[]);if(!files.length)return;
+              for(let i=0;i<files.length;i++){
+                const f=files[i];st.style.color='#38bdf8';st.textContent=`Sending ${i+1}/${files.length}: ${f.name}...`;
+                try{
+                  const r=await fetch('/s/{{_token}}/upload',{method:'POST',headers:{'X-File-Name':encodeURIComponent(f.name)},body:f});
+                  if(!r.ok)throw new Error('Upload failed');
+                }catch(e){st.style.color='#fb7185';st.textContent='Failed sending '+f.name;return;}
+              }
+              st.style.color='#34d399';st.textContent=`Sent ${files.length} file(s) to PC Shelf!`;inp.value='';
+            });
+            </script>
+            </div></body></html>
+            """);
         return sb.ToString();
     }
 

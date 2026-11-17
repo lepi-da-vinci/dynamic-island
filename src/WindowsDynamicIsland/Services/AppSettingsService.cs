@@ -22,9 +22,20 @@ public sealed class AppSettingsData
     public bool ShowTabMedia { get; set; } = true;
     public bool ShowTabTodo { get; set; } = true;
     public bool ShowTabPomodoro { get; set; } = true;
+    public bool ShowTabCalendar { get; set; } = true;
+    public bool ShowTabWeather { get; set; } = true;
+    public bool ShowTabNotifications { get; set; } = true;
     public bool ShowTabShortcuts { get; set; } = true;
     public bool ShowTabPerformance { get; set; } = true;
     public bool ShowTabShelf { get; set; } = true;
+    public bool ShowTabWifi { get; set; } = true;
+    public List<string> DashboardTabOrder { get; set; } = [];
+
+    // Weather Preferences
+    public string WeatherManualCity { get; set; } = string.Empty;
+    public double? WeatherManualLat { get; set; }
+    public double? WeatherManualLon { get; set; }
+    public bool UseFahrenheit { get; set; } = false;
 
     // Display & Screenshot Mode
     public bool AutoHideFullScreen { get; set; } = true;
@@ -74,6 +85,7 @@ public sealed class AppSettingsData
     public bool SuppressWindowsNativeOsd { get; set; } = true;
     public bool BatteryToastEnabled { get; set; } = true;
     public bool Battery80PercentAlertEnabled { get; set; } = true;
+    public bool AutoBatteryEcoMode { get; set; } = true;
     public bool BluetoothToastEnabled { get; set; } = true;
     public bool SystemNotificationToastEnabled { get; set; } = true;
     public double ToastDurationSeconds { get; set; } = 2.8;
@@ -232,91 +244,179 @@ public sealed class AppSettingsService
         }
     }
 
+    public static readonly string[] DefaultTabKeys =
+    [
+        "MediaLyrics",
+        "TodoAndWater",
+        "Pomodoro",
+        "CalendarSchedule",
+        "Weather",
+        "NotificationHistory",
+        "AppShortcuts",
+        "PerformanceMonitor",
+        "FileShelf",
+        "Wifi"
+    ];
+
     private int EnabledTabCount()
     {
         int count = 0;
         if (_data.ShowTabMedia) count++;
         if (_data.ShowTabTodo) count++;
         if (_data.ShowTabPomodoro) count++;
+        if (_data.ShowTabCalendar) count++;
+        if (_data.ShowTabWeather) count++;
+        if (_data.ShowTabNotifications) count++;
         if (_data.ShowTabShortcuts) count++;
         if (_data.ShowTabPerformance) count++;
         if (_data.ShowTabShelf) count++;
+        if (_data.ShowTabWifi) count++;
         return count;
+    }
+
+    public List<string> GetNormalizedTabOrder()
+    {
+        var result = new List<string>(DefaultTabKeys.Length);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        if (_data.DashboardTabOrder != null)
+        {
+            foreach (var key in _data.DashboardTabOrder)
+            {
+                if (DefaultTabKeys.Contains(key, StringComparer.Ordinal) && seen.Add(key))
+                {
+                    result.Add(key);
+                }
+            }
+        }
+        foreach (var key in DefaultTabKeys)
+        {
+            if (seen.Add(key)) result.Add(key);
+        }
+        return result;
+    }
+
+    public void SetDashboardTabOrder(IEnumerable<string> orderedKeys)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var next = new List<string>(DefaultTabKeys.Length);
+        foreach (var k in orderedKeys)
+        {
+            if (DefaultTabKeys.Contains(k, StringComparer.Ordinal) && seen.Add(k))
+            {
+                next.Add(k);
+            }
+        }
+        foreach (var k in DefaultTabKeys)
+        {
+            if (seen.Add(k)) next.Add(k);
+        }
+
+        _data.DashboardTabOrder = next;
+        Save();
+        SettingsChanged?.Invoke();
     }
 
     public bool ShowTabMedia
     {
         get => _data.ShowTabMedia;
-        set
-        {
-            if (_data.ShowTabMedia == value) return;
-            if (!value && EnabledTabCount() <= 1) return;
-            _data.ShowTabMedia = value;
-            Save();
-            SettingsChanged?.Invoke();
-        }
+        set => SetTabFlag(v => _data.ShowTabMedia = v, _data.ShowTabMedia, value);
     }
 
     public bool ShowTabTodo
     {
         get => _data.ShowTabTodo;
-        set
-        {
-            if (_data.ShowTabTodo == value) return;
-            if (!value && EnabledTabCount() <= 1) return;
-            _data.ShowTabTodo = value;
-            Save();
-            SettingsChanged?.Invoke();
-        }
+        set => SetTabFlag(v => _data.ShowTabTodo = v, _data.ShowTabTodo, value);
     }
 
     public bool ShowTabPomodoro
     {
         get => _data.ShowTabPomodoro;
-        set
-        {
-            if (_data.ShowTabPomodoro == value) return;
-            if (!value && EnabledTabCount() <= 1) return;
-            _data.ShowTabPomodoro = value;
-            Save();
-            SettingsChanged?.Invoke();
-        }
+        set => SetTabFlag(v => _data.ShowTabPomodoro = v, _data.ShowTabPomodoro, value);
+    }
+
+    public bool ShowTabCalendar
+    {
+        get => _data.ShowTabCalendar;
+        set => SetTabFlag(v => _data.ShowTabCalendar = v, _data.ShowTabCalendar, value);
+    }
+
+    public bool ShowTabWeather
+    {
+        get => _data.ShowTabWeather;
+        set => SetTabFlag(v => _data.ShowTabWeather = v, _data.ShowTabWeather, value);
+    }
+
+    public bool ShowTabNotifications
+    {
+        get => _data.ShowTabNotifications;
+        set => SetTabFlag(v => _data.ShowTabNotifications = v, _data.ShowTabNotifications, value);
     }
 
     public bool ShowTabShortcuts
     {
         get => _data.ShowTabShortcuts;
-        set
-        {
-            if (_data.ShowTabShortcuts == value) return;
-            if (!value && EnabledTabCount() <= 1) return;
-            _data.ShowTabShortcuts = value;
-            Save();
-            SettingsChanged?.Invoke();
-        }
+        set => SetTabFlag(v => _data.ShowTabShortcuts = v, _data.ShowTabShortcuts, value);
     }
 
     public bool ShowTabPerformance
     {
         get => _data.ShowTabPerformance;
-        set
-        {
-            if (_data.ShowTabPerformance == value) return;
-            if (!value && EnabledTabCount() <= 1) return;
-            _data.ShowTabPerformance = value;
-            Save();
-            SettingsChanged?.Invoke();
-        }
+        set => SetTabFlag(v => _data.ShowTabPerformance = v, _data.ShowTabPerformance, value);
     }
 
     public bool ShowTabShelf
     {
         get => _data.ShowTabShelf;
+        set => SetTabFlag(v => _data.ShowTabShelf = v, _data.ShowTabShelf, value);
+    }
+
+    public bool ShowTabWifi
+    {
+        get => _data.ShowTabWifi;
+        set => SetTabFlag(v => _data.ShowTabWifi = v, _data.ShowTabWifi, value);
+    }
+
+    private void SetTabFlag(Action<bool> setter, bool current, bool next)
+    {
+        if (current == next) return;
+        if (!next && EnabledTabCount() <= 1) return;
+        setter(next);
+        Save();
+        SettingsChanged?.Invoke();
+    }
+
+    public string WeatherManualCity => _data.WeatherManualCity;
+    public double? WeatherManualLat => _data.WeatherManualLat;
+    public double? WeatherManualLon => _data.WeatherManualLon;
+
+    public void SetWeatherManualLocation(string? city, double? lat, double? lon)
+    {
+        _data.WeatherManualCity = city?.Trim() ?? string.Empty;
+        _data.WeatherManualLat = lat;
+        _data.WeatherManualLon = lon;
+        Save();
+        SettingsChanged?.Invoke();
+    }
+
+    public bool UseFahrenheit
+    {
+        get => _data.UseFahrenheit;
         set
         {
-            if (_data.ShowTabShelf == value) return;
-            if (!value && EnabledTabCount() <= 1) return;
-            _data.ShowTabShelf = value;
+            if (_data.UseFahrenheit == value) return;
+            _data.UseFahrenheit = value;
+            Save();
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    public bool AutoBatteryEcoMode
+    {
+        get => _data.AutoBatteryEcoMode;
+        set
+        {
+            if (_data.AutoBatteryEcoMode == value) return;
+            _data.AutoBatteryEcoMode = value;
             Save();
             SettingsChanged?.Invoke();
         }

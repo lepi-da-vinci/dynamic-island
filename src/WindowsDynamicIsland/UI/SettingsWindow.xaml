@@ -286,7 +286,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                     <TextBlock Text="Dynamic Island" Foreground="#E2E8F0" FontSize="11" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="SidebarVersionText" Text="v2.2.1 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
+                                    <TextBlock x:Name="SidebarVersionText" Text="v2.3.0 • macOS Edition" Foreground="#64748B" FontSize="9.5"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -1110,7 +1110,7 @@
                                            FontWeight="SemiBold"
                                            Margin="2,0,0,6"/>
 
-                                <!-- Notch Tabs Customization Card -->
+                                <!-- Notch Tabs Customization Card (All 9 Tabs + Drag-to-Reorder) -->
                                 <Border Background="#1F1F25"
                                         BorderBrush="#1AFFFFFF"
                                         BorderThickness="1"
@@ -1118,159 +1118,11 @@
                                         Padding="16,14"
                                         Margin="0,0,0,18">
                                     <StackPanel>
-                                        <!-- Tab Musik -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding [Settings_TabMusic], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="13"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding [Settings_TabMusicSub], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#94A3B8"
-                                                           FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                   Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <CheckBox x:Name="ChkTabMedia"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource AppleToggleSwitchStyle}"
-                                                      VerticalAlignment="Center"
-                                                      Click="OnTabVisibilityToggleClicked"/>
-                                        </Grid>
-
-                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
-
-                                        <!-- Tab Tugas -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding [Settings_TabTodo], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="13"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding [Settings_TabTodoSub], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#94A3B8"
-                                                           FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                   Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <CheckBox x:Name="ChkTabTodo"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource AppleToggleSwitchStyle}"
-                                                      VerticalAlignment="Center"
-                                                      Click="OnTabVisibilityToggleClicked"/>
-                                        </Grid>
-
-                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
-
-                                        <!-- Tab Fokus -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding [Settings_TabFocus], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="13"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding [Settings_TabFocusSub], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#94A3B8"
-                                                           FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                   Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <CheckBox x:Name="ChkTabPomodoro"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource AppleToggleSwitchStyle}"
-                                                      VerticalAlignment="Center"
-                                                      Click="OnTabVisibilityToggleClicked"/>
-                                        </Grid>
-
-                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
-
-                                        <!-- Tab Pintasan Aplikasi -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding [Settings_TabShortcuts], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="13"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding [Settings_TabShortcutsSub], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#94A3B8"
-                                                           FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                   Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <CheckBox x:Name="ChkTabShortcuts"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource AppleToggleSwitchStyle}"
-                                                      VerticalAlignment="Center"
-                                                      Click="OnTabVisibilityToggleClicked"/>
-                                        </Grid>
-
-                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
-
-                                        <!-- Tab Monitor Performa -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding [Settings_TabPerf], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="13"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding [Settings_TabPerfSub], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#94A3B8"
-                                                           FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                   Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <CheckBox x:Name="ChkTabPerformance"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource AppleToggleSwitchStyle}"
-                                                      VerticalAlignment="Center"
-                                                      Click="OnTabVisibilityToggleClicked"/>
-                                        </Grid>
-
-                                        <Border Height="1" Background="#14FFFFFF" Margin="0,12"/>
-
-                                        <!-- Tab Rak File -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding [Settings_TabShelf], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#F8FAFC"
-                                                           FontSize="13"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding [Settings_TabShelfSub], Source={x:Static svc:LocalizationService.Instance}}"
-                                                           Foreground="#94A3B8"
-                                                           FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                   Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <CheckBox x:Name="ChkTabShelf"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource AppleToggleSwitchStyle}"
-                                                      VerticalAlignment="Center"
-                                                      Click="OnTabVisibilityToggleClicked"/>
-                                        </Grid>
+                                        <TextBlock Text="{Binding [Settings_TabOrderHint], Source={x:Static svc:LocalizationService.Instance}}"
+                                                   Foreground="#94A3B8"
+                                                   FontSize="11"
+                                                   Margin="0,0,0,10"/>
+                                        <StackPanel x:Name="TabCustomizationStack"/>
                                     </StackPanel>
                                 </Border>
 
@@ -1294,7 +1146,7 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
                                                 <TextBlock x:Name="SettingsUpdateTitleText"
-                                                           Text="Windows Dynamic Island v2.2.1"
+                                                           Text="Windows Dynamic Island v2.3.0"
                                                            Foreground="#F8FAFC"
                                                            FontSize="13"
                                                            FontWeight="SemiBold"/>
@@ -2740,6 +2592,31 @@
                                                    Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ChkBattery80Alert"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource AppleToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      Click="OnSettingToggleClicked"/>
+                                        </Grid>
+
+                                        <Border Height="1" Background="#14FFFFFF" Margin="0,14"/>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
+                                                <TextBlock Text="{Binding [Settings_BatteryEco], Source={x:Static svc:LocalizationService.Instance}}"
+                                                           Foreground="#F8FAFC"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding [Settings_BatteryEcoSub], Source={x:Static svc:LocalizationService.Instance}}"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="11"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ChkAutoBatteryEco"
                                                       Grid.Column="1"
                                                       Style="{StaticResource AppleToggleSwitchStyle}"
                                                       VerticalAlignment="Center"

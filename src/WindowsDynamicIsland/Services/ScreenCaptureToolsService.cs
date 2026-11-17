@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Windows;
@@ -153,6 +154,45 @@ public static class ScreenCaptureToolsService
         {
             AppLogger.LogError("ScreenCaptureTools", "OCR recognition failed", ex);
             return string.Empty;
+        }
+    }
+
+    public static string? SaveRegionPngToFile(CapturedDesktopFrame frame, Int32Rect cropPx, out BitmapSource? croppedBitmap)
+    {
+        croppedBitmap = null;
+        int x = Math.Clamp(cropPx.X, 0, frame.WidthPx - 1);
+        int y = Math.Clamp(cropPx.Y, 0, frame.HeightPx - 1);
+        int w = Math.Clamp(cropPx.Width, 1, frame.WidthPx - x);
+        int h = Math.Clamp(cropPx.Height, 1, frame.HeightPx - y);
+
+        if (w < 4 || h < 4) return null;
+
+        try
+        {
+            var crop = new CroppedBitmap(frame.Bitmap, new Int32Rect(x, y, w, h));
+            crop.Freeze();
+            croppedBitmap = crop;
+
+            string snipDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "WindowsDynamicIsland",
+                "Snips");
+            Directory.CreateDirectory(snipDir);
+
+            string filePath = Path.Combine(snipDir, $"Snip_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..4]}.png");
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(crop));
+            using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                encoder.Save(fs);
+            }
+
+            return filePath;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError("ScreenCaptureTools", "Failed saving region screenshot", ex);
+            return null;
         }
     }
 

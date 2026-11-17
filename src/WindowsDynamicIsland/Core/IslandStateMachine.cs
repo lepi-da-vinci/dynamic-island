@@ -22,7 +22,8 @@ public enum IslandDashboardTab
     NotificationHistory = 5,
     AppShortcuts = 6,
     PerformanceMonitor = 7,
-    FileShelf = 8
+    FileShelf = 8,
+    Wifi = 9
 }
 
 public enum ToastSliderKind

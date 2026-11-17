@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Interop;
@@ -37,8 +39,23 @@ public sealed class SpotlightSearchService
     private readonly AppShortcutService _shortcutService;
     private readonly AppSettingsService _settingsService;
     private readonly ClipboardHistoryService? _clipboardHistoryService;
-    private readonly List<SpotlightItem> _cachedAppItems = new();
-    private DateTime _lastAppScanUtc = DateTime.MinValue;
+    private volatile IReadOnlyList<SpotlightItem> _cachedAppItems = Array.Empty<SpotlightItem>();
+    private static readonly HttpClient CurrencyHttp = new() { Timeout = TimeSpan.FromSeconds(5) };
+    private static Dictionary<string, double> _usdRates = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["USD"] = 1.0,
+        ["IDR"] = 15850.0,
+        ["EUR"] = 0.92,
+        ["GBP"] = 0.79,
+        ["JPY"] = 154.0,
+        ["SGD"] = 1.34,
+        ["MYR"] = 4.45,
+        ["AUD"] = 1.52,
+        ["KRW"] = 1390.0,
+        ["CNY"] = 7.22
+    };
+    private static DateTime _lastRatesFetchUtc = DateTime.MinValue;
+    private static int _fetchingRatesFlag;
 
     public SpotlightSearchService(
         AppShortcutService shortcutService,
@@ -54,7 +71,7 @@ public sealed class SpotlightSearchService
 
     public void InvalidateAppCache()
     {
-        _lastAppScanUtc = DateTime.MinValue;
+        RefreshAppIndexAsync();
     }
 
     public async void RefreshAppIndexAsync()
@@ -133,12 +150,8 @@ public sealed class SpotlightSearchService
                     catch { }
                 }
 
-                lock (_cachedAppItems)
-                {
-                    _cachedAppItems.Clear();
-                    _cachedAppItems.AddRange(list);
-                    _lastAppScanUtc = DateTime.UtcNow;
-                }
+                // Atomic reference swap so concurrent Search() reads are always lock-free and thread-safe
+                _cachedAppItems = list.AsReadOnly();
             }
             catch (Exception ex)
             {
@@ -192,7 +205,11 @@ public sealed class SpotlightSearchService
         Action? hibernateSystem = null,
         Action? openClipboardHistory = null,
         Action? launchOcrSnip = null,
-        Action? launchColorPicker = null)
+        Action? launchColorPicker = null,
+        Action? launchRegionSnip = null,
+        Action<string>? addTodo = null,
+        Action<int>? startCustomTimer = null,
+        Action<string, string>? addSchedule = null)
     {
         string q = (rawQuery ?? string.Empty).Trim();
         var results = new List<SpotlightItem>();
@@ -200,15 +217,35 @@ public sealed class SpotlightSearchService
         if (string.IsNullOrWhiteSpace(q))
         {
             // Empty query: Show smart quick commands & top apps
-            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory, launchOcrSnip, launchColorPicker));
-            lock (_cachedAppItems)
-            {
-                results.AddRange(_cachedAppItems.Take(4));
-            }
+            results.AddRange(GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory, launchOcrSnip, launchColorPicker, launchRegionSnip));
+            results.AddRange(_cachedAppItems.Take(4));
             return results.Take(5).ToList();
         }
 
-        // 1. Math calculation check (e.g. "25*4", "100/5", "12+48", "15% of 200", "sqrt(144)")
+        // 0. Quick Action Commands (todo, timer, jadwal/schedule)
+        if (TryBuildQuickActionResult(q, addTodo, startCustomTimer, addSchedule, out var quickActionItem))
+        {
+            results.Add(quickActionItem);
+        }
+
+        // 1. Unit & Currency Converter (e.g. "100 km to mi", "32 c to f", "100 usd to idr")
+        if (TryEvaluateConversion(q, out string convResult, out string convExplain, out string copyVal))
+        {
+            results.Add(new SpotlightItem
+            {
+                Title = $"= {convResult}",
+                Subtitle = convExplain,
+                Kind = SpotlightResultKind.MathResult,
+                VectorIconKey = "GeomCalculator",
+                ActionData = copyVal,
+                ExecuteAction = () =>
+                {
+                    try { Clipboard.SetText(copyVal); } catch { }
+                }
+            });
+        }
+
+        // 2. Math calculation check (e.g. "25*4", "100/5", "12+48", "15% of 200", "sqrt(144)")
         if (TryEvaluateMath(q, out double mathResult, out string mathExpr))
         {
             string formattedRes = mathResult % 1 == 0
@@ -235,8 +272,8 @@ public sealed class SpotlightSearchService
             });
         }
 
-        // 2. System Commands Match
-        var commands = GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory, launchOcrSnip, launchColorPicker);
+        // 3. System Commands Match
+        var commands = GetDefaultQuickCommands(toggleMuteAudio, toggleMuteMic, toggleBluetooth, openSettings, tuckIsland, startPomodoroFocus, sleepSystem, hibernateSystem, openClipboardHistory, launchOcrSnip, launchColorPicker, launchRegionSnip);
         foreach (var cmd in commands)
         {
             if (cmd.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ||
@@ -247,12 +284,8 @@ public sealed class SpotlightSearchService
             }
         }
 
-        // 3. Application Search
-        List<SpotlightItem> snapshot;
-        lock (_cachedAppItems)
-        {
-            snapshot = _cachedAppItems.ToList();
-        }
+        // 4. Application Search (thread-safe snapshot read)
+        var snapshot = _cachedAppItems;
 
         var appMatches = new List<(SpotlightItem Item, int Score)>();
         foreach (var app in snapshot)
@@ -404,7 +437,8 @@ public sealed class SpotlightSearchService
         Action? hibernateSystem = null,
         Action? openClipboardHistory = null,
         Action? launchOcrSnip = null,
-        Action? launchColorPicker = null)
+        Action? launchColorPicker = null,
+        Action? launchRegionSnip = null)
     {
         bool en = LocalizationService.Instance.IsEnglish;
         var list = new List<SpotlightItem>
@@ -468,7 +502,7 @@ public sealed class SpotlightSearchService
                 Title = en ? "Lock Workstation" : "Kunci Komputer (Lock Workstation)",
                 Subtitle = en ? "Lock Windows session immediately (Win + L)" : "Kunci sesi Windows seketika (Win + L)",
                 Kind = SpotlightResultKind.SystemCommand,
-                VectorIconKey = "GeomShieldCheck",
+                VectorIconKey = "GeomShield",
                 ActionData = "lock kunci logout",
                 ExecuteAction = () =>
                 {
@@ -512,6 +546,19 @@ public sealed class SpotlightSearchService
                 VectorIconKey = "GeomAppearanceSparkle",
                 ActionData = "color colour warna picker eyedropper pipet hex",
                 ExecuteAction = launchColorPicker
+            });
+        }
+
+        if (launchRegionSnip != null)
+        {
+            list.Add(new SpotlightItem
+            {
+                Title = en ? "Region Screenshot to Shelf" : "Tangkap Area Layar ke Rak File",
+                Subtitle = en ? "Capture rectangular region as PNG into File Shelf & Clipboard" : "Tangkap area layar jadi PNG langsung ke Rak File & Clipboard",
+                Kind = SpotlightResultKind.SystemCommand,
+                VectorIconKey = "GeomFolderTray",
+                ActionData = "snip screenshot capture tangkap area gambar",
+                ExecuteAction = launchRegionSnip
             });
         }
 
@@ -616,6 +663,257 @@ public sealed class SpotlightSearchService
         catch { }
 
         return false;
+    }
+
+    private static bool TryBuildQuickActionResult(
+        string query,
+        Action<string>? addTodo,
+        Action<int>? startCustomTimer,
+        Action<string, string>? addSchedule,
+        out SpotlightItem item)
+    {
+        item = null!;
+        bool en = LocalizationService.Instance.IsEnglish;
+
+        if (addTodo != null &&
+            (query.StartsWith("todo ", StringComparison.OrdinalIgnoreCase) ||
+             query.StartsWith("tugas ", StringComparison.OrdinalIgnoreCase)))
+        {
+            string taskTitle = query[(query.IndexOf(' ') + 1)..].Trim();
+            if (!string.IsNullOrWhiteSpace(taskTitle))
+            {
+                item = new SpotlightItem
+                {
+                    Title = en ? $"Add To-Do: \"{taskTitle}\"" : $"Tambah Tugas: \"{taskTitle}\"",
+                    Subtitle = en ? "Press Enter to add task to Daily To-Do List" : "Tekan Enter untuk menambahkan ke Daftar Tugas",
+                    Kind = SpotlightResultKind.SystemCommand,
+                    VectorIconKey = "GeomChecklist",
+                    ActionData = taskTitle,
+                    ExecuteAction = () => addTodo(taskTitle)
+                };
+                return true;
+            }
+        }
+
+        if (startCustomTimer != null)
+        {
+            var timerMatch = Regex.Match(query, @"^(?:timer|pomo|fokus|focus)\s+(\d{1,3})\s*(?:m|min|menit)?$", RegexOptions.IgnoreCase);
+            if (timerMatch.Success && int.TryParse(timerMatch.Groups[1].Value, out int mins) && mins is >= 1 and <= 180)
+            {
+                item = new SpotlightItem
+                {
+                    Title = en ? $"Start Focus Timer ({mins} min)" : $"Mulai Timer Fokus ({mins} menit)",
+                    Subtitle = en ? "Press Enter to start countdown in Dynamic Island" : "Tekan Enter untuk memulai hitungan mundur",
+                    Kind = SpotlightResultKind.SystemCommand,
+                    VectorIconKey = "GeomFocusTimer",
+                    ActionData = $"{mins}",
+                    ExecuteAction = () => startCustomTimer(mins)
+                };
+                return true;
+            }
+        }
+
+        if (addSchedule != null)
+        {
+            var schedMatch = Regex.Match(query, @"^(?:jadwal|agenda|schedule)\s+(?:(\d{1,2}[:.]\d{2})\s+)?(.+)$", RegexOptions.IgnoreCase);
+            if (schedMatch.Success)
+            {
+                string timeText = schedMatch.Groups[1].Success ? schedMatch.Groups[1].Value.Replace('.', ':') : DateTime.Now.AddHours(1).ToString("HH:00");
+                string titleText = schedMatch.Groups[2].Value.Trim();
+                if (!string.IsNullOrWhiteSpace(titleText))
+                {
+                    item = new SpotlightItem
+                    {
+                        Title = en ? $"Add Agenda ({timeText}): {titleText}" : $"Tambah Jadwal ({timeText}): {titleText}",
+                        Subtitle = en ? "Press Enter to add to today's Calendar agenda" : "Tekan Enter untuk menambah agenda hari ini",
+                        Kind = SpotlightResultKind.SystemCommand,
+                        VectorIconKey = "GeomCalendar",
+                        ActionData = titleText,
+                        ExecuteAction = () => addSchedule(timeText, titleText)
+                    };
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    internal static bool TryEvaluateConversion(string input, out string displayResult, out string explanation, out string copyValue)
+    {
+        displayResult = string.Empty;
+        explanation = string.Empty;
+        copyValue = string.Empty;
+
+        var m = Regex.Match(input.Trim(), @"^(-?\d+(?:[.,]\d+)?)\s*([a-zA-Z°]+)\s*(?:to|ke|in|=|->)?\s*([a-zA-Z°]+)$", RegexOptions.IgnoreCase);
+        if (!m.Success) return false;
+
+        if (!double.TryParse(m.Groups[1].Value.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out double val))
+            return false;
+
+        string from = m.Groups[2].Value.Trim('°').ToLowerInvariant();
+        string to = m.Groups[3].Value.Trim('°').ToLowerInvariant();
+        if (from == to) return false;
+
+        bool en = LocalizationService.Instance.IsEnglish;
+
+        // Temperature
+        if (from is "c" or "celsius" && to is "f" or "fahrenheit")
+        {
+            double f = (val * 9.0 / 5.0) + 32.0;
+            copyValue = Math.Round(f, 2).ToString(CultureInfo.InvariantCulture);
+            displayResult = $"{copyValue} °F";
+            explanation = en ? $"{val} °C converted to Fahrenheit" : $"{val} °C dikonversi ke Fahrenheit";
+            return true;
+        }
+        if (from is "f" or "fahrenheit" && to is "c" or "celsius")
+        {
+            double c = (val - 32.0) * 5.0 / 9.0;
+            copyValue = Math.Round(c, 2).ToString(CultureInfo.InvariantCulture);
+            displayResult = $"{copyValue} °C";
+            explanation = en ? $"{val} °F converted to Celsius" : $"{val} °F dikonversi ke Celsius";
+            return true;
+        }
+
+        // Length (base: meter)
+        double? lengthToMeter = from switch
+        {
+            "mm" => 0.001,
+            "cm" => 0.01,
+            "m" => 1.0,
+            "km" => 1000.0,
+            "in" or "inch" => 0.0254,
+            "ft" or "feet" => 0.3048,
+            "mi" or "mile" => 1609.344,
+            _ => null
+        };
+        double? meterToTarget = to switch
+        {
+            "mm" => 1000.0,
+            "cm" => 100.0,
+            "m" => 1.0,
+            "km" => 0.001,
+            "in" or "inch" => 1.0 / 0.0254,
+            "ft" or "feet" => 1.0 / 0.3048,
+            "mi" or "mile" => 1.0 / 1609.344,
+            _ => null
+        };
+        if (lengthToMeter.HasValue && meterToTarget.HasValue)
+        {
+            double converted = Math.Round(val * lengthToMeter.Value * meterToTarget.Value, 4);
+            copyValue = converted.ToString(CultureInfo.InvariantCulture);
+            displayResult = $"{copyValue} {to}";
+            explanation = $"{val} {from} -> {displayResult}";
+            return true;
+        }
+
+        // Mass (base: kg)
+        double? massToKg = from switch
+        {
+            "g" or "gram" => 0.001,
+            "kg" => 1.0,
+            "lb" or "lbs" => 0.45359237,
+            "oz" => 0.028349523,
+            _ => null
+        };
+        double? kgToTarget = to switch
+        {
+            "g" or "gram" => 1000.0,
+            "kg" => 1.0,
+            "lb" or "lbs" => 1.0 / 0.45359237,
+            "oz" => 1.0 / 0.028349523,
+            _ => null
+        };
+        if (massToKg.HasValue && kgToTarget.HasValue)
+        {
+            double converted = Math.Round(val * massToKg.Value * kgToTarget.Value, 4);
+            copyValue = converted.ToString(CultureInfo.InvariantCulture);
+            displayResult = $"{copyValue} {to}";
+            explanation = $"{val} {from} -> {displayResult}";
+            return true;
+        }
+
+        // Data size (base: MB, binary-decimal friendly 1024)
+        double? dataToMb = from switch
+        {
+            "kb" => 1.0 / 1024.0,
+            "mb" => 1.0,
+            "gb" => 1024.0,
+            "tb" => 1024.0 * 1024.0,
+            _ => null
+        };
+        double? mbToTarget = to switch
+        {
+            "kb" => 1024.0,
+            "mb" => 1.0,
+            "gb" => 1.0 / 1024.0,
+            "tb" => 1.0 / (1024.0 * 1024.0),
+            _ => null
+        };
+        if (dataToMb.HasValue && mbToTarget.HasValue)
+        {
+            double converted = Math.Round(val * dataToMb.Value * mbToTarget.Value, 4);
+            copyValue = converted.ToString(CultureInfo.InvariantCulture);
+            displayResult = $"{copyValue} {to.ToUpperInvariant()}";
+            explanation = $"{val} {from.ToUpperInvariant()} -> {displayResult}";
+            return true;
+        }
+
+        // Currency conversion (non-blocking cached rates, lazily refreshed in background)
+        if (_usdRates.TryGetValue(from, out double fromPerUsd) &&
+            _usdRates.TryGetValue(to, out double toPerUsd))
+        {
+            EnsureCurrencyRatesFreshAsync();
+            double inUsd = val / fromPerUsd;
+            double converted = inUsd * toPerUsd;
+            string code = to.ToUpperInvariant();
+            copyValue = converted >= 100
+                ? Math.Round(converted, 0).ToString("N0", CultureInfo.InvariantCulture)
+                : Math.Round(converted, 2).ToString("N2", CultureInfo.InvariantCulture);
+            displayResult = $"{copyValue} {code}";
+            explanation = en
+                ? $"{val} {from.ToUpperInvariant()} -> {code} (Press Enter to copy)"
+                : $"{val} {from.ToUpperInvariant()} -> {code} (Tekan Enter untuk salin)";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void EnsureCurrencyRatesFreshAsync()
+    {
+        if ((DateTime.UtcNow - _lastRatesFetchUtc).TotalHours < 6) return;
+        if (Interlocked.CompareExchange(ref _fetchingRatesFlag, 1, 0) != 0) return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var res = await CurrencyHttp.GetAsync("https://open.er-api.com/v6/latest/USD");
+                if (res.IsSuccessStatusCode)
+                {
+                    using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
+                    if (doc.RootElement.TryGetProperty("rates", out var ratesElem))
+                    {
+                        var updated = new Dictionary<string, double>(_usdRates, StringComparer.OrdinalIgnoreCase);
+                        foreach (var key in updated.Keys.ToList())
+                        {
+                            if (ratesElem.TryGetProperty(key, out var prop) && prop.TryGetDouble(out double rate) && rate > 0)
+                            {
+                                updated[key] = rate;
+                            }
+                        }
+                        _usdRates = updated;
+                        _lastRatesFetchUtc = DateTime.UtcNow;
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                Volatile.Write(ref _fetchingRatesFlag, 0);
+            }
+        });
     }
 }
 

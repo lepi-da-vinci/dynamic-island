@@ -28,7 +28,7 @@ public partial class MainWindow
             bool hasSession = track.HasActiveSession && track.Title != "Tidak Ada Media";
             _stateMachine.SetMediaActive(hasSession);
 
-            ApplyDominantColor(track.DominantColor);
+            ApplyDominantColor(track.DominantColor, track.SecondaryColor);
             UpdateMediaAndLyricsUi();
 
             if (hasSession && _settingsService.MediaTrackChangeToastEnabled && (_stateMachine.IsTuckedMode || _stateMachine.CurrentState == IslandVisualState.TuckedTopEdge))
@@ -94,15 +94,18 @@ public partial class MainWindow
         });
     }
 
-    private void ApplyDominantColor(Color c)
+    private void ApplyDominantColor(Color c, Color? secondary = null)
     {
         bool isMonochrome = _settingsService.IslandSurfaceTheme == "Monochrome" ||
                             _settingsService.AccentTheme == "Monochrome";
         Color effectiveMediaAccent = isMonochrome ? Color.FromRgb(226, 232, 240) : c;
+        Color effectiveSecondary = isMonochrome
+            ? Color.FromRgb(161, 161, 170)
+            : (secondary ?? _mediaService.CurrentTrack.SecondaryColor);
 
         if (_settingsService.AccentTheme == "Auto")
         {
-            AmbientGlowBrush.Color = effectiveMediaAccent;
+            SetAmbientGlowColors(effectiveMediaAccent, effectiveSecondary, animate: true);
             TuckedAccentBar.Background = BrushCache.Get(effectiveMediaAccent);
             if (_settingsService.RimGlowStyle == "AccentNeon")
             {
@@ -131,8 +134,55 @@ public partial class MainWindow
     {
         var track = _mediaService.CurrentTrack;
 
-        CompactAlbumImage.Source = track.Thumbnail;
-        ExpandedAlbumImage.Source = track.Thumbnail;
+        if (!ReferenceEquals(track.Thumbnail, _lastCrossfadeThumb))
+        {
+            if (CompactAlbumImagePrev != null)
+            {
+                CompactAlbumImagePrev.Source = _lastCrossfadeThumb;
+                CompactAlbumImagePrev.Opacity = _lastCrossfadeThumb != null ? 1.0 : 0.0;
+            }
+            if (ExpandedAlbumImagePrev != null)
+            {
+                ExpandedAlbumImagePrev.Source = _lastCrossfadeThumb;
+                ExpandedAlbumImagePrev.Opacity = _lastCrossfadeThumb != null ? 1.0 : 0.0;
+            }
+
+            _lastCrossfadeThumb = track.Thumbnail;
+            CompactAlbumImage.Source = track.Thumbnail;
+            ExpandedAlbumImage.Source = track.Thumbnail;
+
+            var fadeIn = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(320))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            CompactAlbumImage.BeginAnimation(OpacityProperty, fadeIn);
+            ExpandedAlbumImage.BeginAnimation(OpacityProperty, fadeIn);
+
+            if (CompactAlbumImagePrev != null && ExpandedAlbumImagePrev != null)
+            {
+                var fadeOut = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(340))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                };
+                CompactAlbumImagePrev.BeginAnimation(OpacityProperty, fadeOut);
+                ExpandedAlbumImagePrev.BeginAnimation(OpacityProperty, fadeOut);
+            }
+        }
+
+        if (LyricsOffsetReadoutText != null)
+        {
+            double off = _lyricsService.CurrentTrackOffsetSeconds;
+            if (Math.Abs(off) >= 0.05)
+            {
+                LyricsOffsetReadoutText.Text = off > 0 ? $"+{off:0.0}s" : $"{off:0.0}s";
+                LyricsOffsetReadoutText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                LyricsOffsetReadoutText.Visibility = Visibility.Collapsed;
+            }
+        }
+
         ExpandedSongTitleText.Text = track.Title;
         ExpandedArtistText.Text = track.Artist;
 
@@ -533,6 +583,172 @@ public partial class MainWindow
     }
 
     // =========================================================================
-    // FEATURE 4 & 5: LAN WI-FI QR SHARE + SCREEN OCR & EYEDROPPER TOOLS
+    // FEATURE 4 & 5: LYRICS CALIBRATION (-0.5s/+0.5s) & CANDIDATE PICKER
     // =========================================================================
+
+    private void OnLyricsOffsetMinusClick(object sender, RoutedEventArgs e)
+    {
+        _lyricsService.AdjustTrackOffset(-0.5);
+        UpdateMediaAndLyricsUi();
+    }
+
+    private void OnLyricsOffsetPlusClick(object sender, RoutedEventArgs e)
+    {
+        _lyricsService.AdjustTrackOffset(0.5);
+        UpdateMediaAndLyricsUi();
+    }
+
+    private void OnLyricsOffsetResetClick(object sender, MouseButtonEventArgs e)
+    {
+        _lyricsService.ResetTrackOffset();
+        UpdateMediaAndLyricsUi();
+    }
+
+    private async void OnOpenLyricCandidatesClick(object sender, RoutedEventArgs e)
+    {
+        if (LyricCandidatesOverlayBorder == null) return;
+        if (LyricCandidatesOverlayBorder.Visibility == Visibility.Visible)
+        {
+            LyricCandidatesOverlayBorder.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var track = _mediaService.CurrentTrack;
+        string initialQuery = string.Join(" ", new[] { track.Artist, track.Title }.Where(s => !string.IsNullOrWhiteSpace(s) && s != "Tidak Ada Media"));
+        LyricCandidateSearchBox.Text = initialQuery;
+        LyricCandidateSearchPlaceholder.Visibility = string.IsNullOrWhiteSpace(initialQuery) ? Visibility.Visible : Visibility.Collapsed;
+        LyricCandidatesOverlayBorder.Visibility = Visibility.Visible;
+        await PopulateLyricCandidatesAsync(initialQuery);
+    }
+
+    private void OnCloseLyricCandidatesClick(object sender, RoutedEventArgs e)
+    {
+        if (LyricCandidatesOverlayBorder != null)
+        {
+            LyricCandidatesOverlayBorder.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void OnLyricCandidateSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (LyricCandidateSearchPlaceholder != null)
+        {
+            LyricCandidateSearchPlaceholder.Visibility = string.IsNullOrWhiteSpace(LyricCandidateSearchBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+    }
+
+    private async void OnLyricCandidateSearchKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            await PopulateLyricCandidatesAsync(LyricCandidateSearchBox.Text);
+        }
+    }
+
+    private async void OnSearchLyricCandidatesClick(object sender, RoutedEventArgs e)
+    {
+        await PopulateLyricCandidatesAsync(LyricCandidateSearchBox.Text);
+    }
+
+    private async Task PopulateLyricCandidatesAsync(string? query)
+    {
+        if (LyricCandidatesStack == null) return;
+        LyricCandidatesStack.Children.Clear();
+        LyricCandidatesStack.Children.Add(new TextBlock
+        {
+            Text = LocalizationService.Instance.Get("Lyrics_Fetching"),
+            Foreground = BrushCache.Get(Color.FromRgb(148, 163, 184)),
+            FontSize = 10,
+            Margin = new Thickness(4, 6, 4, 6)
+        });
+
+        var track = _mediaService.CurrentTrack;
+        var candidates = await _lyricsService.SearchCandidatesAsync(query, track.Title, track.Artist, track.Duration.TotalSeconds);
+        LyricCandidatesStack.Children.Clear();
+
+        if (candidates.Count == 0)
+        {
+            LyricCandidatesStack.Children.Add(new TextBlock
+            {
+                Text = LocalizationService.Instance.Get("Lyrics_NotFound"),
+                Foreground = BrushCache.Get(Color.FromRgb(251, 113, 133)),
+                FontSize = 10,
+                Margin = new Thickness(4, 6, 4, 6)
+            });
+            return;
+        }
+
+        foreach (var cand in candidates)
+        {
+            string durStr = cand.DurationSeconds > 5 ? FormatTimeSpan(TimeSpan.FromSeconds(cand.DurationSeconds)) : "--:--";
+            var rowBtn = new Button
+            {
+                Style = TryFindResource("IslandIconButtonStyle") as Style,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Padding = new Thickness(7, 4, 7, 4),
+                Margin = new Thickness(0, 0, 0, 3),
+                Background = BrushCache.Get(Color.FromArgb(20, 255, 255, 255)),
+                BorderBrush = BrushCache.Get(Color.FromArgb(34, 255, 255, 255)),
+                BorderThickness = new Thickness(1)
+            };
+
+            var rowGrid = new Grid();
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var srcBadge = new Border
+            {
+                Background = BrushCache.Get(cand.Source == "NetEase" ? Color.FromArgb(34, 244, 63, 94) : Color.FromArgb(34, 56, 189, 248)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(4, 1, 4, 1),
+                Margin = new Thickness(0, 0, 6, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = cand.Source,
+                    Foreground = BrushCache.Get(cand.Source == "NetEase" ? Color.FromRgb(251, 113, 133) : Color.FromRgb(56, 189, 248)),
+                    FontSize = 8.5,
+                    FontWeight = FontWeights.Bold
+                }
+            };
+            Grid.SetColumn(srcBadge, 0);
+            rowGrid.Children.Add(srcBadge);
+
+            var infoTb = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(cand.Artist) ? cand.Title : $"{cand.Title} - {cand.Artist}",
+                Foreground = Brushes.White,
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(infoTb, 1);
+            rowGrid.Children.Add(infoTb);
+
+            var metaTb = new TextBlock
+            {
+                Text = $"{durStr}{(cand.IsSynced ? " • SYNC" : "")}",
+                Foreground = BrushCache.Get(cand.IsSynced ? Color.FromRgb(52, 211, 153) : Color.FromRgb(148, 163, 184)),
+                FontSize = 9,
+                Margin = new Thickness(6, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(metaTb, 2);
+            rowGrid.Children.Add(metaTb);
+
+            rowBtn.Content = rowGrid;
+            rowBtn.Click += async (_, _) =>
+            {
+                await _lyricsService.ApplyManualCandidateAsync(cand);
+                if (LyricCandidatesOverlayBorder != null) LyricCandidatesOverlayBorder.Visibility = Visibility.Collapsed;
+                UpdateMediaAndLyricsUi();
+            };
+
+            LyricCandidatesStack.Children.Add(rowBtn);
+        }
+    }
 }

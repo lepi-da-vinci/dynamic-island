@@ -83,4 +83,24 @@ public sealed class LyricsAndRomajiTests
         Assert.Contains("ai", mandarin, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("ni", mandarin, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void LyricsService_PerTrackOffset_ShiftsActiveLyricTiming()
+    {
+        var service = new LyricsService();
+        service.LoadLinesForTest(LyricsService.ParseLrc("""
+            [00:10.00]First line
+            [00:20.00]Second line
+            """), trackKey: "__unittest_offset__");
+
+        service.ResetTrackOffset();
+        Assert.Equal(0, service.GetActiveLyrics(TimeSpan.FromSeconds(18)).LineIndex);
+
+        service.AdjustTrackOffset(2.5);
+        Assert.Equal(2.5, service.CurrentTrackOffsetSeconds, precision: 1);
+        Assert.Equal(1, service.GetActiveLyrics(TimeSpan.FromSeconds(18)).LineIndex);
+
+        service.ResetTrackOffset();
+        Assert.Equal(0.0, service.CurrentTrackOffsetSeconds, precision: 1);
+    }
 }

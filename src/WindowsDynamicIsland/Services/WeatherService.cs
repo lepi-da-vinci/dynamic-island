@@ -6,6 +6,13 @@ namespace WindowsDynamicIsland.Services;
 
 public sealed record HourlyWeatherInfo(string HourText, double TempC, string IconKey);
 
+public sealed record GeocodingCityResult(string Name, string Country, string Admin1, double Latitude, double Longitude)
+{
+    public string DisplayLabel => string.IsNullOrWhiteSpace(Admin1)
+        ? $"{Name}, {Country}"
+        : $"{Name}, {Admin1}, {Country}";
+}
+
 public sealed record WeatherInfo(
     string City,
     double TempC,
@@ -15,7 +22,10 @@ public sealed record WeatherInfo(
     int WeatherCode,
     string ConditionText,
     string IconKey,
-    List<HourlyWeatherInfo> HourlyForecast);
+    List<HourlyWeatherInfo> HourlyForecast,
+    int UvIndex = 0,
+    int UsAqi = 0,
+    bool IsManualLocation = false);
 
 /// <summary>
 /// Fetches real-time weather and hourly forecast from Open-Meteo API (free, zero API key)
@@ -36,8 +46,62 @@ public sealed class WeatherService
     private double _cachedLat = -6.2056;
     private double _cachedLon = 106.8376;
     private bool _locationResolved;
+    private bool _isManualLocation;
 
     public event Action<WeatherInfo>? WeatherUpdated;
+
+    public void SetManualLocation(string city, double lat, double lon)
+    {
+        _cachedCity = string.IsNullOrWhiteSpace(city) ? "Jakarta" : city.Trim();
+        _cachedLat = lat;
+        _cachedLon = lon;
+        _locationResolved = true;
+        _isManualLocation = true;
+        _lastFetchUtc = DateTime.MinValue;
+    }
+
+    public void ClearManualLocation()
+    {
+        _isManualLocation = false;
+        _locationResolved = false;
+        _lastFetchUtc = DateTime.MinValue;
+    }
+
+    public static double ConvertTemperature(double tempC, bool useFahrenheit)
+        => useFahrenheit ? (tempC * 9.0 / 5.0) + 32.0 : tempC;
+
+    public async Task<List<GeocodingCityResult>> SearchCitiesAsync(string query)
+    {
+        var results = new List<GeocodingCityResult>();
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2) return results;
+
+        try
+        {
+            string url = $"https://geocoding-api.open-meteo.com/v1/search?name={Uri.EscapeDataString(query.Trim())}&count=5&language=id&format=json";
+            using var res = await Http.GetAsync(url);
+            if (!res.IsSuccessStatusCode) return results;
+
+            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
+            if (!doc.RootElement.TryGetProperty("results", out var arr) || arr.ValueKind != JsonValueKind.Array)
+                return results;
+
+            foreach (var item in arr.EnumerateArray())
+            {
+                string name = item.TryGetProperty("name", out var n) ? (n.GetString() ?? "") : "";
+                string country = item.TryGetProperty("country", out var c) ? (c.GetString() ?? "") : "";
+                string admin1 = item.TryGetProperty("admin1", out var a) ? (a.GetString() ?? "") : "";
+                double lat = item.TryGetProperty("latitude", out var la) ? la.GetDouble() : 0;
+                double lon = item.TryGetProperty("longitude", out var lo) ? lo.GetDouble() : 0;
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    results.Add(new GeocodingCityResult(name, country, admin1, lat, lon));
+                }
+            }
+        }
+        catch { }
+
+        return results;
+    }
 
     public async Task<WeatherInfo?> GetWeatherAsync(bool forceRefresh = false)
     {
@@ -48,14 +112,21 @@ public sealed class WeatherService
 
         try
         {
-            if (!_locationResolved)
+            if (!_locationResolved && !_isManualLocation)
             {
                 await ResolveLocationAsync();
             }
 
-            string url = $"https://api.open-meteo.com/v1/forecast?latitude={_cachedLat.ToString(System.Globalization.CultureInfo.InvariantCulture)}&longitude={_cachedLon.ToString(System.Globalization.CultureInfo.InvariantCulture)}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&timezone=auto&forecast_days=1";
+            string latStr = _cachedLat.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string lonStr = _cachedLon.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string url = $"https://api.open-meteo.com/v1/forecast?latitude={latStr}&longitude={lonStr}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&daily=uv_index_max&timezone=auto&forecast_days=1";
+            string aqiUrl = $"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={latStr}&longitude={lonStr}&current=us_aqi";
 
-            using var res = await Http.GetAsync(url);
+            var weatherTask = Http.GetAsync(url);
+            var aqiTask = FetchUsAqiSafeAsync(aqiUrl);
+            await Task.WhenAll(weatherTask, aqiTask);
+
+            using var res = await weatherTask;
             if (!res.IsSuccessStatusCode)
             {
                 return _cachedWeather;
@@ -75,6 +146,16 @@ public sealed class WeatherService
             int code = cur.GetProperty("weather_code").GetInt32();
             double wind = cur.GetProperty("wind_speed_10m").GetDouble();
 
+            int uvIndex = 0;
+            if (root.TryGetProperty("daily", out var daily) &&
+                daily.TryGetProperty("uv_index_max", out var uvArr) &&
+                uvArr.ValueKind == JsonValueKind.Array &&
+                uvArr.GetArrayLength() > 0)
+            {
+                uvIndex = (int)Math.Round(uvArr[0].GetDouble());
+            }
+
+            int usAqi = await aqiTask;
             var (condText, iconKey) = MapWeatherCode(code);
 
             // Hourly forecast parsing (next 5 hours)
@@ -112,7 +193,10 @@ public sealed class WeatherService
                 WeatherCode: code,
                 ConditionText: condText,
                 IconKey: iconKey,
-                HourlyForecast: hourlyList);
+                HourlyForecast: hourlyList,
+                UvIndex: uvIndex,
+                UsAqi: usAqi,
+                IsManualLocation: _isManualLocation);
 
             _lastFetchUtc = DateTime.UtcNow;
             WeatherUpdated?.Invoke(_cachedWeather);
@@ -123,6 +207,23 @@ public sealed class WeatherService
             AppLogger.LogWarning("WeatherService", $"Failed to fetch weather: {ex.Message}");
             return _cachedWeather;
         }
+    }
+
+    private static async Task<int> FetchUsAqiSafeAsync(string aqiUrl)
+    {
+        try
+        {
+            using var res = await Http.GetAsync(aqiUrl);
+            if (!res.IsSuccessStatusCode) return 0;
+            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
+            if (doc.RootElement.TryGetProperty("current", out var cur) &&
+                cur.TryGetProperty("us_aqi", out var aqiProp))
+            {
+                return (int)Math.Round(aqiProp.GetDouble());
+            }
+        }
+        catch { }
+        return 0;
     }
 
     private async Task ResolveLocationAsync()
@@ -160,7 +261,7 @@ public sealed class WeatherService
         61 or 63 or 65 => (LocalizationService.Instance.Get("Weather_Rain"), "GeomWeatherRain"),
         71 or 73 or 75 => (LocalizationService.Instance.Get("Weather_Snow"), "GeomWeatherRain"),
         80 or 81 or 82 => (LocalizationService.Instance.Get("Weather_HeavyRain"), "GeomWeatherRain"),
-        95 or 96 or 99 => (LocalizationService.Instance.Get("Weather_Thunderstorm"), "GeomWeatherRain"),
+        95 or 96 or 99 => (LocalizationService.Instance.Get("Weather_Thunderstorm"), "GeomWeatherStorm"),
         _ => (LocalizationService.Instance.Get("Weather_Mixed"), "GeomWeatherSunCloud")
     };
 }

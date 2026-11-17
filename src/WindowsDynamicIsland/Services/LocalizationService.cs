@@ -666,5 +666,123 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Updater_Downloading"] = "Downloading update... {0}%";
         _idStrings["Updater_Installing"] = "Memasang pembaruan & memulai ulang...";
         _enStrings["Updater_Installing"] = "Installing update & restarting...";
+
+        // ==================== v2.3.0 EXTENDED LOCALIZATION ====================
+        _idStrings["Settings_TabCalendar"] = "Kalender & Jadwal";
+        _enStrings["Settings_TabCalendar"] = "Calendar & Schedule";
+        _idStrings["Settings_TabCalendarSub"] = "Tampilkan kalender bulanan dan agenda harian";
+        _enStrings["Settings_TabCalendarSub"] = "Show monthly calendar and daily agenda";
+        _idStrings["Settings_TabWeather"] = "Cuaca Real-time";
+        _enStrings["Settings_TabWeather"] = "Real-time Weather";
+        _idStrings["Settings_TabWeatherSub"] = "Tampilkan suhu lokal, UV, AQI, dan prakiraan 5 jam";
+        _enStrings["Settings_TabWeatherSub"] = "Show local temp, UV index, AQI, and 5-hour forecast";
+        _idStrings["Settings_TabNotifications"] = "Riwayat Notifikasi";
+        _enStrings["Settings_TabNotifications"] = "Notification History";
+        _idStrings["Settings_TabNotificationsSub"] = "Tampilkan pusat log notifikasi selama sesi aktif";
+        _enStrings["Settings_TabNotificationsSub"] = "Show session notification center log";
+        _idStrings["Settings_TabOrderHint"] = "Tarik baris atau gunakan panah untuk mengatur urutan tab & sayap sisi";
+        _enStrings["Settings_TabOrderHint"] = "Drag rows or use arrows to customize tab & side-wing order";
+
+        _idStrings["Settings_BatteryEco"] = "Mode Hemat Daya Otomatis (<= 20%)";
+        _enStrings["Settings_BatteryEco"] = "Auto Low-Battery Eco Mode (<= 20%)";
+        _idStrings["Settings_BatteryEcoSub"] = "Kurangi frekuensi polling latar belakang saat baterai <= 20% dan tawarkan Energy Saver";
+        _enStrings["Settings_BatteryEcoSub"] = "Throttle background polling below 20% battery and offer quick Energy Saver";
+
+        _idStrings["Clip_BadgeText"] = "TEKS";
+        _enStrings["Clip_BadgeText"] = "TEXT";
+        _idStrings["Clip_BadgeImage"] = "GAMBAR";
+        _enStrings["Clip_BadgeImage"] = "IMAGE";
+        _idStrings["Clip_SearchPlaceholder"] = "Cari riwayat klip...";
+        _enStrings["Clip_SearchPlaceholder"] = "Filter clipboard history...";
+        _idStrings["Clip_Pinned"] = "Disematkan";
+        _enStrings["Clip_Pinned"] = "Pinned";
+        _idStrings["Clip_EmptyCount"] = "Papan Klip Kosong";
+        _enStrings["Clip_EmptyCount"] = "Clipboard Empty";
+        _idStrings["Clip_CountFmt"] = "{0} Klip Tersimpan";
+        _enStrings["Clip_CountFmt"] = "{0} Saved Clips";
+
+        _idStrings["Snip_BtnLabel"] = "Snip Layar";
+        _enStrings["Snip_BtnLabel"] = "Snip Area";
+        _idStrings["Snip_SavedToast"] = "Tangkapan Layar Disimpan ke Rak";
+        _enStrings["Snip_SavedToast"] = "Screenshot Saved to Shelf";
+
+        _idStrings["Qr_TwoWayHint"] = "Pindai QR dengan kamera HP untuk kirim/unduh file 2-arah via Wi-Fi";
+        _enStrings["Qr_TwoWayHint"] = "Scan QR with phone camera for 2-way Wi-Fi file transfer";
+        _idStrings["Qr_ReceivedTitle"] = "File Diterima dari HP";
+        _enStrings["Qr_ReceivedTitle"] = "File Received from Phone";
+
+        _idStrings["Lyrics_SearchBtn"] = "Ganti Lirik";
+        _enStrings["Lyrics_SearchBtn"] = "Switch Lyrics";
+        _idStrings["Lyrics_CandidatesTitle"] = "Pilih Sumber Lirik Alternatif";
+        _enStrings["Lyrics_CandidatesTitle"] = "Choose Alternative Lyrics";
+        _idStrings["Lyrics_SearchPlaceholder"] = "Cari judul atau artis...";
+        _enStrings["Lyrics_SearchPlaceholder"] = "Search title or artist...";
+
+        _idStrings["Weather_SearchPlaceholder"] = "Cari nama kota (mis. Bandung, Tokyo)...";
+        _enStrings["Weather_SearchPlaceholder"] = "Search city name (e.g. Jakarta, Tokyo)...";
+        _idStrings["Weather_AutoGps"] = "Otomatis (IP)";
+        _enStrings["Weather_AutoGps"] = "Auto (IP)";
+
+        _idStrings["Cal_ReminderTitle"] = "Pengingat Jadwal";
+        _enStrings["Cal_ReminderTitle"] = "Schedule Reminder";
+        _idStrings["Cal_StartsSoonFmt"] = "{0} dimulai pukul {1}";
+        _enStrings["Cal_StartsSoonFmt"] = "{0} starts at {1}";
+
+        _idStrings["Eco_LowBatteryTitle"] = "Baterai Rendah ({0}%) • Mode Eco";
+        _enStrings["Eco_LowBatteryTitle"] = "Low Battery ({0}%) • Eco Mode";
+        _idStrings["Eco_LowBatterySub"] = "Polling latar belakang diperlambat otomatis • Klik untuk Energy Saver";
+        _enStrings["Eco_LowBatterySub"] = "Background polling throttled automatically • Click for Energy Saver";
+
+        // Wi-Fi Tab & Header Quick Shortcuts
+        _idStrings["Settings_TabWifi"] = "Wi-Fi & Jaringan";
+        _enStrings["Settings_TabWifi"] = "Wi-Fi & Networks";
+        _idStrings["Settings_TabWifiSub"] = "Menu kontrol Wi-Fi, pindai SSID sekitar, dan koneksi cepat";
+        _enStrings["Settings_TabWifiSub"] = "System-style Wi-Fi menu, network scan, and quick connect";
+        _idStrings["Header_ClockTooltip"] = "Klik: Buka Tab Kalender & Jadwal";
+        _enStrings["Header_ClockTooltip"] = "Click: Open Calendar & Schedule Tab";
+        _idStrings["Wifi_TabTitle"] = "Wi-Fi & Jaringan";
+        _enStrings["Wifi_TabTitle"] = "Wi-Fi & Networks";
+        _idStrings["Wifi_StatusConnectedFmt"] = "Terhubung • {0}%";
+        _enStrings["Wifi_StatusConnectedFmt"] = "Connected • {0}%";
+        _idStrings["Wifi_StatusReady"] = "Siap Memindai";
+        _enStrings["Wifi_StatusReady"] = "Ready to Scan";
+        _idStrings["Wifi_StatusOff"] = "Wi-Fi Nonaktif";
+        _enStrings["Wifi_StatusOff"] = "Wi-Fi Off";
+        _idStrings["Wifi_ConnectedTag"] = "Terhubung";
+        _enStrings["Wifi_ConnectedTag"] = "Connected";
+        _idStrings["Wifi_SavedTag"] = "Tersimpan";
+        _enStrings["Wifi_SavedTag"] = "Saved";
+        _idStrings["Wifi_SecuredTag"] = "Terkunci";
+        _enStrings["Wifi_SecuredTag"] = "Secured";
+        _idStrings["Wifi_OpenTag"] = "Terbuka";
+        _enStrings["Wifi_OpenTag"] = "Open";
+        _idStrings["Wifi_ConnectBtn"] = "Hubungkan";
+        _enStrings["Wifi_ConnectBtn"] = "Connect";
+        _idStrings["Wifi_DisconnectBtn"] = "Putus";
+        _enStrings["Wifi_DisconnectBtn"] = "Disconnect";
+        _idStrings["Wifi_ForgetBtn"] = "Lupakan";
+        _enStrings["Wifi_ForgetBtn"] = "Forget";
+        _idStrings["Wifi_EnableBtn"] = "Aktifkan Wi-Fi";
+        _enStrings["Wifi_EnableBtn"] = "Turn On Wi-Fi";
+        _idStrings["Wifi_PasswordHint"] = "Masukkan kata sandi Wi-Fi...";
+        _enStrings["Wifi_PasswordHint"] = "Enter Wi-Fi security key...";
+        _idStrings["Wifi_CancelBtn"] = "Batal";
+        _enStrings["Wifi_CancelBtn"] = "Cancel";
+        _idStrings["Wifi_NoNetworks"] = "Belum ada jaringan Wi-Fi terdeteksi di sekitar.";
+        _enStrings["Wifi_NoNetworks"] = "No nearby Wi-Fi networks detected yet.";
+        _idStrings["Wifi_ErrEmptySsid"] = "SSID tidak valid.";
+        _enStrings["Wifi_ErrEmptySsid"] = "Invalid SSID.";
+        _idStrings["Wifi_ErrNeedPassword"] = "Kata sandi Wi-Fi diperlukan.";
+        _enStrings["Wifi_ErrNeedPassword"] = "Wi-Fi password required.";
+        _idStrings["Wifi_ErrConnectFailed"] = "Gagal terhubung ke jaringan Wi-Fi.";
+        _enStrings["Wifi_ErrConnectFailed"] = "Failed to connect to Wi-Fi network.";
+        _idStrings["Wifi_ConnectingToast"] = "Menghubungkan ke {0}...";
+        _enStrings["Wifi_ConnectingToast"] = "Connecting to {0}...";
+        _idStrings["Wifi_OpenWinSettingsTip"] = "Buka Pengaturan Wi-Fi Windows";
+        _enStrings["Wifi_OpenWinSettingsTip"] = "Open Windows Wi-Fi Settings";
+        _idStrings["Wifi_ShowPwdTip"] = "Tampilkan kata sandi";
+        _enStrings["Wifi_ShowPwdTip"] = "Show password";
+        _idStrings["Wifi_HidePwdTip"] = "Sembunyikan kata sandi";
+        _enStrings["Wifi_HidePwdTip"] = "Hide password";
     }
 }

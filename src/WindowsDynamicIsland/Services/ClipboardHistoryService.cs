@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media.Imaging;
@@ -24,16 +25,18 @@ public sealed class ClipboardItem
     public DateTime TimestampUtc { get; init; } = DateTime.UtcNow;
     public BitmapSource? ThumbnailImage { get; init; }
     public string MetadataLabel { get; init; } = string.Empty;
+    public bool IsPinned { get; set; }
 
     public string TimeAgoText
     {
         get
         {
             var diff = DateTime.UtcNow - TimestampUtc;
-            if (diff.TotalSeconds < 45) return "Baru saja";
-            if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m lalu";
-            if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}j lalu";
-            return $"{(int)diff.TotalDays}h lalu";
+            var loc = LocalizationService.Instance;
+            if (diff.TotalSeconds < 45) return loc.Get("Time_JustNow");
+            if (diff.TotalMinutes < 60) return loc.Format("Time_MinutesAgo", (int)diff.TotalMinutes);
+            if (diff.TotalHours < 24) return loc.Format("Time_HoursAgo", (int)diff.TotalHours);
+            return $"{(int)diff.TotalDays}d";
         }
     }
 
@@ -41,9 +44,9 @@ public sealed class ClipboardItem
     {
         ClipboardItemKind.Url => "URL",
         ClipboardItemKind.ColorHex => "HEX",
-        ClipboardItemKind.Image => "GAMBAR",
+        ClipboardItemKind.Image => LocalizationService.Instance.Get("Clip_BadgeImage", "IMAGE"),
         ClipboardItemKind.FilePaths => "FILE",
-        _ => "TEKS"
+        _ => LocalizationService.Instance.Get("Clip_BadgeText", "TEXT")
     };
 
     public string BadgeColorHex => Kind switch
@@ -67,8 +70,29 @@ public sealed class ClipboardHistoryService
     public ObservableCollection<ClipboardItem> Items { get; } = [];
     public event Action? HistoryChanged;
 
+    private sealed class PinnedClipDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string PreviewText { get; set; } = string.Empty;
+        public ClipboardItemKind Kind { get; set; }
+        public DateTime TimestampUtc { get; set; }
+        public string MetadataLabel { get; set; } = string.Empty;
+    }
+
     private const int MaxItemsCount = 25;
+    private readonly string _pinnedPath;
     private string _lastRecordedText = string.Empty;
+
+    public ClipboardHistoryService()
+    {
+        string folder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "WindowsDynamicIsland");
+        Directory.CreateDirectory(folder);
+        _pinnedPath = Path.Combine(folder, "pinned_clips.json");
+        LoadPinnedItems();
+    }
 
     public void RecordCurrentClipboard()
     {
@@ -157,20 +181,74 @@ public sealed class ClipboardHistoryService
         Application.Current?.Dispatcher.InvokeAsync(() =>
         {
             var existing = Items.FirstOrDefault(i => i.Content == item.Content);
+            bool preservePin = false;
             if (existing != null)
             {
+                preservePin = existing.IsPinned;
                 Items.Remove(existing);
             }
 
-            Items.Insert(0, item);
+            if (preservePin)
+            {
+                item.IsPinned = true;
+                Items.Insert(0, item);
+                SavePinnedItems();
+            }
+            else
+            {
+                int firstUnpinnedIdx = 0;
+                while (firstUnpinnedIdx < Items.Count && Items[firstUnpinnedIdx].IsPinned)
+                {
+                    firstUnpinnedIdx++;
+                }
+                Items.Insert(firstUnpinnedIdx, item);
+            }
 
             while (Items.Count > MaxItemsCount)
             {
-                Items.RemoveAt(Items.Count - 1);
+                int removeIdx = -1;
+                for (int i = Items.Count - 1; i >= 0; i--)
+                {
+                    if (!Items[i].IsPinned)
+                    {
+                        removeIdx = i;
+                        break;
+                    }
+                }
+                if (removeIdx < 0) break;
+                Items.RemoveAt(removeIdx);
             }
 
             HistoryChanged?.Invoke();
         });
+    }
+
+    public void TogglePin(ClipboardItem item)
+    {
+        if (item.Kind == ClipboardItemKind.Image && !item.IsPinned)
+        {
+            // Memory-only images still support pinning within current session
+            item.IsPinned = true;
+        }
+        else
+        {
+            item.IsPinned = !item.IsPinned;
+        }
+
+        Items.Remove(item);
+        if (item.IsPinned)
+        {
+            Items.Insert(0, item);
+        }
+        else
+        {
+            int insertIdx = 0;
+            while (insertIdx < Items.Count && Items[insertIdx].IsPinned) insertIdx++;
+            Items.Insert(insertIdx, item);
+        }
+
+        SavePinnedItems();
+        HistoryChanged?.Invoke();
     }
 
     public void CopyToClipboard(ClipboardItem item)
@@ -195,15 +273,75 @@ public sealed class ClipboardHistoryService
 
     public void Remove(ClipboardItem item)
     {
+        bool wasPinned = item.IsPinned;
         Items.Remove(item);
+        if (wasPinned) SavePinnedItems();
         HistoryChanged?.Invoke();
     }
 
     public void ClearAll()
     {
+        var pinnedOnly = Items.Where(i => i.IsPinned).ToList();
         Items.Clear();
+        foreach (var p in pinnedOnly) Items.Add(p);
         _lastRecordedText = string.Empty;
         HistoryChanged?.Invoke();
+    }
+
+    private void LoadPinnedItems()
+    {
+        try
+        {
+            if (!File.Exists(_pinnedPath)) return;
+            string json = File.ReadAllText(_pinnedPath);
+            var list = JsonSerializer.Deserialize<List<PinnedClipDto>>(json);
+            if (list == null) return;
+
+            foreach (var dto in list)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Content)) continue;
+                Items.Add(new ClipboardItem
+                {
+                    Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString("N")[..8] : dto.Id,
+                    Content = dto.Content,
+                    PreviewText = dto.PreviewText,
+                    Kind = dto.Kind,
+                    TimestampUtc = dto.TimestampUtc == default ? DateTime.UtcNow : dto.TimestampUtc,
+                    MetadataLabel = dto.MetadataLabel,
+                    IsPinned = true
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogWarning("ClipboardHistoryService", $"Failed loading pinned clips: {ex.Message}");
+        }
+    }
+
+    private void SavePinnedItems()
+    {
+        try
+        {
+            var pinned = Items
+                .Where(i => i.IsPinned && i.Kind != ClipboardItemKind.Image)
+                .Select(i => new PinnedClipDto
+                {
+                    Id = i.Id,
+                    Content = i.Content,
+                    PreviewText = i.PreviewText,
+                    Kind = i.Kind,
+                    TimestampUtc = i.TimestampUtc,
+                    MetadataLabel = i.MetadataLabel
+                })
+                .ToList();
+
+            string json = JsonSerializer.Serialize(pinned, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(_pinnedPath, json);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogWarning("ClipboardHistoryService", $"Failed saving pinned clips: {ex.Message}");
+        }
     }
 }
 

@@ -71,4 +71,25 @@ public sealed class SpotlightAndQrTests
         // Center 3x3 of top-left finder pattern is dark
         Assert.True(m1[3, 3]);
     }
+
+    [Theory]
+    [InlineData("32 c to f", "89.6")]
+    [InlineData("100 km to mi", "62.1371")]
+    [InlineData("2 gb to mb", "2048")]
+    [InlineData("10 kg to lb", "22.0462")]
+    public void Spotlight_TryEvaluateConversion_ComputesExpectedUnits(string expr, string expectedCopyVal)
+    {
+        bool ok = SpotlightSearchService.TryEvaluateConversion(expr, out _, out _, out string copyVal);
+        Assert.True(ok);
+        Assert.Equal(expectedCopyVal, copyVal);
+    }
+
+    [Fact]
+    public void Spotlight_TryEvaluateConversion_HandlesCurrencyOfflineFallback()
+    {
+        bool ok = SpotlightSearchService.TryEvaluateConversion("10 usd to idr", out string display, out _, out string copyVal);
+        Assert.True(ok);
+        Assert.Contains("IDR", display);
+        Assert.False(string.IsNullOrWhiteSpace(copyVal));
+    }
 }

@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private readonly WeatherService _weatherService = new();
     private readonly CalendarScheduleService _calendarService = new();
     private readonly FileShelfShareService _fileShelfShareService = new();
+    private readonly WifiService _wifiService = new();
     private WindowsFlyoutSuppressor? _flyoutSuppressor;
 
     private readonly DispatcherTimer _oneSecondTimer;
@@ -105,6 +106,14 @@ public partial class MainWindow : Window
     private Color _currentThemeAccentColor = Color.FromRgb(56, 189, 248);
     private IslandDashboardTab _previousActiveTab = IslandDashboardTab.MediaLyrics;
     private int _explicitSlideDirection;
+    private DateOnly _selectedCalendarDate = DateOnly.FromDateTime(DateTime.Now);
+    private int _displayedCalendarYear = DateTime.Now.Year;
+    private int _displayedCalendarMonth = DateTime.Now.Month;
+    private readonly HashSet<string> _firedCalendarReminders = new(StringComparer.Ordinal);
+    private int _lastReminderMinuteChecked = -1;
+    private ImageSource? _lastCrossfadeThumb;
+    private string _lastAppliedWeatherManualKey = string.Empty;
+    private int _ecoTickDivider;
 
     private static readonly HashSet<string> MonochromeExcludedNames =
     [
@@ -240,7 +249,12 @@ public partial class MainWindow : Window
         _batteryLimitService.LimitModeChanged += _ => Dispatcher.InvokeAsync(UpdateHardwareUi);
         _notificationHistoryService.HistoryChanged += () => Dispatcher.InvokeAsync(RefreshNotificationHistoryUi);
         _weatherService.WeatherUpdated += _ => Dispatcher.InvokeAsync(RefreshWeatherUi);
-        _calendarService.ScheduleChanged += () => Dispatcher.InvokeAsync(RefreshScheduleUi);
+        _calendarService.ScheduleChanged += () => Dispatcher.InvokeAsync(() =>
+        {
+            RefreshCalendarMonthGrid();
+            RefreshScheduleUi();
+        });
+        _fileShelfShareService.FileReceivedFromPhone += OnFileReceivedFromPhone;
         _flyoutSuppressor = new WindowsFlyoutSuppressor(_settingsService.SuppressWindowsNativeOsd);
         LocalizationService.Instance.LanguageChanged += () => Dispatcher.InvokeAsync(ApplyLocalization);
 
@@ -462,7 +476,31 @@ public partial class MainWindow : Window
             _pomodoroService.TickOneSecond();
             UpdatePomodoroAndClockUi();
 
-            if (!_stateMachine.IsFullScreenHidden)
+            // Check today's upcoming Calendar agenda reminders once per minute change
+            DateTime nowLocal = DateTime.Now;
+            int currentMinuteKey = (nowLocal.Hour * 60) + nowLocal.Minute;
+            if (currentMinuteKey != _lastReminderMinuteChecked)
+            {
+                _lastReminderMinuteChecked = currentMinuteKey;
+                foreach (var (schedItem, minsUntil) in _calendarService.CheckUpcomingReminders(nowLocal, _firedCalendarReminders))
+                {
+                    TriggerToast(new ToastPayload(
+                        Icon: "SHIELD",
+                        Title: LocalizationService.Instance.Get("Cal_ReminderTitle", "Schedule Reminder"),
+                        Subtitle: minsUntil == 0
+                            ? LocalizationService.Instance.Format("Cal_StartsSoonFmt", schedItem.Title, schedItem.Time)
+                            : $"{schedItem.Title} ({minsUntil}m • {schedItem.Time})",
+                        AccentHex: schedItem.AccentHex,
+                        Duration: TimeSpan.FromSeconds(4.2)));
+                }
+            }
+
+            bool skipEcoIdleTelemetry = _settingsService.AutoBatteryEcoMode &&
+                                        _hardwareService.Current.IsEcoPowerSaverActive &&
+                                        !_hardwareService.IsPerformanceViewActive &&
+                                        ((++_ecoTickDivider % 3) != 0);
+
+            if (!_stateMachine.IsFullScreenHidden && !skipEcoIdleTelemetry)
             {
                 _hardwareService.RefreshFullTelemetry();
                 UpdateHardwareUi();
@@ -611,17 +649,17 @@ public partial class MainWindow : Window
 
             if (_settingsService.AccentTheme != "Auto" || _settingsService.IslandSurfaceTheme == "Monochrome")
             {
-                AmbientGlowBrush.Color = themeColor;
+                SetAmbientGlowColors(themeColor, themeColor, animate: false);
                 TuckedAccentBar.Background = BrushCache.Get(themeColor);
                 if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
                 {
-                    ApplyDominantColor(_mediaService.CurrentTrack.DominantColor);
+                    ApplyDominantColor(_mediaService.CurrentTrack.DominantColor, _mediaService.CurrentTrack.SecondaryColor);
                 }
             }
             else if (_mediaService.CurrentTrack.HasActiveSession && _mediaService.CurrentTrack.Title != "Tidak Ada Media")
             {
                 themeColor = _mediaService.CurrentTrack.DominantColor;
-                ApplyDominantColor(themeColor);
+                ApplyDominantColor(themeColor, _mediaService.CurrentTrack.SecondaryColor);
             }
 
             _currentThemeAccentColor = themeColor;
@@ -680,13 +718,26 @@ public partial class MainWindow : Window
                 UnifiedNotchRimPath.StrokeThickness = 1.05;
             }
 
-            // 2b. Customizable Notch Tabs & DWM Capture Shield
-            TabMediaBtn.Visibility = _settingsService.ShowTabMedia ? Visibility.Visible : Visibility.Collapsed;
-            TabTodoBtn.Visibility = _settingsService.ShowTabTodo ? Visibility.Visible : Visibility.Collapsed;
-            TabPomodoroBtn.Visibility = _settingsService.ShowTabPomodoro ? Visibility.Visible : Visibility.Collapsed;
-            TabShortcutsBtn.Visibility = _settingsService.ShowTabShortcuts ? Visibility.Visible : Visibility.Collapsed;
-            TabPerformanceBtn.Visibility = _settingsService.ShowTabPerformance ? Visibility.Visible : Visibility.Collapsed;
-            TabShelfBtn.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
+            // 2b. Customizable 9 Notch Tabs (Order + Visibility) & DWM Capture Shield
+            ApplyTabVisibilityAndOrder();
+
+            _hardwareService.AutoBatteryEcoModeEnabled = _settingsService.AutoBatteryEcoMode;
+            string manualWeatherKey = $"{_settingsService.WeatherManualCity}|{_settingsService.WeatherManualLat}|{_settingsService.WeatherManualLon}";
+            if (!string.Equals(manualWeatherKey, _lastAppliedWeatherManualKey, StringComparison.Ordinal))
+            {
+                _lastAppliedWeatherManualKey = manualWeatherKey;
+                if (!string.IsNullOrWhiteSpace(_settingsService.WeatherManualCity) &&
+                    _settingsService.WeatherManualLat.HasValue &&
+                    _settingsService.WeatherManualLon.HasValue)
+                {
+                    _weatherService.SetManualLocation(_settingsService.WeatherManualCity, _settingsService.WeatherManualLat.Value, _settingsService.WeatherManualLon.Value);
+                }
+                else
+                {
+                    _weatherService.ClearManualLocation();
+                }
+                _ = _weatherService.GetWeatherAsync(forceRefresh: true);
+            }
 
             var enabledTabs = GetEnabledTabs();
             if (!enabledTabs.Contains(_stateMachine.ActiveTab))
@@ -754,6 +805,7 @@ public partial class MainWindow : Window
             UpdateTodoAndWaterUi();
             UpdateMediaAndLyricsUi();
             UpdatePerformanceUi();
+            RefreshWeatherUi();
             UpdateSystemUpdateUi(_updateService.LastResult);
             _settingsWindow?.ApplyThemeToSettingsWindow();
             if (_flyoutSuppressor != null) _flyoutSuppressor.IsEnabled = _settingsService.SuppressWindowsNativeOsd;
@@ -809,6 +861,107 @@ public partial class MainWindow : Window
             RefreshCalendarMonthGrid();
         }
         catch { }
+    }
+
+    private void SetAmbientGlowColors(Color c1, Color c2, bool animate = true)
+    {
+        if (AmbientGlowStop1 == null || AmbientGlowStop2 == null) return;
+        if (!animate)
+        {
+            AmbientGlowStop1.BeginAnimation(GradientStop.ColorProperty, null);
+            AmbientGlowStop2.BeginAnimation(GradientStop.ColorProperty, null);
+            AmbientGlowStop1.Color = c1;
+            AmbientGlowStop2.Color = c2;
+            return;
+        }
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        AmbientGlowStop1.BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(c1, TimeSpan.FromMilliseconds(360)) { EasingFunction = ease });
+        AmbientGlowStop2.BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(c2, TimeSpan.FromMilliseconds(360)) { EasingFunction = ease });
+    }
+
+    private void ApplyTabVisibilityAndOrder()
+    {
+        var order = _settingsService.GetNormalizedTabOrder();
+        var dockButtons = new Dictionary<string, Button>(StringComparer.Ordinal)
+        {
+            ["MediaLyrics"] = TabMediaBtn,
+            ["TodoAndWater"] = TabTodoBtn,
+            ["Pomodoro"] = TabPomodoroBtn,
+            ["CalendarSchedule"] = TabCalendarBtn,
+            ["Weather"] = TabWeatherBtn,
+            ["NotificationHistory"] = TabNotifBtn,
+            ["AppShortcuts"] = TabShortcutsBtn,
+            ["PerformanceMonitor"] = TabPerformanceBtn,
+            ["FileShelf"] = TabShelfBtn,
+            ["Wifi"] = TabWifiBtn
+        };
+        var pageDots = new Dictionary<string, Border>(StringComparer.Ordinal)
+        {
+            ["MediaLyrics"] = PageDot0,
+            ["TodoAndWater"] = PageDot1,
+            ["Pomodoro"] = PageDot2,
+            ["CalendarSchedule"] = PageDotCal,
+            ["Weather"] = PageDotWeather,
+            ["NotificationHistory"] = PageDotNotif,
+            ["AppShortcuts"] = PageDotShortcuts,
+            ["PerformanceMonitor"] = PageDotPerf,
+            ["FileShelf"] = PageDot3,
+            ["Wifi"] = PageDotWifi
+        };
+
+        TabMediaBtn.Visibility = _settingsService.ShowTabMedia ? Visibility.Visible : Visibility.Collapsed;
+        TabTodoBtn.Visibility = _settingsService.ShowTabTodo ? Visibility.Visible : Visibility.Collapsed;
+        TabPomodoroBtn.Visibility = _settingsService.ShowTabPomodoro ? Visibility.Visible : Visibility.Collapsed;
+        TabCalendarBtn.Visibility = _settingsService.ShowTabCalendar ? Visibility.Visible : Visibility.Collapsed;
+        TabWeatherBtn.Visibility = _settingsService.ShowTabWeather ? Visibility.Visible : Visibility.Collapsed;
+        TabNotifBtn.Visibility = _settingsService.ShowTabNotifications ? Visibility.Visible : Visibility.Collapsed;
+        TabShortcutsBtn.Visibility = _settingsService.ShowTabShortcuts ? Visibility.Visible : Visibility.Collapsed;
+        TabPerformanceBtn.Visibility = _settingsService.ShowTabPerformance ? Visibility.Visible : Visibility.Collapsed;
+        TabShelfBtn.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
+        TabWifiBtn.Visibility = _settingsService.ShowTabWifi ? Visibility.Visible : Visibility.Collapsed;
+
+        if (BottomDockButtonsPanel != null)
+        {
+            BottomDockButtonsPanel.Children.Clear();
+            foreach (string key in order)
+            {
+                if (dockButtons.TryGetValue(key, out var btn))
+                {
+                    BottomDockButtonsPanel.Children.Add(btn);
+                }
+            }
+        }
+
+        if (DotsPaginationPanel != null)
+        {
+            DotsPaginationPanel.Children.Clear();
+            foreach (string key in order)
+            {
+                if (pageDots.TryGetValue(key, out var dot))
+                {
+                    DotsPaginationPanel.Children.Add(dot);
+                }
+            }
+        }
+    }
+
+    private void OnFileReceivedFromPhone(string filePath)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            try
+            {
+                _fileShelfService.AddFiles([filePath]);
+                TriggerToast(new ToastPayload(
+                    Icon: "FOLDER",
+                    Title: LocalizationService.Instance.Get("Qr_ReceivedTitle", "File Received from Phone"),
+                    Subtitle: System.IO.Path.GetFileName(filePath),
+                    AccentHex: "#22C55E",
+                    Duration: TimeSpan.FromSeconds(3.2)));
+            }
+            catch { }
+        });
     }
 
     private void UpdateSystemUpdateUi(UpdateCheckResult res)

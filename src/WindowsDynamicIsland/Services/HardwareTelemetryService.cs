@@ -26,7 +26,9 @@ public sealed class HardwareStatusSnapshot
     public string NetworkName { get; init; } = "Connected";
     public bool IsNetworkConnected => !string.IsNullOrWhiteSpace(NetworkName) && NetworkName != "Tidak Ada Jaringan" && NetworkName != "Terputus" && NetworkName != "Disconnected";
     public string ConnectedBluetoothName { get; init; } = string.Empty;
+    public int? ConnectedBluetoothBatteryPercent { get; init; }
     public bool IsBluetoothRadioOn { get; init; } = true;
+    public bool IsEcoPowerSaverActive { get; init; }
     public double AppMemoryMb { get; init; } = 24.0;
 
     // Real-time Performance Monitor Telemetry (CPU, GPU, RAM, Disk, Network Speed, Uptime)
@@ -69,6 +71,8 @@ public sealed class HardwareTelemetryService : IDisposable
     private bool _lastCharging;
     private int _lastBatteryPercent = -1;
     private bool _hasEmitted80PercentAlertForCurrentChargeCycle;
+    private bool _hasEmittedLowBatteryEcoAlert;
+    private readonly Dictionary<string, int> _connectedBtBatteryMap = new(StringComparer.OrdinalIgnoreCase);
     private bool _netBaselineCaptured;
     private bool _lastNetAvailable;
     private string _lastNetName = string.Empty;
@@ -109,6 +113,7 @@ public sealed class HardwareTelemetryService : IDisposable
     private DateTime _lastNetSampleUtc = DateTime.MinValue;
 
     public bool IsPerformanceViewActive { get; set; }
+    public bool AutoBatteryEcoModeEnabled { get; set; } = true;
     public HardwareStatusSnapshot Current { get; private set; } = new();
 
     public event Action<ToastPayload>? HardwareToastTriggered;
@@ -277,9 +282,11 @@ public sealed class HardwareTelemetryService : IDisposable
         try
         {
             var currentConnected = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var currentBatteries = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var batteryByContainer = await QueryBluetoothBatteryPercentagesAsync();
 
             string classicSelector = BluetoothDevice.GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus.Connected);
-            var classicDevices = await DeviceInformation.FindAllAsync(classicSelector);
+            var classicDevices = await DeviceInformation.FindAllAsync(classicSelector, new[] { "System.Devices.Aep.ContainerId" });
             foreach (var dev in classicDevices)
             {
                 string name = dev.Name?.Trim() ?? string.Empty;
@@ -307,6 +314,13 @@ public sealed class HardwareTelemetryService : IDisposable
                     }
 
                     currentConnected[name] = name;
+
+                    if (dev.Properties.TryGetValue("System.Devices.Aep.ContainerId", out var contObj) &&
+                        contObj is Guid containerId &&
+                        batteryByContainer.TryGetValue(containerId, out int batPct))
+                    {
+                        currentBatteries[name] = batPct;
+                    }
                 }
                 catch
                 {
@@ -329,10 +343,13 @@ public sealed class HardwareTelemetryService : IDisposable
                             (nowUtc - lastToast).TotalSeconds >= 15.0)
                         {
                             _lastBtToastTimeUtc[$"CONN:{kvp.Key}"] = nowUtc;
+                            string sub = currentBatteries.TryGetValue(kvp.Key, out int pct)
+                                ? $"{kvp.Value} • {pct}%"
+                                : kvp.Value;
                             HardwareToastTriggered?.Invoke(new ToastPayload(
                                 Icon: "BLUETOOTH",
                                 Title: LocalizationService.Instance.Get("Toast_BtConnectedTitle"),
-                                Subtitle: kvp.Value,
+                                Subtitle: sub,
                                 AccentHex: "#38BDF8",
                                 Duration: TimeSpan.FromSeconds(3.0)));
                         }
@@ -375,14 +392,24 @@ public sealed class HardwareTelemetryService : IDisposable
                 foreach (var discKey in disconnectedKeys)
                 {
                     _connectedBtDevices.Remove(discKey);
+                    _connectedBtBatteryMap.Remove(discKey);
+                }
+                foreach (var bat in currentBatteries)
+                {
+                    _connectedBtBatteryMap[bat.Key] = bat.Value;
                 }
             }
             else
             {
                 _connectedBtDevices.Clear();
+                _connectedBtBatteryMap.Clear();
                 foreach (var kvp in currentConnected)
                 {
                     _connectedBtDevices[kvp.Key] = kvp.Value;
+                }
+                foreach (var bat in currentBatteries)
+                {
+                    _connectedBtBatteryMap[bat.Key] = bat.Value;
                 }
                 _btBaselineCaptured = true;
             }
@@ -406,6 +433,51 @@ public sealed class HardwareTelemetryService : IDisposable
         {
             _isScanningBt = false;
         }
+    }
+
+    private static async Task<Dictionary<Guid, int>> QueryBluetoothBatteryPercentagesAsync()
+    {
+        const string batteryPercentProp = "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2";
+        const string containerProp = "System.Devices.ContainerId";
+        var map = new Dictionary<Guid, int>();
+
+        try
+        {
+            var pnpDevices = await DeviceInformation.FindAllAsync(
+                "System.Devices.Present:=System.StructuredQueryType.Boolean#True",
+                new[] { batteryPercentProp, containerProp },
+                DeviceInformationKind.Device);
+
+            foreach (var pnp in pnpDevices)
+            {
+                if (!pnp.Properties.TryGetValue(batteryPercentProp, out var batObj) || batObj == null)
+                    continue;
+                if (!pnp.Properties.TryGetValue(containerProp, out var contObj) || contObj is not Guid containerId)
+                    continue;
+
+                int pct = Convert.ToInt32(batObj);
+                if (pct is >= 0 and <= 100)
+                {
+                    map[containerId] = pct;
+                }
+            }
+        }
+        catch { }
+
+        return map;
+    }
+
+    public static void OpenWindowsBatterySaverSettings()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "ms-settings:batterysaver",
+                UseShellExecute = true
+            });
+        }
+        catch { }
     }
 
     private static bool IsValidPairedBluetoothName(string? rawName)
@@ -642,8 +714,33 @@ public sealed class HardwareTelemetryService : IDisposable
         }
         _lastCharging = isCharging;
 
-        // Poll network state changes & connected Bluetooth devices (audio switching is already instant via WinRT event)
-        double btPollInterval = IsPerformanceViewActive ? 4.0 : 8.0;
+        bool isEcoActive = AutoBatteryEcoModeEnabled && hasBattery && !isCharging && batteryPct <= 20;
+        if (isEcoActive)
+        {
+            if (!_hasEmittedLowBatteryEcoAlert)
+            {
+                _hasEmittedLowBatteryEcoAlert = true;
+                if (emitToasts && _initialized)
+                {
+                    HardwareToastTriggered?.Invoke(new ToastPayload(
+                        Icon: "BATTERY_HEALTH",
+                        Title: LocalizationService.Instance.Format("Eco_LowBatteryTitle", batteryPct),
+                        Subtitle: LocalizationService.Instance.Get("Eco_LowBatterySub"),
+                        AccentHex: "#F59E0B",
+                        Duration: TimeSpan.FromSeconds(4.2),
+                        SliderKind: ToastSliderKind.Battery,
+                        ProgressRatio: batteryPct / 100.0,
+                        IsBatteryCharging: false));
+                }
+            }
+        }
+        else if (isCharging || batteryPct > 24)
+        {
+            _hasEmittedLowBatteryEcoAlert = false;
+        }
+
+        // Poll network state changes & connected Bluetooth devices (throttled aggressively in Eco Mode)
+        double btPollInterval = isEcoActive ? 20.0 : (IsPerformanceViewActive ? 4.0 : 8.0);
         if ((DateTime.UtcNow - _lastBtPollUtc).TotalSeconds >= btPollInterval)
         {
             _lastBtPollUtc = DateTime.UtcNow;
@@ -651,7 +748,8 @@ public sealed class HardwareTelemetryService : IDisposable
             _ = PollConnectedBluetoothDevicesAsync(emitToasts);
         }
 
-        if ((DateTime.UtcNow - _lastSlowPollUtc).TotalSeconds >= 6.0)
+        double slowPollInterval = isEcoActive ? 15.0 : 6.0;
+        if ((DateTime.UtcNow - _lastSlowPollUtc).TotalSeconds >= slowPollInterval)
         {
             _lastSlowPollUtc = DateTime.UtcNow;
             (_cachedCamActive, _cachedCamApp) = CheckDeviceCapabilityInUse("webcam");
@@ -714,7 +812,8 @@ public sealed class HardwareTelemetryService : IDisposable
         }
 
         // 4. Real-time Network Download & Upload Speed
-        if (IsPerformanceViewActive || (DateTime.UtcNow - _lastNetSampleUtc).TotalSeconds >= 10.0)
+        double netPollInterval = isEcoActive ? 20.0 : 10.0;
+        if (IsPerformanceViewActive || (DateTime.UtcNow - _lastNetSampleUtc).TotalSeconds >= netPollInterval)
         {
             _lastNetSampleUtc = DateTime.UtcNow;
             SampleNetworkSpeed();
@@ -734,6 +833,9 @@ public sealed class HardwareTelemetryService : IDisposable
 
         double memoryMb = Math.Round(GC.GetTotalMemory(false) / (1024.0 * 1024.0) + 18.0, 1);
         string btName = _connectedBtDevices.Values.FirstOrDefault() ?? string.Empty;
+        int? btBatteryPct = !string.IsNullOrEmpty(btName) && _connectedBtBatteryMap.TryGetValue(btName, out int bp)
+            ? bp
+            : null;
 
         Current = new HardwareStatusSnapshot
         {
@@ -749,7 +851,9 @@ public sealed class HardwareTelemetryService : IDisposable
             ActiveMicApp = _cachedMicApp,
             NetworkName = _cachedNetworkName,
             ConnectedBluetoothName = btName,
+            ConnectedBluetoothBatteryPercent = btBatteryPct,
             IsBluetoothRadioOn = _isBtRadioOn,
+            IsEcoPowerSaverActive = isEcoActive,
             AppMemoryMb = memoryMb,
             CpuUsagePercent = (int)Math.Round(_smoothedCpuPct),
             CpuModelShort = _cpuModelShort,

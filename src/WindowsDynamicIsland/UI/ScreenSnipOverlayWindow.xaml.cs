@@ -12,13 +12,14 @@ namespace WindowsDynamicIsland.UI;
 public enum ScreenToolMode
 {
     OcrSnip,
-    ColorPicker
+    ColorPicker,
+    RegionToShelf
 }
 
 public partial class ScreenSnipOverlayWindow : Window
 {
     private readonly CapturedDesktopFrame _frame;
-    private readonly ScreenToolMode _mode;
+    private ScreenToolMode _mode;
     private readonly double _scaleX;
     private readonly double _scaleY;
     private bool _isDragging;
@@ -26,6 +27,8 @@ public partial class ScreenSnipOverlayWindow : Window
 
     public string? ExtractedOcrText { get; private set; }
     public string? PickedColorHex { get; private set; }
+    public string? SavedImagePath { get; private set; }
+    public BitmapSource? CapturedRegionBitmap { get; private set; }
     public bool Completed { get; private set; }
 
     public ScreenSnipOverlayWindow(CapturedDesktopFrame frame, ScreenToolMode mode)
@@ -47,22 +50,7 @@ public partial class ScreenSnipOverlayWindow : Window
 
         BackdropImage.Source = frame.Bitmap;
 
-        bool en = LocalizationService.Instance.IsEnglish;
-        if (mode == ScreenToolMode.ColorPicker)
-        {
-            InstructionText.Text = en
-                ? "Click any pixel to copy HEX color • Right-click or ESC to cancel"
-                : "Klik piksel mana saja untuk menyalin warna HEX • Klik kanan / ESC batal";
-            EyedropperCard.Visibility = Visibility.Visible;
-            SelectionDimMask.Visibility = Visibility.Collapsed;
-        }
-        else
-        {
-            InstructionText.Text = en
-                ? "Drag screen area to copy text (OCR) • Right-click or ESC to cancel"
-                : "Tarik area layar untuk menyalin teks (OCR) • Klik kanan / ESC batal";
-            UpdateSelectionGeometry(Rect.Empty);
-        }
+        ApplyActiveModeUi();
 
         SourceInitialized += (_, _) =>
         {
@@ -76,6 +64,74 @@ public partial class ScreenSnipOverlayWindow : Window
                 _frame.HeightPx,
                 Win32Interop.SWP_SHOWWINDOW);
         };
+    }
+
+    private void ApplyActiveModeUi()
+    {
+        bool en = LocalizationService.Instance.IsEnglish;
+        if (_mode == ScreenToolMode.ColorPicker)
+        {
+            InstructionText.Text = en
+                ? "Click any pixel to copy HEX color • Right-click or ESC to cancel"
+                : "Klik piksel mana saja untuk menyalin warna HEX • Klik kanan / ESC batal";
+            EyedropperCard.Visibility = Visibility.Visible;
+            SelectionDimMask.Visibility = Visibility.Collapsed;
+            SelectionBox.Visibility = Visibility.Collapsed;
+            SizePill.Visibility = Visibility.Collapsed;
+        }
+        else if (_mode == ScreenToolMode.RegionToShelf)
+        {
+            InstructionText.Text = en
+                ? "Drag screen area to save PNG to Shelf & Clipboard • Right-click / ESC to cancel"
+                : "Tarik area layar untuk simpan PNG ke Rak & Clipboard • Klik kanan / ESC batal";
+            EyedropperCard.Visibility = Visibility.Collapsed;
+            SelectionDimMask.Visibility = Visibility.Visible;
+            UpdateSelectionGeometry(Rect.Empty);
+        }
+        else
+        {
+            InstructionText.Text = en
+                ? "Drag screen area to copy text (OCR) • Right-click or ESC to cancel"
+                : "Tarik area layar untuk menyalin teks (OCR) • Klik kanan / ESC batal";
+            EyedropperCard.Visibility = Visibility.Collapsed;
+            SelectionDimMask.Visibility = Visibility.Visible;
+            UpdateSelectionGeometry(Rect.Empty);
+        }
+
+        SetPillStyle(ModeOcrBtn, _mode == ScreenToolMode.OcrSnip, Color.FromRgb(56, 189, 248));
+        SetPillStyle(ModePickerBtn, _mode == ScreenToolMode.ColorPicker, Color.FromRgb(192, 132, 252));
+        SetPillStyle(ModeRegionShelfBtn, _mode == ScreenToolMode.RegionToShelf, Color.FromRgb(34, 197, 94));
+    }
+
+    private static void SetPillStyle(Button btn, bool active, Color accent)
+    {
+        if (btn == null) return;
+        btn.Foreground = active ? Brushes.White : BrushCache.Get(Color.FromRgb(148, 163, 184));
+        btn.Background = active ? BrushCache.Get(Color.FromArgb(44, accent.R, accent.G, accent.B)) : BrushCache.Get(Color.FromArgb(18, 255, 255, 255));
+        btn.BorderBrush = active ? BrushCache.Get(Color.FromArgb(140, accent.R, accent.G, accent.B)) : BrushCache.Get(Color.FromArgb(32, 255, 255, 255));
+    }
+
+    private void OnModeBarMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+    }
+
+    private void OnSwitchModeOcrClick(object sender, RoutedEventArgs e)
+    {
+        _mode = ScreenToolMode.OcrSnip;
+        ApplyActiveModeUi();
+    }
+
+    private void OnSwitchModePickerClick(object sender, RoutedEventArgs e)
+    {
+        _mode = ScreenToolMode.ColorPicker;
+        ApplyActiveModeUi();
+    }
+
+    private void OnSwitchModeRegionShelfClick(object sender, RoutedEventArgs e)
+    {
+        _mode = ScreenToolMode.RegionToShelf;
+        ApplyActiveModeUi();
     }
 
     private void OnWindowKeyDown(object sender, KeyEventArgs e)
@@ -149,7 +205,7 @@ public partial class ScreenSnipOverlayWindow : Window
 
     private async void OnOverlayMouseUp(object sender, MouseButtonEventArgs e)
     {
-        if (_mode != ScreenToolMode.OcrSnip || !_isDragging) return;
+        if (_mode == ScreenToolMode.ColorPicker || !_isDragging) return;
 
         _isDragging = false;
         ReleaseMouseCapture();
@@ -176,10 +232,22 @@ public partial class ScreenSnipOverlayWindow : Window
             (int)Math.Round(h * ratioY));
 
         Hide();
-        ExtractedOcrText = await ScreenCaptureToolsService.RecognizeRegionAsync(_frame, cropPx);
-        if (!string.IsNullOrWhiteSpace(ExtractedOcrText))
+        if (_mode == ScreenToolMode.RegionToShelf)
         {
-            try { Clipboard.SetText(ExtractedOcrText); } catch { }
+            SavedImagePath = ScreenCaptureToolsService.SaveRegionPngToFile(_frame, cropPx, out var bmp);
+            CapturedRegionBitmap = bmp;
+            if (bmp != null)
+            {
+                try { Clipboard.SetImage(bmp); } catch { }
+            }
+        }
+        else
+        {
+            ExtractedOcrText = await ScreenCaptureToolsService.RecognizeRegionAsync(_frame, cropPx);
+            if (!string.IsNullOrWhiteSpace(ExtractedOcrText))
+            {
+                try { Clipboard.SetText(ExtractedOcrText); } catch { }
+            }
         }
 
         Completed = true;

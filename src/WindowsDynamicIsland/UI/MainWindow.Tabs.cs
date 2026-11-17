@@ -115,6 +115,7 @@ public partial class MainWindow
         CalendarScheduleTabGrid.Visibility = tab == IslandDashboardTab.CalendarSchedule ? Visibility.Visible : Visibility.Collapsed;
         WeatherTabGrid.Visibility = tab == IslandDashboardTab.Weather ? Visibility.Visible : Visibility.Collapsed;
         NotificationHistoryTabGrid.Visibility = tab == IslandDashboardTab.NotificationHistory ? Visibility.Visible : Visibility.Collapsed;
+        WifiTabGrid.Visibility = tab == IslandDashboardTab.Wifi ? Visibility.Visible : Visibility.Collapsed;
 
         if (state == IslandVisualState.ExpandedDashboard)
         {
@@ -140,6 +141,10 @@ public partial class MainWindow
             else if (tab == IslandDashboardTab.PerformanceMonitor)
             {
                 UpdatePerformanceUi();
+            }
+            else if (tab == IslandDashboardTab.Wifi)
+            {
+                _ = RefreshWifiTabUiAsync(triggerScan: false);
             }
         }
         else if (state == IslandVisualState.SpotlightSearch)
@@ -253,6 +258,7 @@ public partial class MainWindow
         SetTabVisual(TabCalendarBtn, _stateMachine.ActiveTab == IslandDashboardTab.CalendarSchedule);
         SetTabVisual(TabWeatherBtn, _stateMachine.ActiveTab == IslandDashboardTab.Weather);
         SetTabVisual(TabNotifBtn, _stateMachine.ActiveTab == IslandDashboardTab.NotificationHistory);
+        SetTabVisual(TabWifiBtn, _stateMachine.ActiveTab == IslandDashboardTab.Wifi);
 
         UpdatePaginationDots();
         UpdateSideWingVisuals();
@@ -571,21 +577,49 @@ public partial class MainWindow
         }
     }
 
+    private void OnClipboardSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (ClipboardSearchPlaceholder != null)
+        {
+            ClipboardSearchPlaceholder.Visibility = string.IsNullOrWhiteSpace(ClipboardSearchBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        RefreshClipboardHistoryView();
+    }
+
+    private void OnTogglePinClipboardItemClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is ClipboardItemViewModel vm)
+        {
+            _clipboardHistoryService.TogglePin(vm.SourceItem);
+            RefreshClipboardHistoryView();
+        }
+    }
+
     private void RefreshClipboardHistoryView()
     {
-        var items = _clipboardHistoryService.Items;
+        var loc = LocalizationService.Instance;
+        string filter = ClipboardSearchBox?.Text?.Trim() ?? string.Empty;
+        var items = string.IsNullOrWhiteSpace(filter)
+            ? _clipboardHistoryService.Items.ToList()
+            : _clipboardHistoryService.Items.Where(i =>
+                i.Content.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                i.PreviewText.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                i.BadgeLabel.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
         if (items.Count == 0)
         {
             EmptyClipboardHintPanel.Visibility = Visibility.Visible;
-            ShelfHeaderCountText.Text = "Papan Klip Kosong";
+            ShelfHeaderCountText.Text = loc.Get("Clip_EmptyCount", "Clipboard Empty");
             ClipboardItemsControl.ItemsSource = null;
             return;
         }
 
         EmptyClipboardHintPanel.Visibility = Visibility.Collapsed;
-        ShelfHeaderCountText.Text = $"{items.Count} Klip Tersimpan";
+        ShelfHeaderCountText.Text = loc.Format("Clip_CountFmt", items.Count);
 
-        var viewModels = new List<ClipboardItemViewModel>();
+        var viewModels = new List<ClipboardItemViewModel>(items.Count);
         foreach (var item in items)
         {
             Color badgeColor;
@@ -663,9 +697,13 @@ public partial class MainWindow
             PageDot0.Visibility = _settingsService.ShowTabMedia ? Visibility.Visible : Visibility.Collapsed;
             PageDot1.Visibility = _settingsService.ShowTabTodo ? Visibility.Visible : Visibility.Collapsed;
             PageDot2.Visibility = _settingsService.ShowTabPomodoro ? Visibility.Visible : Visibility.Collapsed;
+            PageDotCal.Visibility = _settingsService.ShowTabCalendar ? Visibility.Visible : Visibility.Collapsed;
+            PageDotWeather.Visibility = _settingsService.ShowTabWeather ? Visibility.Visible : Visibility.Collapsed;
+            PageDotNotif.Visibility = _settingsService.ShowTabNotifications ? Visibility.Visible : Visibility.Collapsed;
             PageDotShortcuts.Visibility = _settingsService.ShowTabShortcuts ? Visibility.Visible : Visibility.Collapsed;
             PageDotPerf.Visibility = _settingsService.ShowTabPerformance ? Visibility.Visible : Visibility.Collapsed;
             PageDot3.Visibility = _settingsService.ShowTabShelf ? Visibility.Visible : Visibility.Collapsed;
+            PageDotWifi.Visibility = _settingsService.ShowTabWifi ? Visibility.Visible : Visibility.Collapsed;
 
             SetDot(PageDot0, _stateMachine.ActiveTab == IslandDashboardTab.MediaLyrics);
             SetDot(PageDot1, _stateMachine.ActiveTab == IslandDashboardTab.TodoAndWater);
@@ -676,6 +714,7 @@ public partial class MainWindow
             SetDot(PageDotCal, _stateMachine.ActiveTab == IslandDashboardTab.CalendarSchedule);
             SetDot(PageDotWeather, _stateMachine.ActiveTab == IslandDashboardTab.Weather);
             SetDot(PageDotNotif, _stateMachine.ActiveTab == IslandDashboardTab.NotificationHistory);
+            SetDot(PageDotWifi, _stateMachine.ActiveTab == IslandDashboardTab.Wifi);
 
             void SetDot(Border dot, bool isActive)
             {
@@ -1180,10 +1219,20 @@ public partial class MainWindow
     private void OnTabCalendarClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.CalendarSchedule);
     private void OnTabWeatherClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.Weather);
     private void OnTabNotifClick(object sender, RoutedEventArgs e) => SwitchToTab(IslandDashboardTab.NotificationHistory);
+    private void OnTabWifiClick(object sender, RoutedEventArgs e)
+    {
+        SwitchToTab(IslandDashboardTab.Wifi);
+        _ = RefreshWifiTabUiAsync(triggerScan: false);
+    }
 
     private void OnDotCalClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.CalendarSchedule);
     private void OnDotWeatherClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.Weather);
     private void OnDotNotifClick(object sender, MouseButtonEventArgs e) => SwitchToTab(IslandDashboardTab.NotificationHistory);
+    private void OnDotWifiClick(object sender, MouseButtonEventArgs e)
+    {
+        SwitchToTab(IslandDashboardTab.Wifi);
+        _ = RefreshWifiTabUiAsync(triggerScan: false);
+    }
 
     private void OnWeatherRefreshClick(object sender, RoutedEventArgs e) => _ = _weatherService.GetWeatherAsync(forceRefresh: true);
     private void OnClearNotifHistoryClick(object sender, RoutedEventArgs e) => _notificationHistoryService.Clear();
@@ -1222,10 +1271,36 @@ public partial class MainWindow
         string time = ScheduleInputTimeText.Text.Trim();
         if (!string.IsNullOrWhiteSpace(title))
         {
-            _calendarService.AddScheduleItem(title, time, "Kuliah");
+            _calendarService.AddScheduleItem(title, time, "Kuliah", _selectedCalendarDate);
             ScheduleInputTitleText.Text = string.Empty;
             if (ScheduleAddInputPanel != null) ScheduleAddInputPanel.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private void OnCalendarPrevMonthClick(object sender, RoutedEventArgs e)
+    {
+        var prev = new DateOnly(_displayedCalendarYear, _displayedCalendarMonth, 1).AddMonths(-1);
+        _displayedCalendarYear = prev.Year;
+        _displayedCalendarMonth = prev.Month;
+        RefreshCalendarMonthGrid();
+    }
+
+    private void OnCalendarNextMonthClick(object sender, RoutedEventArgs e)
+    {
+        var next = new DateOnly(_displayedCalendarYear, _displayedCalendarMonth, 1).AddMonths(1);
+        _displayedCalendarYear = next.Year;
+        _displayedCalendarMonth = next.Month;
+        RefreshCalendarMonthGrid();
+    }
+
+    private void OnCalendarJumpTodayClick(object sender, MouseButtonEventArgs e)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        _selectedCalendarDate = today;
+        _displayedCalendarYear = today.Year;
+        _displayedCalendarMonth = today.Month;
+        RefreshCalendarMonthGrid();
+        RefreshScheduleUi();
     }
 
     private static string MapToastIconToGeom(string icon) => (icon ?? "").ToUpperInvariant() switch
@@ -1247,8 +1322,8 @@ public partial class MainWindow
 
         var loc = LocalizationService.Instance;
         var calCulture = loc.IsEnglish ? new System.Globalization.CultureInfo("en-US") : new System.Globalization.CultureInfo("id-ID");
-        var now = DateTime.Now;
-        CalendarMonthTitleText.Text = now.ToString("MMMM yyyy", calCulture);
+        var monthStart = new DateTime(_displayedCalendarYear, _displayedCalendarMonth, 1);
+        CalendarMonthTitleText.Text = monthStart.ToString("MMMM yyyy", calCulture);
 
         if (CalendarDayHeadersGrid != null)
         {
@@ -1270,19 +1345,34 @@ public partial class MainWindow
         }
 
         CalendarDaysMatrix.Children.Clear();
-        var cells = _calendarService.GenerateCurrentMonthGrid();
+        var cells = _calendarService.GenerateMonthGrid(_displayedCalendarYear, _displayedCalendarMonth, _selectedCalendarDate);
 
         foreach (var cell in cells)
         {
+            Color accent = _currentThemeAccentColor;
             var border = new Border
             {
                 Width = 26,
-                Height = 22,
-                CornerRadius = new CornerRadius(cell.IsToday ? 7 : 4),
+                Height = 23,
+                CornerRadius = new CornerRadius(cell.IsToday || cell.IsSelected ? 7 : 5),
                 Margin = new Thickness(1),
+                Cursor = Cursors.Hand,
                 Background = cell.IsToday
-                    ? BrushCache.Get(Color.FromRgb(0x38, 0xBD, 0xF8))
+                    ? BrushCache.Get(accent)
+                    : (cell.IsSelected
+                        ? BrushCache.Get(Color.FromArgb(46, accent.R, accent.G, accent.B))
+                        : Brushes.Transparent),
+                BorderBrush = cell.IsSelected && !cell.IsToday
+                    ? BrushCache.Get(Color.FromArgb(145, accent.R, accent.G, accent.B))
                     : Brushes.Transparent,
+                BorderThickness = new Thickness(1),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var stack = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -1290,18 +1380,40 @@ public partial class MainWindow
             var tb = new TextBlock
             {
                 Text = cell.DayNumber.ToString(),
-                FontSize = 10,
-                FontWeight = cell.IsToday ? FontWeights.Bold : FontWeights.Normal,
+                FontSize = 9.5,
+                FontWeight = cell.IsToday || cell.IsSelected ? FontWeights.Bold : FontWeights.Normal,
                 Foreground = cell.IsToday
                     ? Brushes.Black
                     : (cell.IsCurrentMonth
                         ? BrushCache.Get(Color.FromRgb(0xF8, 0xFA, 0xFC))
                         : BrushCache.Get(Color.FromRgb(0x47, 0x55, 0x69))),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            stack.Children.Add(tb);
+
+            if (cell.HasEvents)
+            {
+                stack.Children.Add(new Ellipse
+                {
+                    Width = 3.2,
+                    Height = 3.2,
+                    Margin = new Thickness(0, 1, 0, 0),
+                    Fill = cell.IsToday ? Brushes.Black : BrushCache.Get(accent),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+            }
+
+            border.Child = stack;
+            DateOnly clickedDate = cell.Date;
+            border.MouseLeftButtonUp += (_, _) =>
+            {
+                _selectedCalendarDate = clickedDate;
+                _displayedCalendarYear = clickedDate.Year;
+                _displayedCalendarMonth = clickedDate.Month;
+                RefreshCalendarMonthGrid();
+                RefreshScheduleUi();
             };
 
-            border.Child = tb;
             CalendarDaysMatrix.Children.Add(border);
         }
     }
@@ -1312,12 +1424,27 @@ public partial class MainWindow
         ScheduleItemsStack.Children.Clear();
 
         var loc = LocalizationService.Instance;
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        if (AgendaHeaderTitleText != null)
+        {
+            if (_selectedCalendarDate == today)
+            {
+                AgendaHeaderTitleText.Text = loc.Get("Cal_AgendaTitle");
+            }
+            else
+            {
+                var calCulture = loc.IsEnglish ? new System.Globalization.CultureInfo("en-US") : new System.Globalization.CultureInfo("id-ID");
+                string dateLabel = _selectedCalendarDate.ToDateTime(TimeOnly.MinValue).ToString("dd MMM yyyy", calCulture);
+                AgendaHeaderTitleText.Text = loc.IsEnglish ? $"Agenda • {dateLabel}" : $"Jadwal • {dateLabel}";
+            }
+        }
 
-        if (_calendarService.ScheduleItems.Count == 0)
+        var itemsForDay = _calendarService.GetItemsForDate(_selectedCalendarDate);
+        if (itemsForDay.Count == 0)
         {
             ScheduleItemsStack.Children.Add(new TextBlock
             {
-                Text = loc.IsEnglish ? "No agenda for today yet. Click '+ Add' to create a schedule." : "Belum ada agenda hari ini. Klik '+ Tambah' untuk membuat jadwal.",
+                Text = loc.IsEnglish ? "No agenda for this date yet. Click '+ Add' to create a schedule." : "Belum ada agenda untuk tanggal ini. Klik '+ Tambah' untuk membuat jadwal.",
                 Foreground = BrushCache.Get(Color.FromRgb(0x94, 0xA3, 0xB8)),
                 FontSize = 10.5,
                 Margin = new Thickness(0, 10, 0, 0),
@@ -1326,7 +1453,7 @@ public partial class MainWindow
             return;
         }
 
-        foreach (var item in _calendarService.ScheduleItems)
+        foreach (var item in itemsForDay)
         {
             var card = new Border
             {
@@ -1442,16 +1569,24 @@ public partial class MainWindow
         var w = await _weatherService.GetWeatherAsync();
         if (w == null || WeatherTempLargeText == null) return;
 
-        WeatherTempLargeText.Text = $"{Math.Round(w.TempC)}°";
+        bool useF = _settingsService.UseFahrenheit;
+        string unit = useF ? "F" : "C";
+        if (WeatherUnitBtnText != null) WeatherUnitBtnText.Text = $"°{unit}";
+
+        double tempDisp = WeatherService.ConvertTemperature(w.TempC, useF);
+        double appDisp = WeatherService.ConvertTemperature(w.ApparentTempC, useF);
+
+        WeatherTempLargeText.Text = $"{Math.Round(tempDisp)}°";
         WeatherConditionText.Text = w.ConditionText;
-        WeatherCityText.Text = $"{w.City}, Indonesia";
+        WeatherCityText.Text = w.City;
         var loc = LocalizationService.Instance;
         WeatherFeelsLikeText.Text = loc.IsEnglish
-            ? $"Feels like: {Math.Round(w.ApparentTempC)}°C"
-            : $"Terasa: {Math.Round(w.ApparentTempC)}°C";
+            ? $"Feels like: {Math.Round(appDisp)}°{unit} • UV {w.UvIndex}"
+            : $"Terasa: {Math.Round(appDisp)}°{unit} • UV {w.UvIndex}";
+        string aqiPart = w.UsAqi > 0 ? $" • AQI {w.UsAqi}" : string.Empty;
         WeatherStatsDetailText.Text = loc.IsEnglish
-            ? $"Humidity: {w.Humidity}% • Wind: {w.WindSpeedKmh} km/h"
-            : $"Kelembapan: {w.Humidity}% • Angin: {w.WindSpeedKmh} km/j";
+            ? $"Hum: {w.Humidity}% • {w.WindSpeedKmh} km/h{aqiPart}"
+            : $"Lembap: {w.Humidity}% • {w.WindSpeedKmh} km/j{aqiPart}";
         WeatherMainIconPath.Data = TryFindResource(w.IconKey) as Geometry ?? (TryFindResource("GeomWeatherSunCloud") as Geometry);
 
         WeatherHourlyUniformGrid.Children.Clear();
@@ -1491,7 +1626,7 @@ public partial class MainWindow
 
             hStack.Children.Add(new TextBlock
             {
-                Text = $"{Math.Round(h.TempC)}°",
+                Text = $"{Math.Round(WeatherService.ConvertTemperature(h.TempC, useF))}°",
                 Foreground = BrushCache.Get(Color.FromRgb(0xF8, 0xFA, 0xFC)),
                 FontSize = 10.5,
                 FontWeight = FontWeights.Bold,
@@ -1500,6 +1635,105 @@ public partial class MainWindow
 
             hCard.Child = hStack;
             WeatherHourlyUniformGrid.Children.Add(hCard);
+        }
+    }
+
+    private void OnWeatherUnitToggleClick(object sender, RoutedEventArgs e)
+    {
+        _settingsService.UseFahrenheit = !_settingsService.UseFahrenheit;
+        RefreshWeatherUi();
+    }
+
+    private void OnWeatherSearchToggleClick(object sender, RoutedEventArgs e)
+    {
+        if (WeatherCitySearchOverlay == null) return;
+        bool opening = WeatherCitySearchOverlay.Visibility != Visibility.Visible;
+        WeatherCitySearchOverlay.Visibility = opening ? Visibility.Visible : Visibility.Collapsed;
+        if (opening)
+        {
+            WeatherCitySearchBox.Text = string.Empty;
+            WeatherCityResultsStack.Children.Clear();
+            WeatherCitySearchPlaceholder.Visibility = Visibility.Visible;
+            ForceActivateAndFocus(WeatherCitySearchBox);
+        }
+    }
+
+    private void OnWeatherAutoLocationClick(object sender, RoutedEventArgs e)
+    {
+        _settingsService.SetWeatherManualLocation(null, null, null);
+        _weatherService.ClearManualLocation();
+        if (WeatherCitySearchOverlay != null) WeatherCitySearchOverlay.Visibility = Visibility.Collapsed;
+        _ = _weatherService.GetWeatherAsync(forceRefresh: true);
+    }
+
+    private async void OnWeatherCitySearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (WeatherCitySearchPlaceholder != null)
+        {
+            WeatherCitySearchPlaceholder.Visibility = string.IsNullOrWhiteSpace(WeatherCitySearchBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        string q = WeatherCitySearchBox.Text.Trim();
+        if (q.Length < 2)
+        {
+            WeatherCityResultsStack.Children.Clear();
+            return;
+        }
+
+        var cities = await _weatherService.SearchCitiesAsync(q);
+        if (WeatherCitySearchBox.Text.Trim() != q) return;
+        PopulateWeatherCityResults(cities);
+    }
+
+    private async void OnWeatherCitySearchKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            var cities = await _weatherService.SearchCitiesAsync(WeatherCitySearchBox.Text);
+            PopulateWeatherCityResults(cities);
+        }
+        else if (e.Key == Key.Escape && WeatherCitySearchOverlay != null)
+        {
+            WeatherCitySearchOverlay.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void PopulateWeatherCityResults(List<GeocodingCityResult> cities)
+    {
+        if (WeatherCityResultsStack == null) return;
+        WeatherCityResultsStack.Children.Clear();
+
+        foreach (var city in cities)
+        {
+            var btn = new Button
+            {
+                Style = TryFindResource("IslandIconButtonStyle") as Style,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Padding = new Thickness(8, 5, 8, 5),
+                Margin = new Thickness(0, 0, 0, 3),
+                Background = BrushCache.Get(Color.FromArgb(20, 255, 255, 255)),
+                BorderBrush = BrushCache.Get(Color.FromArgb(32, 255, 255, 255)),
+                BorderThickness = new Thickness(1),
+                Content = new TextBlock
+                {
+                    Text = city.DisplayLabel,
+                    Foreground = Brushes.White,
+                    FontSize = 10.5,
+                    FontWeight = FontWeights.SemiBold,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                }
+            };
+
+            btn.Click += (_, _) =>
+            {
+                _settingsService.SetWeatherManualLocation(city.Name, city.Latitude, city.Longitude);
+                _weatherService.SetManualLocation(city.Name, city.Latitude, city.Longitude);
+                if (WeatherCitySearchOverlay != null) WeatherCitySearchOverlay.Visibility = Visibility.Collapsed;
+                _ = _weatherService.GetWeatherAsync(forceRefresh: true);
+            };
+            WeatherCityResultsStack.Children.Add(btn);
         }
     }
 
@@ -1626,17 +1860,6 @@ public partial class MainWindow
 
     private void OnShelfQrShareClick(object sender, RoutedEventArgs e)
     {
-        if (_fileShelfService.Items.Count == 0)
-        {
-            TriggerToast(new ToastPayload(
-                Icon: "FOLDER",
-                Title: LocalizationService.Instance.Get("Qr_Title", "Local Wi-Fi Share"),
-                Subtitle: LocalizationService.Instance.Get("Shelf_DropHint", "Drop files first before sharing"),
-                AccentHex: "#FBBF24",
-                Duration: TimeSpan.FromSeconds(2.2)));
-            return;
-        }
-
         if (_isShelfClipboardMode)
         {
             OnShelfModeFilesClick(sender, e);
@@ -1665,93 +1888,591 @@ public partial class MainWindow
 
     private void OnLaunchOcrToolClick(object sender, RoutedEventArgs e) => LaunchOcrSnipTool();
     private void OnLaunchColorPickerToolClick(object sender, RoutedEventArgs e) => LaunchColorPickerTool();
+    private void OnLaunchRegionSnipToolClick(object sender, RoutedEventArgs e) => LaunchRegionSnipToShelfTool();
 
-    private void LaunchOcrSnipTool()
+    private void LaunchOcrSnipTool() => LaunchScreenToolAsync(ScreenToolMode.OcrSnip);
+    private void LaunchColorPickerTool() => LaunchScreenToolAsync(ScreenToolMode.ColorPicker);
+    private void LaunchRegionSnipToShelfTool() => LaunchScreenToolAsync(ScreenToolMode.RegionToShelf);
+
+    private void LaunchScreenToolAsync(ScreenToolMode initialMode)
     {
         Dispatcher.InvokeAsync(async () =>
         {
             try
             {
                 CloseSpotlight();
-                bool prevHidden = _stateMachine.IsFullScreenHidden;
                 Opacity = 0.0;
                 await Task.Delay(120);
 
                 var frame = ScreenCaptureToolsService.CaptureVirtualScreen();
                 Opacity = 1.0;
 
-                if (frame != null)
-                {
-                    var overlay = new ScreenSnipOverlayWindow(frame, ScreenToolMode.OcrSnip);
-                    overlay.ShowDialog();
+                if (frame == null) return;
 
-                    if (overlay.Completed && !string.IsNullOrWhiteSpace(overlay.ExtractedOcrText))
-                    {
-                        Clipboard.SetText(overlay.ExtractedOcrText);
-                        string preview = overlay.ExtractedOcrText.Length > 80
-                            ? overlay.ExtractedOcrText[..77] + "..."
-                            : overlay.ExtractedOcrText;
-                        TriggerToast(new ToastPayload(
-                            Icon: "SHIELD",
-                            Title: LocalizationService.Instance.Get("Ocr_CopySuccess", "Screen Text Copied (OCR)"),
-                            Subtitle: preview,
-                            AccentHex: "#38BDF8",
-                            Duration: TimeSpan.FromSeconds(2.8)));
-                    }
-                    else if (overlay.Completed)
-                    {
-                        TriggerToast(new ToastPayload(
-                            Icon: "SHIELD",
-                            Title: "OCR",
-                            Subtitle: LocalizationService.Instance.Get("Ocr_NoTextFound", "No readable text found"),
-                            AccentHex: "#FBBF24",
-                            Duration: TimeSpan.FromSeconds(2.2)));
-                    }
+                var overlay = new ScreenSnipOverlayWindow(frame, initialMode);
+                overlay.ShowDialog();
+                if (!overlay.Completed) return;
+
+                if (!string.IsNullOrWhiteSpace(overlay.SavedImagePath))
+                {
+                    _fileShelfService.AddFiles([overlay.SavedImagePath]);
+                    TriggerToast(new ToastPayload(
+                        Icon: "FOLDER",
+                        Title: LocalizationService.Instance.Get("Snip_SavedToast", "Screenshot Saved to Shelf"),
+                        Subtitle: System.IO.Path.GetFileName(overlay.SavedImagePath),
+                        AccentHex: "#22C55E",
+                        Duration: TimeSpan.FromSeconds(2.8)));
+                }
+                else if (!string.IsNullOrWhiteSpace(overlay.PickedColorHex))
+                {
+                    Clipboard.SetText(overlay.PickedColorHex);
+                    TriggerToast(new ToastPayload(
+                        Icon: "SUN",
+                        Title: LocalizationService.Instance.Format("Picker_CopySuccess", overlay.PickedColorHex),
+                        Subtitle: overlay.PickedColorHex,
+                        AccentHex: overlay.PickedColorHex,
+                        Duration: TimeSpan.FromSeconds(2.6)));
+                }
+                else if (!string.IsNullOrWhiteSpace(overlay.ExtractedOcrText))
+                {
+                    Clipboard.SetText(overlay.ExtractedOcrText);
+                    string preview = overlay.ExtractedOcrText.Length > 80
+                        ? overlay.ExtractedOcrText[..77] + "..."
+                        : overlay.ExtractedOcrText;
+                    TriggerToast(new ToastPayload(
+                        Icon: "SHIELD",
+                        Title: LocalizationService.Instance.Get("Ocr_CopySuccess", "Screen Text Copied (OCR)"),
+                        Subtitle: preview,
+                        AccentHex: "#38BDF8",
+                        Duration: TimeSpan.FromSeconds(2.8)));
+                }
+                else
+                {
+                    TriggerToast(new ToastPayload(
+                        Icon: "SHIELD",
+                        Title: "OCR",
+                        Subtitle: LocalizationService.Instance.Get("Ocr_NoTextFound", "No readable text found"),
+                        AccentHex: "#FBBF24",
+                        Duration: TimeSpan.FromSeconds(2.2)));
                 }
             }
             catch (Exception ex)
             {
                 Opacity = 1.0;
-                AppLogger.LogError("OcrTool", "Failed launching OCR snip tool", ex);
+                AppLogger.LogError("ScreenTool", "Failed launching screen snip tool", ex);
             }
         });
     }
 
-    private void LaunchColorPickerTool()
+    // --- WI-FI & NETWORKS MENU TAB ---
+
+    private bool _isUpdatingWifiToggle;
+    private bool _wifiLastRadioOn = true;
+    private bool _isWifiPasswordRevealed;
+    private bool _isSyncingWifiPassword;
+    private WifiNetworkItem? _pendingPasswordWifiItem;
+
+    private async Task RefreshWifiTabUiAsync(bool triggerScan)
     {
-        Dispatcher.InvokeAsync(async () =>
+        if (WifiNetworksStack == null || WifiStatusBadgeText == null) return;
+
+        var loc = LocalizationService.Instance;
+        var snap = await _wifiService.GetSnapshotAsync(triggerScan);
+        _wifiLastRadioOn = snap.IsRadioOn;
+
+        _isUpdatingWifiToggle = true;
+        if (WifiMasterToggleCheck != null)
         {
-            try
-            {
-                CloseSpotlight();
-                Opacity = 0.0;
-                await Task.Delay(120);
+            WifiMasterToggleCheck.IsChecked = snap.IsRadioOn;
+        }
+        _isUpdatingWifiToggle = false;
 
-                var frame = ScreenCaptureToolsService.CaptureVirtualScreen();
-                Opacity = 1.0;
+        if (!snap.IsRadioOn)
+        {
+            WifiTabHeaderIcon.Data = GetVectorGeometry("GeomWifiOff");
+            WifiTabHeaderIcon.Fill = BrushCache.Get(Color.FromRgb(148, 163, 184));
+            WifiStatusBadgeText.Text = loc.Get("Wifi_StatusOff", "Wi-Fi Off");
+            WifiStatusBadgeText.Foreground = BrushCache.Get(Color.FromRgb(148, 163, 184));
+            WifiStatusBadgeBorder.Background = BrushCache.Get(Color.FromArgb(24, 148, 163, 184));
+            WifiStatusBadgeBorder.BorderBrush = BrushCache.Get(Color.FromArgb(48, 148, 163, 184));
 
-                if (frame != null)
-                {
-                    var overlay = new ScreenSnipOverlayWindow(frame, ScreenToolMode.ColorPicker);
-                    overlay.ShowDialog();
+            WifiNetworksStack.Children.Clear();
+            EmptyWifiIconPath.Data = GetVectorGeometry("GeomWifiOff");
+            EmptyWifiTitleText.Text = loc.Get("Wifi_StatusOff", "Wi-Fi Off");
+            EmptyWifiActionText.Text = loc.Get("Wifi_EnableBtn", "Turn On Wi-Fi");
+            EmptyWifiPanel.Visibility = Visibility.Visible;
+            return;
+        }
 
-                    if (overlay.Completed && !string.IsNullOrWhiteSpace(overlay.PickedColorHex))
-                    {
-                        Clipboard.SetText(overlay.PickedColorHex);
-                        TriggerToast(new ToastPayload(
-                            Icon: "SUN",
-                            Title: LocalizationService.Instance.Format("Picker_CopySuccess", overlay.PickedColorHex),
-                            Subtitle: overlay.PickedColorHex,
-                            AccentHex: overlay.PickedColorHex,
-                            Duration: TimeSpan.FromSeconds(2.6)));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Opacity = 1.0;
-                AppLogger.LogError("ColorPicker", "Failed launching eyedropper tool", ex);
-            }
+        WifiTabHeaderIcon.Data = GetVectorGeometry("GeomWifi");
+        WifiTabHeaderIcon.Fill = BrushCache.Get(_currentThemeAccentColor);
+
+        if (!string.IsNullOrWhiteSpace(snap.ConnectedSsid))
+        {
+            WifiStatusBadgeText.Text = loc.Format("Wifi_StatusConnectedFmt", snap.ConnectedSignalPercent);
+            WifiStatusBadgeText.Foreground = BrushCache.Get(Color.FromRgb(34, 197, 94));
+            WifiStatusBadgeBorder.Background = BrushCache.Get(Color.FromArgb(30, 34, 197, 94));
+            WifiStatusBadgeBorder.BorderBrush = BrushCache.Get(Color.FromArgb(60, 34, 197, 94));
+        }
+        else
+        {
+            WifiStatusBadgeText.Text = loc.Get("Wifi_StatusReady", "Ready to Scan");
+            WifiStatusBadgeText.Foreground = BrushCache.Get(_currentThemeAccentColor);
+            WifiStatusBadgeBorder.Background = BrushCache.Get(Color.FromArgb(32, _currentThemeAccentColor.R, _currentThemeAccentColor.G, _currentThemeAccentColor.B));
+            WifiStatusBadgeBorder.BorderBrush = BrushCache.Get(Color.FromArgb(56, _currentThemeAccentColor.R, _currentThemeAccentColor.G, _currentThemeAccentColor.B));
+        }
+
+        WifiNetworksStack.Children.Clear();
+
+        if (snap.Networks.Count == 0 && string.IsNullOrWhiteSpace(snap.ConnectedSsid))
+        {
+            EmptyWifiIconPath.Data = GetVectorGeometry("GeomWifi");
+            EmptyWifiTitleText.Text = loc.Get("Wifi_NoNetworks", "No nearby Wi-Fi networks detected yet.");
+            EmptyWifiActionText.Text = loc.IsEnglish ? "Scan Again" : "Pindai Ulang";
+            EmptyWifiPanel.Visibility = Visibility.Visible;
+            return;
+        }
+
+        EmptyWifiPanel.Visibility = Visibility.Collapsed;
+
+        // If connected SSID isn't in scan list (e.g. hidden SSID), still render active card on top
+        bool connectedInList = snap.Networks.Any(n => n.IsConnected);
+        if (!string.IsNullOrWhiteSpace(snap.ConnectedSsid) && !connectedInList)
+        {
+            var activeFallback = new WifiNetworkItem(
+                Ssid: snap.ConnectedSsid,
+                SignalPercent: snap.ConnectedSignalPercent,
+                IsSecured: !string.IsNullOrWhiteSpace(snap.ConnectedSecurity) && !snap.ConnectedSecurity.Equals("Open", StringComparison.OrdinalIgnoreCase),
+                SecurityText: snap.ConnectedSecurity,
+                IsConnected: true,
+                IsSavedProfile: true,
+                BandText: snap.ConnectedBand);
+            WifiNetworksStack.Children.Add(BuildWifiNetworkCard(activeFallback, snap));
+        }
+
+        foreach (var net in snap.Networks)
+        {
+            WifiNetworksStack.Children.Add(BuildWifiNetworkCard(net, snap));
+        }
+    }
+
+    private Border BuildWifiNetworkCard(WifiNetworkItem item, WifiSnapshot snap)
+    {
+        var loc = LocalizationService.Instance;
+        bool isMono = IsMonochromeTheme;
+        Color signalColor = item.IsConnected
+            ? (isMono ? Color.FromRgb(244, 244, 245) : Color.FromRgb(34, 197, 94))
+            : item.SignalPercent >= 70
+                ? _currentThemeAccentColor
+                : item.SignalPercent >= 40
+                    ? Color.FromRgb(251, 191, 36)
+                    : Color.FromRgb(148, 163, 184);
+
+        var card = new Border
+        {
+            Background = item.IsConnected
+                ? BrushCache.Get(Color.FromArgb(26, signalColor.R, signalColor.G, signalColor.B))
+                : BrushCache.Get(Color.FromArgb(14, 255, 255, 255)),
+            BorderBrush = item.IsConnected
+                ? BrushCache.Get(Color.FromArgb(78, signalColor.R, signalColor.G, signalColor.B))
+                : BrushCache.Get(Color.FromArgb(24, 255, 255, 255)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(9),
+            Padding = new Thickness(9, 6, 9, 6),
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        // Column 0: Signal Icon + Signal %
+        var sigStack = new StackPanel
+        {
+            Orientation = Orientation.Vertical,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 9, 0),
+            Width = 28
+        };
+        sigStack.Children.Add(new Path
+        {
+            Data = GetVectorGeometry("GeomWifi"),
+            Width = 13,
+            Height = 13,
+            Stretch = Stretch.Uniform,
+            Fill = BrushCache.Get(signalColor),
+            HorizontalAlignment = HorizontalAlignment.Center
         });
+        sigStack.Children.Add(new TextBlock
+        {
+            Text = $"{item.SignalPercent}%",
+            Foreground = BrushCache.Get(Color.FromRgb(148, 163, 184)),
+            FontSize = 8.5,
+            FontWeight = FontWeights.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 1, 0, 0)
+        });
+        Grid.SetColumn(sigStack, 0);
+        grid.Children.Add(sigStack);
+
+        // Column 1: SSID + Sub-metadata (Connected / Saved / Security / Band / IP)
+        var infoStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = item.Ssid,
+            Foreground = BrushCache.Get(Color.FromRgb(248, 250, 252)),
+            FontSize = 11.5,
+            FontWeight = item.IsConnected ? FontWeights.Bold : FontWeights.SemiBold,
+            MaxWidth = 240,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        if (item.IsSecured)
+        {
+            titleRow.Children.Add(new Path
+            {
+                Data = GetVectorGeometry("GeomLock"),
+                Width = 9.5,
+                Height = 9.5,
+                Stretch = Stretch.Uniform,
+                Fill = BrushCache.Get(Color.FromRgb(148, 163, 184)),
+                Margin = new Thickness(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        }
+        infoStack.Children.Add(titleRow);
+
+        var metaParts = new List<string>();
+        if (item.IsConnected) metaParts.Add(loc.Get("Wifi_ConnectedTag", "Connected"));
+        else if (item.IsSavedProfile) metaParts.Add(loc.Get("Wifi_SavedTag", "Saved"));
+
+        metaParts.Add(item.IsSecured
+            ? (string.IsNullOrWhiteSpace(item.SecurityText) ? loc.Get("Wifi_SecuredTag", "Secured") : item.SecurityText)
+            : loc.Get("Wifi_OpenTag", "Open"));
+
+        if (!string.IsNullOrWhiteSpace(item.BandText)) metaParts.Add(item.BandText);
+        if (item.IsConnected && !string.IsNullOrWhiteSpace(snap.IpAddress)) metaParts.Add(snap.IpAddress);
+
+        infoStack.Children.Add(new TextBlock
+        {
+            Text = string.Join(" • ", metaParts),
+            Foreground = BrushCache.Get(item.IsConnected ? Color.FromRgb(134, 239, 172) : Color.FromRgb(148, 163, 184)),
+            FontSize = 9.5,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(0, 1, 0, 0)
+        });
+        Grid.SetColumn(infoStack, 1);
+        grid.Children.Add(infoStack);
+
+        // Column 2: Optional Forget Button (for saved networks not currently connected)
+        if (!item.IsConnected && item.IsSavedProfile)
+        {
+            var forgetBtn = new Button
+            {
+                Style = TryFindResource("IslandIconButtonStyle") as Style,
+                Padding = new Thickness(7, 3.5, 7, 3.5),
+                Margin = new Thickness(6, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Content = new TextBlock
+                {
+                    Text = loc.Get("Wifi_ForgetBtn", "Forget"),
+                    Foreground = BrushCache.Get(Color.FromRgb(148, 163, 184)),
+                    FontSize = 9.5,
+                    FontWeight = FontWeights.SemiBold
+                }
+            };
+            forgetBtn.Click += async (_, _) =>
+            {
+                await _wifiService.ForgetProfileAsync(item.Ssid);
+                await RefreshWifiTabUiAsync(triggerScan: false);
+            };
+            Grid.SetColumn(forgetBtn, 2);
+            grid.Children.Add(forgetBtn);
+        }
+
+        // Column 3: Primary Action Button (Disconnect / Connect)
+        var actionBtn = new Button
+        {
+            Style = TryFindResource("IslandIconButtonStyle") as Style,
+            Padding = new Thickness(9, 4, 9, 4),
+            Margin = new Thickness(4, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = item.IsConnected
+                ? BrushCache.Get(Color.FromArgb(26, 251, 113, 133))
+                : BrushCache.Get(Color.FromArgb(36, _currentThemeAccentColor.R, _currentThemeAccentColor.G, _currentThemeAccentColor.B)),
+            BorderBrush = item.IsConnected
+                ? BrushCache.Get(Color.FromArgb(72, 251, 113, 133))
+                : BrushCache.Get(Color.FromArgb(80, _currentThemeAccentColor.R, _currentThemeAccentColor.G, _currentThemeAccentColor.B)),
+            Content = new TextBlock
+            {
+                Text = item.IsConnected ? loc.Get("Wifi_DisconnectBtn", "Disconnect") : loc.Get("Wifi_ConnectBtn", "Connect"),
+                Foreground = BrushCache.Get(item.IsConnected ? Color.FromRgb(253, 164, 175) : Color.FromRgb(248, 250, 252)),
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold
+            }
+        };
+
+        actionBtn.Click += async (_, _) =>
+        {
+            if (item.IsConnected)
+            {
+                await _wifiService.DisconnectAsync();
+                _hardwareService.RefreshFullTelemetry(emitToasts: false);
+                UpdateHardwareUi();
+                await RefreshWifiTabUiAsync(triggerScan: false);
+                return;
+            }
+
+            if (item.IsSecured && !item.IsSavedProfile)
+            {
+                OpenWifiPasswordPrompt(item);
+                return;
+            }
+
+            TriggerToast(new ToastPayload(
+                Icon: "WIFI",
+                Title: "Wi-Fi",
+                Subtitle: loc.Format("Wifi_ConnectingToast", item.Ssid),
+                AccentHex: "#38BDF8",
+                Duration: TimeSpan.FromSeconds(2.0)));
+
+            var (ok, err) = await _wifiService.ConnectAsync(item);
+            if (!ok && item.IsSecured)
+            {
+                OpenWifiPasswordPrompt(item, err);
+                return;
+            }
+
+            await Task.Delay(700);
+            _hardwareService.RefreshFullTelemetry(emitToasts: false);
+            UpdateHardwareUi();
+            await RefreshWifiTabUiAsync(triggerScan: false);
+        };
+
+        Grid.SetColumn(actionBtn, 3);
+        grid.Children.Add(actionBtn);
+
+        card.Child = grid;
+        return card;
+    }
+
+    private void OpenWifiPasswordPrompt(WifiNetworkItem item, string? initialError = null)
+    {
+        if (WifiPasswordOverlay == null || WifiPasswordInputBox == null) return;
+        _pendingPasswordWifiItem = item;
+        _isWifiPasswordRevealed = false;
+        _isSyncingWifiPassword = true;
+        WifiPasswordTargetText.Text = item.Ssid;
+        WifiPasswordInputBox.Password = string.Empty;
+        WifiPasswordInputBox.Visibility = Visibility.Visible;
+        if (WifiPasswordVisibleBox != null)
+        {
+            WifiPasswordVisibleBox.Text = string.Empty;
+            WifiPasswordVisibleBox.Visibility = Visibility.Collapsed;
+        }
+        if (WifiPasswordEyeIcon != null)
+        {
+            WifiPasswordEyeIcon.Data = GetVectorGeometry("GeomEye");
+            WifiPasswordEyeIcon.Fill = BrushCache.Get(Color.FromRgb(148, 163, 184));
+        }
+        if (WifiPasswordEyeBtn != null)
+        {
+            WifiPasswordEyeBtn.ToolTip = LocalizationService.Instance.Get("Wifi_ShowPwdTip", "Tampilkan kata sandi");
+        }
+        _isSyncingWifiPassword = false;
+
+        WifiPasswordPlaceholder.Visibility = Visibility.Visible;
+        if (!string.IsNullOrWhiteSpace(initialError))
+        {
+            WifiPasswordErrorText.Text = initialError;
+            WifiPasswordErrorText.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            WifiPasswordErrorText.Visibility = Visibility.Collapsed;
+        }
+        WifiPasswordOverlay.Visibility = Visibility.Visible;
+        ForceActivateAndFocus(WifiPasswordInputBox);
+    }
+
+    private async void OnWifiRefreshScanClick(object sender, RoutedEventArgs e)
+    {
+        await RefreshWifiTabUiAsync(triggerScan: true);
+    }
+
+    private void OnWifiOpenWindowsSettingsClick(object sender, RoutedEventArgs e)
+    {
+        WifiService.OpenWindowsWifiSettings();
+    }
+
+    private async void OnWifiMasterToggleClick(object sender, RoutedEventArgs e)
+    {
+        if (_isUpdatingWifiToggle || WifiMasterToggleCheck == null) return;
+        bool nextState = WifiMasterToggleCheck.IsChecked == true;
+        bool ok = await _wifiService.SetRadioAsync(nextState);
+        if (!ok)
+        {
+            WifiService.OpenWindowsWifiSettings();
+        }
+        await Task.Delay(350);
+        _hardwareService.RefreshFullTelemetry(emitToasts: false);
+        UpdateHardwareUi();
+        await RefreshWifiTabUiAsync(triggerScan: nextState);
+    }
+
+    private async void OnWifiEmptyActionClick(object sender, RoutedEventArgs e)
+    {
+        if (!_wifiLastRadioOn)
+        {
+            bool ok = await _wifiService.SetRadioAsync(true);
+            if (!ok)
+            {
+                WifiService.OpenWindowsWifiSettings();
+            }
+            await Task.Delay(450);
+            _hardwareService.RefreshFullTelemetry(emitToasts: false);
+            UpdateHardwareUi();
+        }
+
+        await RefreshWifiTabUiAsync(triggerScan: true);
+    }
+
+    private void OnWifiPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (_isSyncingWifiPassword) return;
+        _isSyncingWifiPassword = true;
+        if (WifiPasswordVisibleBox != null && WifiPasswordInputBox != null)
+        {
+            WifiPasswordVisibleBox.Text = WifiPasswordInputBox.Password;
+        }
+        _isSyncingWifiPassword = false;
+
+        if (WifiPasswordPlaceholder != null && WifiPasswordInputBox != null)
+        {
+            WifiPasswordPlaceholder.Visibility = string.IsNullOrEmpty(WifiPasswordInputBox.Password)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+    }
+
+    private void OnWifiVisiblePasswordTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isSyncingWifiPassword) return;
+        _isSyncingWifiPassword = true;
+        if (WifiPasswordInputBox != null && WifiPasswordVisibleBox != null)
+        {
+            WifiPasswordInputBox.Password = WifiPasswordVisibleBox.Text;
+        }
+        _isSyncingWifiPassword = false;
+
+        if (WifiPasswordPlaceholder != null && WifiPasswordVisibleBox != null)
+        {
+            WifiPasswordPlaceholder.Visibility = string.IsNullOrEmpty(WifiPasswordVisibleBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+    }
+
+    private void OnWifiPasswordEyeClick(object sender, RoutedEventArgs e)
+    {
+        if (WifiPasswordInputBox == null || WifiPasswordVisibleBox == null) return;
+        var loc = LocalizationService.Instance;
+        _isWifiPasswordRevealed = !_isWifiPasswordRevealed;
+
+        _isSyncingWifiPassword = true;
+        if (_isWifiPasswordRevealed)
+        {
+            WifiPasswordVisibleBox.Text = WifiPasswordInputBox.Password;
+            WifiPasswordInputBox.Visibility = Visibility.Collapsed;
+            WifiPasswordVisibleBox.Visibility = Visibility.Visible;
+            if (WifiPasswordEyeIcon != null)
+            {
+                WifiPasswordEyeIcon.Data = GetVectorGeometry("GeomEyeOff");
+                WifiPasswordEyeIcon.Fill = BrushCache.Get(_currentThemeAccentColor);
+            }
+            if (WifiPasswordEyeBtn != null)
+            {
+                WifiPasswordEyeBtn.ToolTip = loc.Get("Wifi_HidePwdTip", "Sembunyikan kata sandi");
+            }
+            ForceActivateAndFocus(WifiPasswordVisibleBox);
+            WifiPasswordVisibleBox.CaretIndex = WifiPasswordVisibleBox.Text.Length;
+        }
+        else
+        {
+            WifiPasswordInputBox.Password = WifiPasswordVisibleBox.Text;
+            WifiPasswordVisibleBox.Visibility = Visibility.Collapsed;
+            WifiPasswordInputBox.Visibility = Visibility.Visible;
+            if (WifiPasswordEyeIcon != null)
+            {
+                WifiPasswordEyeIcon.Data = GetVectorGeometry("GeomEye");
+                WifiPasswordEyeIcon.Fill = BrushCache.Get(Color.FromRgb(148, 163, 184));
+            }
+            if (WifiPasswordEyeBtn != null)
+            {
+                WifiPasswordEyeBtn.ToolTip = loc.Get("Wifi_ShowPwdTip", "Tampilkan kata sandi");
+            }
+            ForceActivateAndFocus(WifiPasswordInputBox);
+        }
+        _isSyncingWifiPassword = false;
+    }
+
+    private void OnWifiPasswordKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            SubmitWifiPasswordConnect();
+        }
+        else if (e.Key == Key.Escape && WifiPasswordOverlay != null)
+        {
+            WifiPasswordOverlay.Visibility = Visibility.Collapsed;
+            _pendingPasswordWifiItem = null;
+        }
+    }
+
+    private void OnWifiPasswordCancelClick(object sender, RoutedEventArgs e)
+    {
+        if (WifiPasswordOverlay != null) WifiPasswordOverlay.Visibility = Visibility.Collapsed;
+        _pendingPasswordWifiItem = null;
+    }
+
+    private void OnWifiPasswordSubmitClick(object sender, RoutedEventArgs e)
+    {
+        SubmitWifiPasswordConnect();
+    }
+
+    private async void SubmitWifiPasswordConnect()
+    {
+        if (_pendingPasswordWifiItem == null || WifiPasswordInputBox == null) return;
+        string pwd = _isWifiPasswordRevealed && WifiPasswordVisibleBox != null
+            ? WifiPasswordVisibleBox.Text
+            : WifiPasswordInputBox.Password;
+        if (string.IsNullOrEmpty(pwd))
+        {
+            WifiPasswordErrorText.Text = LocalizationService.Instance.Get("Wifi_ErrNeedPassword", "Kata sandi Wi-Fi diperlukan.");
+            WifiPasswordErrorText.Visibility = Visibility.Visible;
+            return;
+        }
+
+        var item = _pendingPasswordWifiItem;
+        WifiPasswordErrorText.Visibility = Visibility.Collapsed;
+        var (ok, err) = await _wifiService.ConnectAsync(item, pwd);
+        if (!ok)
+        {
+            WifiPasswordErrorText.Text = string.IsNullOrWhiteSpace(err)
+                ? LocalizationService.Instance.Get("Wifi_ErrConnectFailed", "Gagal terhubung ke jaringan Wi-Fi.")
+                : err;
+            WifiPasswordErrorText.Visibility = Visibility.Visible;
+            return;
+        }
+
+        if (WifiPasswordOverlay != null) WifiPasswordOverlay.Visibility = Visibility.Collapsed;
+        _pendingPasswordWifiItem = null;
+        await Task.Delay(700);
+        _hardwareService.RefreshFullTelemetry(emitToasts: false);
+        UpdateHardwareUi();
+        await RefreshWifiTabUiAsync(triggerScan: false);
     }
 }

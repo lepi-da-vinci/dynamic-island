@@ -118,11 +118,43 @@ public partial class MainWindow
             openSettings: () => OpenSettingsWindow(0),
             tuckIsland: () => _stateMachine.SetTuckedMode(true),
             startPomodoroFocus: () => _pomodoroService.StartFocus(),
-                        sleepSystem: () => SystemPowerService.Sleep(),
+            sleepSystem: () => SystemPowerService.Sleep(),
             hibernateSystem: () => SystemPowerService.Hibernate(),
             openClipboardHistory: () => SwitchToClipboardTab(),
             launchOcrSnip: LaunchOcrSnipTool,
-            launchColorPicker: LaunchColorPickerTool);
+            launchColorPicker: LaunchColorPickerTool,
+            launchRegionSnip: LaunchRegionSnipToShelfTool,
+            addTodo: title =>
+            {
+                _todoAndWaterService.AddTodo(title);
+                TriggerToast(new ToastPayload(
+                    Icon: "CHECK",
+                    Title: LocalizationService.Instance.Get("Todo_AddBtn"),
+                    Subtitle: title,
+                    AccentHex: "#22C55E",
+                    Duration: TimeSpan.FromSeconds(2.2)));
+            },
+            startCustomTimer: mins =>
+            {
+                _pomodoroService.Reset(mins, isBreak: false);
+                _pomodoroService.StartFocus();
+                TriggerToast(new ToastPayload(
+                    Icon: "POMO",
+                    Title: $"{mins}m Focus",
+                    Subtitle: LocalizationService.Instance.Get("Pomo_FocusMode"),
+                    AccentHex: "#EF4444",
+                    Duration: TimeSpan.FromSeconds(2.2)));
+            },
+            addSchedule: (timeText, titleText) =>
+            {
+                _calendarService.AddScheduleItem(titleText, timeText, "Proyek", DateOnly.FromDateTime(DateTime.Now));
+                TriggerToast(new ToastPayload(
+                    Icon: "SHIELD",
+                    Title: LocalizationService.Instance.Get("Cal_AgendaTitle"),
+                    Subtitle: $"{timeText} • {titleText}",
+                    AccentHex: "#38BDF8",
+                    Duration: TimeSpan.FromSeconds(2.4)));
+            });
 
         RefreshSpotlightItemSelection();
 
@@ -258,6 +290,12 @@ public sealed class ClipboardItemViewModel
     public Visibility ImageVisibility => SourceItem.ImageVisibility;
     public string TimeAgoText => SourceItem.TimeAgoText;
     public string MetadataLabel => SourceItem.MetadataLabel;
+    public bool IsPinned => SourceItem.IsPinned;
+    public Brush RowBgBrush => IsPinned ? BrushCache.Get(Color.FromArgb(26, 251, 191, 36)) : BrushCache.Get(Color.FromArgb(20, 255, 255, 255));
+    public Brush RowBorderBrush => IsPinned ? BrushCache.Get(Color.FromArgb(75, 251, 191, 36)) : BrushCache.Get(Color.FromArgb(32, 255, 255, 255));
+    public Brush PinBtnBgBrush => IsPinned ? BrushCache.Get(Color.FromArgb(46, 251, 191, 36)) : BrushCache.Get(Color.FromArgb(18, 255, 255, 255));
+    public Brush PinBtnBorderBrush => IsPinned ? BrushCache.Get(Color.FromArgb(120, 251, 191, 36)) : BrushCache.Get(Color.FromArgb(30, 255, 255, 255));
+    public Brush PinIconBrush => IsPinned ? BrushCache.Get(Color.FromRgb(251, 191, 36)) : BrushCache.Get(Color.FromRgb(148, 163, 184));
     public ClipboardItem SourceItem { get; init; } = null!;
 }
 
