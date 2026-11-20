@@ -315,18 +315,77 @@ public sealed class SpotlightItemViewModel
     public SpotlightItem SourceItem { get; init; } = null!;
 }
 
-public sealed class AppMixerItemViewModel
+public sealed class AppMixerItemViewModel : System.ComponentModel.INotifyPropertyChanged
 {
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    private int _volumePercent;
+    private bool _isMuted;
+    private Geometry? _muteIconGeometry;
+    private Brush? _muteIconBrush;
+
     public int ProcessId { get; init; }
     public string AppName { get; init; } = string.Empty;
-    public int VolumePercent { get; init; }
-    public string VolumeText => IsMuted ? "Muted" : $"{VolumePercent}%";
-    public double FillWidthPx { get; init; }
     public ImageSource? IconImage { get; init; }
     public Visibility FallbackVisibility => IconImage == null ? Visibility.Visible : Visibility.Collapsed;
-    public bool IsMuted { get; init; }
-    public Geometry? MuteIconGeometry { get; init; }
-    public Brush? MuteIconBrush { get; init; }
+
+    public int VolumePercent
+    {
+        get => _volumePercent;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, 100);
+            if (_volumePercent == clamped) return;
+            _volumePercent = clamped;
+            OnPropertyChanged(nameof(VolumePercent));
+            OnPropertyChanged(nameof(VolumeText));
+            OnPropertyChanged(nameof(FillStarWidth));
+            OnPropertyChanged(nameof(EmptyStarWidth));
+        }
+    }
+
+    public string VolumeText => _isMuted ? "Muted" : $"{_volumePercent}%";
+    public GridLength FillStarWidth => new(_isMuted ? 0 : _volumePercent, GridUnitType.Star);
+    public GridLength EmptyStarWidth => new(_isMuted ? 100 : Math.Max(0, 100 - _volumePercent), GridUnitType.Star);
+
+    public bool IsMuted
+    {
+        get => _isMuted;
+        set
+        {
+            if (_isMuted == value) return;
+            _isMuted = value;
+            OnPropertyChanged(nameof(IsMuted));
+            OnPropertyChanged(nameof(VolumeText));
+            OnPropertyChanged(nameof(FillStarWidth));
+            OnPropertyChanged(nameof(EmptyStarWidth));
+        }
+    }
+
+    public Geometry? MuteIconGeometry
+    {
+        get => _muteIconGeometry;
+        set
+        {
+            if (ReferenceEquals(_muteIconGeometry, value)) return;
+            _muteIconGeometry = value;
+            OnPropertyChanged(nameof(MuteIconGeometry));
+        }
+    }
+
+    public Brush? MuteIconBrush
+    {
+        get => _muteIconBrush;
+        set
+        {
+            if (ReferenceEquals(_muteIconBrush, value)) return;
+            _muteIconBrush = value;
+            OnPropertyChanged(nameof(MuteIconBrush));
+        }
+    }
+
+    private void OnPropertyChanged(string propertyName)
+        => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
 }
 
 public sealed class TodoItemViewModel

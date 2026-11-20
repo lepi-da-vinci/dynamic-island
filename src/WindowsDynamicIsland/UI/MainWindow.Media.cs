@@ -433,42 +433,69 @@ public partial class MainWindow
         }
     }
 
+    private readonly System.Collections.ObjectModel.ObservableCollection<AppMixerItemViewModel> _appMixerItems = [];
+
     private void UpdateAppMixerUi(bool force = false)
     {
         if (!_isShowingAppMixer) return;
         if (_isDraggingAppMixer && !force) return;
 
+        if (AppMixerItemsControl.ItemsSource == null)
+        {
+            AppMixerItemsControl.ItemsSource = _appMixerItems;
+        }
+
         var sessions = _audioService.GetAppAudioSessions();
         if (sessions.Count == 0)
         {
-            AppMixerItemsControl.ItemsSource = null;
+            _appMixerItems.Clear();
             AppMixerEmptyHintText.Visibility = Visibility.Visible;
             return;
         }
 
         AppMixerEmptyHintText.Visibility = Visibility.Collapsed;
-        var viewModels = new List<AppMixerItemViewModel>();
 
-        const double sliderTrackWidth = 140.0;
-        foreach (var s in sessions)
+        var activePids = new HashSet<int>(sessions.Select(s => s.ProcessId));
+        for (int i = _appMixerItems.Count - 1; i >= 0; i--)
         {
-            double fillPx = Math.Clamp((s.VolumePercent / 100.0) * sliderTrackWidth, 0.0, sliderTrackWidth);
-            viewModels.Add(new AppMixerItemViewModel
+            if (!activePids.Contains(_appMixerItems[i].ProcessId))
             {
-                ProcessId = s.ProcessId,
-                AppName = s.AppName,
-                VolumePercent = s.VolumePercent,
-                FillWidthPx = fillPx,
-                IconImage = s.IconImage,
-                IsMuted = s.IsMuted,
-                MuteIconGeometry = s.IsMuted ? GetVectorGeometry("GeomSpeakerMuted") : GetVectorGeometry("GeomSpeakerOn"),
-                MuteIconBrush = s.IsMuted
-                    ? BrushCache.Get(Color.FromRgb(248, 113, 113))
-                    : (Brush)FindResource("AppAccentBrush")
-            });
+                _appMixerItems.RemoveAt(i);
+            }
         }
 
-        AppMixerItemsControl.ItemsSource = viewModels;
+        var accentBrush = (Brush)FindResource("AppAccentBrush");
+        var mutedBrush = BrushCache.Get(Color.FromRgb(248, 113, 113));
+
+        foreach (var s in sessions)
+        {
+            var existing = _appMixerItems.FirstOrDefault(x => x.ProcessId == s.ProcessId);
+            if (existing != null)
+            {
+                if (_isDraggingAppMixer && s.ProcessId == _draggingAppMixerPid)
+                {
+                    continue;
+                }
+
+                existing.VolumePercent = s.VolumePercent;
+                existing.IsMuted = s.IsMuted;
+                existing.MuteIconGeometry = s.IsMuted ? GetVectorGeometry("GeomSpeakerMuted") : GetVectorGeometry("GeomSpeakerOn");
+                existing.MuteIconBrush = s.IsMuted ? mutedBrush : accentBrush;
+            }
+            else
+            {
+                _appMixerItems.Add(new AppMixerItemViewModel
+                {
+                    ProcessId = s.ProcessId,
+                    AppName = s.AppName,
+                    VolumePercent = s.VolumePercent,
+                    IconImage = s.IconImage,
+                    IsMuted = s.IsMuted,
+                    MuteIconGeometry = s.IsMuted ? GetVectorGeometry("GeomSpeakerMuted") : GetVectorGeometry("GeomSpeakerOn"),
+                    MuteIconBrush = s.IsMuted ? mutedBrush : accentBrush
+                });
+            }
+        }
     }
 
     private void OnAppMixerSliderMouseDown(object sender, MouseButtonEventArgs e)
@@ -497,17 +524,36 @@ public partial class MainWindow
         if (_isDraggingAppMixer)
         {
             _isDraggingAppMixer = false;
+            _draggingAppMixerPid = -1;
             (sender as UIElement)?.ReleaseMouseCapture();
             e.Handled = true;
         }
+    }
+
+    private void OnAppMixerSliderLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        _isDraggingAppMixer = false;
+        _draggingAppMixerPid = -1;
     }
 
     private void ApplyAppMixerSliderFromMouse(FrameworkElement fe, double mouseX, int pid)
     {
         double trackW = Math.Max(1.0, fe.ActualWidth);
         int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100);
+
+        var item = _appMixerItems.FirstOrDefault(x => x.ProcessId == pid);
+        if (item != null)
+        {
+            item.VolumePercent = pct;
+            if (pct > 0 && item.IsMuted)
+            {
+                item.IsMuted = false;
+                item.MuteIconGeometry = GetVectorGeometry("GeomSpeakerOn");
+                item.MuteIconBrush = (Brush)FindResource("AppAccentBrush");
+            }
+        }
+
         _audioService.SetAppVolume(pid, pct);
-        UpdateAppMixerUi(force: true);
     }
 
     private void OnToggleAppMixerMuteClick(object sender, RoutedEventArgs e)

@@ -1436,23 +1436,29 @@
                                                                        VerticalAlignment="Center"
                                                                        TextTrimming="CharacterEllipsis"/>
 
-                                                            <!-- Interactive Slider Track -->
+                                                            <!-- Interactive Slider Track (Proportional 0-100% Fill, Stable Drag) -->
                                                             <Grid Grid.Column="2"
-                                                                  Height="14"
+                                                                  Height="18"
                                                                   Background="Transparent"
                                                                   Cursor="Hand"
                                                                   VerticalAlignment="Center"
                                                                   MouseLeftButtonDown="OnAppMixerSliderMouseDown"
                                                                   MouseMove="OnAppMixerSliderMouseMove"
                                                                   MouseLeftButtonUp="OnAppMixerSliderMouseUp"
+                                                                  LostMouseCapture="OnAppMixerSliderLostMouseCapture"
                                                                   Tag="{Binding ProcessId}">
                                                                 <Border x:Name="MixerTrackBorder"
-                                                                        Height="5.5" CornerRadius="2.75" Background="#24FFFFFF" ClipToBounds="True">
-                                                                    <Border HorizontalAlignment="Left"
-                                                                            Width="{Binding FillWidthPx}"
-                                                                            Height="5.5"
-                                                                            CornerRadius="2.75"
-                                                                            Background="{DynamicResource AppAccentBrush}"/>
+                                                                        Height="6" CornerRadius="3" Background="#24FFFFFF" ClipToBounds="True" VerticalAlignment="Center">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="{Binding FillStarWidth}"/>
+                                                                            <ColumnDefinition Width="{Binding EmptyStarWidth}"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <Border Grid.Column="0"
+                                                                                Height="6"
+                                                                                CornerRadius="3"
+                                                                                Background="{DynamicResource AppAccentBrush}"/>
+                                                                    </Grid>
                                                                 </Border>
                                                             </Grid>
 
