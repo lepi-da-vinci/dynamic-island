@@ -92,4 +92,42 @@ public sealed class SpotlightAndQrTests
         Assert.Contains("IDR", display);
         Assert.False(string.IsNullOrWhiteSpace(copyVal));
     }
+
+    [Fact]
+    public void Spotlight_QuickVolumeAndBrightnessActions_InvokeExpectedCallbacks()
+    {
+        var svc = new SpotlightSearchService(new AppShortcutService(), new AppSettingsService(), new ClipboardHistoryService());
+        int? capturedVol = null;
+        int? capturedBrt = null;
+
+        var volItems = svc.Search(
+            "vol 65",
+            toggleMuteAudio: () => { },
+            toggleMuteMic: () => { },
+            toggleBluetooth: () => { },
+            openSettings: () => { },
+            tuckIsland: () => { },
+            startPomodoroFocus: () => { },
+            setVolume: v => capturedVol = v,
+            setBrightness: b => capturedBrt = b);
+
+        Assert.NotEmpty(volItems);
+        volItems[0].ExecuteAction?.Invoke();
+        Assert.Equal(65, capturedVol);
+
+        var brtItems = svc.Search(
+            "kecerahan 40",
+            toggleMuteAudio: () => { },
+            toggleMuteMic: () => { },
+            toggleBluetooth: () => { },
+            openSettings: () => { },
+            tuckIsland: () => { },
+            startPomodoroFocus: () => { },
+            setVolume: v => capturedVol = v,
+            setBrightness: b => capturedBrt = b);
+
+        Assert.NotEmpty(brtItems);
+        brtItems[0].ExecuteAction?.Invoke();
+        Assert.Equal(40, capturedBrt);
+    }
 }

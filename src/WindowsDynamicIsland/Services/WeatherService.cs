@@ -228,6 +228,14 @@ public sealed class WeatherService
 
     private async Task ResolveLocationAsync()
     {
+        // 1. Try native Windows Location Service (Wi-Fi / GPS triangulation) if permitted by OS
+        if (await TryResolveViaWindowsGeolocatorAsync())
+        {
+            _locationResolved = true;
+            return;
+        }
+
+        // 2. Fallback to IP Geolocation
         try
         {
             using var res = await Http.GetAsync("http://ip-api.com/json/");
@@ -248,6 +256,56 @@ public sealed class WeatherService
         {
             // Default location used
             _locationResolved = true;
+        }
+    }
+
+    private async Task<bool> TryResolveViaWindowsGeolocatorAsync()
+    {
+        try
+        {
+            var locator = new Windows.Devices.Geolocation.Geolocator
+            {
+                DesiredAccuracy = Windows.Devices.Geolocation.PositionAccuracy.Default
+            };
+
+            if (locator.LocationStatus is Windows.Devices.Geolocation.PositionStatus.Disabled
+                or Windows.Devices.Geolocation.PositionStatus.NotAvailable)
+            {
+                return false;
+            }
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
+            var pos = await locator.GetGeopositionAsync().AsTask(cts.Token);
+            double lat = pos.Coordinate.Point.Position.Latitude;
+            double lon = pos.Coordinate.Point.Position.Longitude;
+
+            _cachedLat = lat;
+            _cachedLon = lon;
+
+            string latStr = lat.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string lonStr = lon.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string revUrl = $"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={latStr}&longitude={lonStr}&localityLanguage=id";
+            using var revRes = await Http.GetAsync(revUrl);
+            if (revRes.IsSuccessStatusCode)
+            {
+                using var revDoc = JsonDocument.Parse(await revRes.Content.ReadAsStringAsync());
+                var r = revDoc.RootElement;
+                string? city = r.TryGetProperty("city", out var c) && !string.IsNullOrWhiteSpace(c.GetString())
+                    ? c.GetString()
+                    : r.TryGetProperty("locality", out var l) && !string.IsNullOrWhiteSpace(l.GetString())
+                        ? l.GetString()
+                        : null;
+                if (!string.IsNullOrWhiteSpace(city))
+                {
+                    _cachedCity = city.Trim();
+                }
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 

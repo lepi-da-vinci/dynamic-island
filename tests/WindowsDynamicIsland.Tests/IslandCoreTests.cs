@@ -229,4 +229,23 @@ public sealed class IslandCoreTests
         Assert.False(list[2].IsSecured);
         Assert.False(list[2].IsSavedProfile);
     }
+
+    [Fact]
+    public void BrightnessService_ResolveBrightnessFromPolicy_SelectsAcOrDcCorrectly()
+    {
+        Assert.Equal(85, BrightnessService.ResolveBrightnessFromPolicy(1, acBrightness: 85, dcBrightness: 20, isOnAcPower: false));
+        Assert.Equal(20, BrightnessService.ResolveBrightnessFromPolicy(2, acBrightness: 85, dcBrightness: 20, isOnAcPower: true));
+        Assert.Equal(85, BrightnessService.ResolveBrightnessFromPolicy(3, acBrightness: 85, dcBrightness: 20, isOnAcPower: true));
+        Assert.Equal(20, BrightnessService.ResolveBrightnessFromPolicy(3, acBrightness: 85, dcBrightness: 20, isOnAcPower: false));
+    }
+
+    [Fact]
+    public void HardwareTelemetryService_ParseAsusBacklightLevel_DecodesPresentBitAndLevels()
+    {
+        Assert.Null(HardwareTelemetryService.ParseAsusBacklightLevel(0x00000000u));
+        Assert.Equal(0, HardwareTelemetryService.ParseAsusBacklightLevel(0x00158000u));
+        Assert.Equal(1, HardwareTelemetryService.ParseAsusBacklightLevel(0x00158001u));
+        Assert.Equal(2, HardwareTelemetryService.ParseAsusBacklightLevel(0x00158002u));
+        Assert.Equal(3, HardwareTelemetryService.ParseAsusBacklightLevel(0x00158003u));
+    }
 }

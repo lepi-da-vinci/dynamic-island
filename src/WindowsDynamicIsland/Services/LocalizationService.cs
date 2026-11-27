@@ -720,8 +720,8 @@ public sealed class LocalizationService : INotifyPropertyChanged
 
         _idStrings["Weather_SearchPlaceholder"] = "Cari nama kota (mis. Bandung, Tokyo)...";
         _enStrings["Weather_SearchPlaceholder"] = "Search city name (e.g. Jakarta, Tokyo)...";
-        _idStrings["Weather_AutoGps"] = "Otomatis (IP)";
-        _enStrings["Weather_AutoGps"] = "Auto (IP)";
+        _idStrings["Weather_AutoGps"] = "Otomatis (GPS/IP)";
+        _enStrings["Weather_AutoGps"] = "Auto (GPS/IP)";
 
         _idStrings["Cal_ReminderTitle"] = "Pengingat Jadwal";
         _enStrings["Cal_ReminderTitle"] = "Schedule Reminder";
@@ -784,5 +784,27 @@ public sealed class LocalizationService : INotifyPropertyChanged
         _enStrings["Wifi_ShowPwdTip"] = "Show password";
         _idStrings["Wifi_HidePwdTip"] = "Sembunyikan kata sandi";
         _enStrings["Wifi_HidePwdTip"] = "Hide password";
+
+        // v2.4.0 Hardware OSD (Touchpad & Keyboard Backlight)
+        _idStrings["Toast_TouchpadOn"] = "Touchpad: ON (Aktif)";
+        _enStrings["Toast_TouchpadOn"] = "Touchpad: ON";
+        _idStrings["Toast_TouchpadOff"] = "Touchpad: OFF (Nonaktif)";
+        _enStrings["Toast_TouchpadOff"] = "Touchpad: OFF";
+        _idStrings["Toast_TouchpadSubOn"] = "Touchpad laptop aktif kembali";
+        _enStrings["Toast_TouchpadSubOn"] = "Laptop touchpad enabled";
+        _idStrings["Toast_TouchpadSubOff"] = "Touchpad laptop dinonaktifkan";
+        _enStrings["Toast_TouchpadSubOff"] = "Laptop touchpad disabled";
+        _idStrings["Toast_KbdBacklightTitle"] = "Lampu Keyboard: {0}";
+        _enStrings["Toast_KbdBacklightTitle"] = "Keyboard Backlight: {0}";
+        _idStrings["Toast_KbdBacklightSub"] = "Tingkat kecerahan lampu latar keyboard";
+        _enStrings["Toast_KbdBacklightSub"] = "Keyboard backlight illumination level";
+        _idStrings["KbdBacklight_Off"] = "Mati";
+        _enStrings["KbdBacklight_Off"] = "Off";
+        _idStrings["KbdBacklight_Low"] = "Redup (1/3)";
+        _enStrings["KbdBacklight_Low"] = "Low (1/3)";
+        _idStrings["KbdBacklight_Medium"] = "Sedang (2/3)";
+        _enStrings["KbdBacklight_Medium"] = "Medium (2/3)";
+        _idStrings["KbdBacklight_High"] = "Terang (3/3)";
+        _enStrings["KbdBacklight_High"] = "High (3/3)";
     }
 }

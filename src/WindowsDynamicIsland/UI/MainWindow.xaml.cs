@@ -271,14 +271,26 @@ public partial class MainWindow : Window
                 WindowsFlyoutSuppressor.TriggerSuppressionBurst(durationMs: 700, intervalMs: 20);
                 WindowsFlyoutSuppressor.SuppressOnce();
             }
-            Dispatcher.InvokeAsync(() => ShowVolumeToast(vol, muted, muteToggled));
+            Dispatcher.InvokeAsync(() =>
+            {
+                ShowVolumeToast(vol, muted, muteToggled);
+                _settingsWindow?.RefreshSystemControlCenterCard();
+            });
         };
 
         _audioService.MicrophoneMuteChanged += micMuted =>
-            Dispatcher.InvokeAsync(() => ShowMicMuteToast(micMuted));
+            Dispatcher.InvokeAsync(() =>
+            {
+                ShowMicMuteToast(micMuted);
+                _settingsWindow?.RefreshSystemControlCenterCard();
+            });
 
         _audioService.OutputDeviceChanged += (devName, isHeadphone) =>
-            Dispatcher.InvokeAsync(UpdateMediaAndLyricsUi);
+            Dispatcher.InvokeAsync(() =>
+            {
+                UpdateMediaAndLyricsUi();
+                _settingsWindow?.RefreshSystemControlCenterCard();
+            });
 
         _brightnessService.BrightnessChanged += brt =>
         {
@@ -287,7 +299,11 @@ public partial class MainWindow : Window
                 WindowsFlyoutSuppressor.TriggerSuppressionBurst(durationMs: 700, intervalMs: 20);
                 WindowsFlyoutSuppressor.SuppressOnce();
             }
-            Dispatcher.InvokeAsync(() => ShowBrightnessToast(brt));
+            Dispatcher.InvokeAsync(() =>
+            {
+                ShowBrightnessToast(brt);
+                _settingsWindow?.RefreshSystemControlCenterCard();
+            });
         };
 
         Microsoft.Win32.SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
@@ -387,13 +403,14 @@ public partial class MainWindow : Window
         {
             _hardwareService.PollFastKeyboardIndicators();
             _audioService.PollExternalChanges();
+            _brightnessService.PollExternalChanges();
             _notificationService.PollNewNotifications();
 
             bool isTuckedOrHidden = _stateMachine.CurrentState is IslandVisualState.TuckedTopEdge or IslandVisualState.Hidden || _stateMachine.IsFullScreenHidden;
 
             if (!isTuckedOrHidden)
             {
-                _brightnessService.PollExternalChanges();
+            // Brightness polling already runs unconditionally above so hardware keys wake tucked island
             }
 
             if (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
@@ -504,6 +521,10 @@ public partial class MainWindow : Window
             {
                 _hardwareService.RefreshFullTelemetry();
                 UpdateHardwareUi();
+                if (_settingsWindow is { IsVisible: true })
+                {
+                    _settingsWindow.RefreshSystemControlCenterCard();
+                }
                 if (_stateMachine.CurrentState == IslandVisualState.PinnedPerformancePill ||
                     (_stateMachine.CurrentState == IslandVisualState.ExpandedDashboard &&
                      _stateMachine.ActiveTab == IslandDashboardTab.PerformanceMonitor))

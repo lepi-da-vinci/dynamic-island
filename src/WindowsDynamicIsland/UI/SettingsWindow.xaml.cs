@@ -794,7 +794,10 @@ public partial class SettingsWindow : Window
                 : _audioService.ActiveOutputDeviceName.ToUpperInvariant();
 
             double volTrackW = SettingsVolTrackBorder.ActualWidth > 10 ? SettingsVolTrackBorder.ActualWidth : 195.0;
-            SettingsVolFillBorder.Width = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
+            if (!_isDraggingVol)
+            {
+                SettingsVolFillBorder.Width = volTrackW * (soundMuted ? 0.0 : Math.Clamp(vol / 100.0, 0.0, 1.0));
+            }
             SettingsVolFillBorder.Background = volBrush;
 
             var brtBrush = BrushCache.Get(mono ? Color.FromRgb(228, 228, 231) : Color.FromRgb(251, 191, 36));
@@ -802,7 +805,10 @@ public partial class SettingsWindow : Window
             SettingsBrtPercentText.Text = $"{brt}%";
             SettingsBrtPercentText.Foreground = brtBrush;
             double brtTrackW = SettingsBrtTrackBorder.ActualWidth > 10 ? SettingsBrtTrackBorder.ActualWidth : 195.0;
-            SettingsBrtFillBorder.Width = brtTrackW * Math.Clamp(brt / 100.0, 0.0, 1.0);
+            if (!_isDraggingBrt)
+            {
+                SettingsBrtFillBorder.Width = brtTrackW * Math.Clamp(brt / 100.0, 0.0, 1.0);
+            }
             SettingsBrtFillBorder.Background = brtBrush;
 
             var hw = _hardwareService.Current;
@@ -948,9 +954,20 @@ public partial class SettingsWindow : Window
     private void ApplySettingsVolumeFromMouse(double mouseX)
     {
         double trackW = Math.Max(1.0, SettingsVolTrackBorder.ActualWidth);
-        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100.0);
+        double ratio = Math.Clamp(mouseX / trackW, 0.0, 1.0);
+        int pct = (int)Math.Round(ratio * 100.0);
+        SettingsVolFillBorder.Width = trackW * ratio;
         _audioService.SetMasterVolumePercent(pct);
         RefreshSystemControlCenterCard();
+    }
+
+    private void OnSettingsVolumeMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        int step = e.Delta > 0 ? 2 : -2;
+        int target = Math.Clamp(_audioService.GetMasterVolumePercent() + step, 0, 100);
+        _audioService.SetMasterVolumePercent(target);
+        RefreshSystemControlCenterCard();
+        e.Handled = true;
     }
 
     private void OnSettingsBrightnessMouseDown(object sender, MouseButtonEventArgs e)
@@ -980,9 +997,20 @@ public partial class SettingsWindow : Window
     private void ApplySettingsBrightnessFromMouse(double mouseX)
     {
         double trackW = Math.Max(1.0, SettingsBrtTrackBorder.ActualWidth);
-        int pct = (int)Math.Round(Math.Clamp(mouseX / trackW, 0.0, 1.0) * 100.0);
+        double ratio = Math.Clamp(mouseX / trackW, 0.0, 1.0);
+        int pct = (int)Math.Round(ratio * 100.0);
+        SettingsBrtFillBorder.Width = trackW * ratio;
         _brightnessService.SetBrightnessPercent(pct);
         RefreshSystemControlCenterCard();
+    }
+
+    private void OnSettingsBrightnessMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        int step = e.Delta > 0 ? 2 : -2;
+        int target = Math.Clamp(_brightnessService.GetBrightnessPercent() + step, 0, 100);
+        _brightnessService.SetBrightnessPercent(target);
+        RefreshSystemControlCenterCard();
+        e.Handled = true;
     }
 
     private void OnSettingsToggleMuteClick(object sender, RoutedEventArgs e)

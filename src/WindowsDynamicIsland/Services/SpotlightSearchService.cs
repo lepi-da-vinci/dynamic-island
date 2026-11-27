@@ -209,7 +209,9 @@ public sealed class SpotlightSearchService
         Action? launchRegionSnip = null,
         Action<string>? addTodo = null,
         Action<int>? startCustomTimer = null,
-        Action<string, string>? addSchedule = null)
+        Action<string, string>? addSchedule = null,
+        Action<int>? setVolume = null,
+        Action<int>? setBrightness = null)
     {
         string q = (rawQuery ?? string.Empty).Trim();
         var results = new List<SpotlightItem>();
@@ -222,8 +224,8 @@ public sealed class SpotlightSearchService
             return results.Take(5).ToList();
         }
 
-        // 0. Quick Action Commands (todo, timer, jadwal/schedule)
-        if (TryBuildQuickActionResult(q, addTodo, startCustomTimer, addSchedule, out var quickActionItem))
+        // 0. Quick Action Commands (todo, timer, jadwal/schedule, vol, brt/kecerahan)
+        if (TryBuildQuickActionResult(q, addTodo, startCustomTimer, addSchedule, setVolume, setBrightness, out var quickActionItem))
         {
             results.Add(quickActionItem);
         }
@@ -670,10 +672,48 @@ public sealed class SpotlightSearchService
         Action<string>? addTodo,
         Action<int>? startCustomTimer,
         Action<string, string>? addSchedule,
+        Action<int>? setVolume,
+        Action<int>? setBrightness,
         out SpotlightItem item)
     {
         item = null!;
         bool en = LocalizationService.Instance.IsEnglish;
+
+        if (setVolume != null)
+        {
+            var volMatch = Regex.Match(query, @"^(?:vol|volume|suara)\s+(\d{1,3})%?$", RegexOptions.IgnoreCase);
+            if (volMatch.Success && int.TryParse(volMatch.Groups[1].Value, out int volPct) && volPct is >= 0 and <= 100)
+            {
+                item = new SpotlightItem
+                {
+                    Title = en ? $"Set Audio Volume to {volPct}%" : $"Atur Volume Suara ke {volPct}%",
+                    Subtitle = en ? "Press Enter to apply system master volume" : "Tekan Enter untuk menerapkan volume suara utama",
+                    Kind = SpotlightResultKind.SystemCommand,
+                    VectorIconKey = volPct == 0 ? "GeomSpeakerMuted" : "GeomSpeakerOn",
+                    ActionData = $"{volPct}",
+                    ExecuteAction = () => setVolume(volPct)
+                };
+                return true;
+            }
+        }
+
+        if (setBrightness != null)
+        {
+            var brtMatch = Regex.Match(query, @"^(?:brt|brightness|kecerahan|layar)\s+(\d{1,3})%?$", RegexOptions.IgnoreCase);
+            if (brtMatch.Success && int.TryParse(brtMatch.Groups[1].Value, out int brtPct) && brtPct is >= 0 and <= 100)
+            {
+                item = new SpotlightItem
+                {
+                    Title = en ? $"Set Screen Brightness to {brtPct}%" : $"Atur Kecerahan Layar ke {brtPct}%",
+                    Subtitle = en ? "Press Enter to apply display brightness" : "Tekan Enter untuk menerapkan kecerahan layar",
+                    Kind = SpotlightResultKind.SystemCommand,
+                    VectorIconKey = "GeomBrightnessSun",
+                    ActionData = $"{brtPct}",
+                    ExecuteAction = () => setBrightness(brtPct)
+                };
+                return true;
+            }
+        }
 
         if (addTodo != null &&
             (query.StartsWith("todo ", StringComparison.OrdinalIgnoreCase) ||

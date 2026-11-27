@@ -91,9 +91,11 @@ public sealed class BrightnessService
                 out _,
                 IntPtr.Zero))
             {
-                int val = brightness.ucDisplayPolicy == 1
-                    ? brightness.ucACBrightness
-                    : brightness.ucDCBrightness > 0 ? brightness.ucDCBrightness : brightness.ucACBrightness;
+                int val = ResolveBrightnessFromPolicy(
+                    brightness.ucDisplayPolicy,
+                    brightness.ucACBrightness,
+                    brightness.ucDCBrightness,
+                    IsOnAcPower());
 
                 _lastKnownBrightness = Math.Clamp(val, 0, 100);
                 return _lastKnownBrightness;
@@ -171,6 +173,43 @@ public sealed class BrightnessService
 
         return _lastKnownBrightness;
     }
+
+    internal static int ResolveBrightnessFromPolicy(byte displayPolicy, byte acBrightness, byte dcBrightness, bool isOnAcPower)
+    {
+        return displayPolicy switch
+        {
+            1 => acBrightness,
+            2 => dcBrightness,
+            _ => isOnAcPower ? acBrightness : dcBrightness
+        };
+    }
+
+    private static bool IsOnAcPower()
+    {
+        try
+        {
+            if (GetSystemPowerStatus(out var status))
+            {
+                return status.ACLineStatus == 1;
+            }
+        }
+        catch { }
+        return true;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SYSTEM_POWER_STATUS
+    {
+        public byte ACLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public int BatteryLifeTime;
+        public int BatteryFullLifeTime;
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS lpSystemPowerStatus);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct DISPLAY_BRIGHTNESS

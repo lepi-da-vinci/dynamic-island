@@ -572,15 +572,23 @@ public sealed class HardwareTelemetryService : IDisposable
         catch { }
     }
 
+    private bool? _lastTouchpadEnabled;
+    private int? _lastKeyboardBacklightLevel;
+    private bool? _asusAtkAvailable;
+
     public void PollFastKeyboardIndicators()
     {
         bool caps = Console.CapsLock;
         bool num = Console.NumberLock;
+        bool? touchpadNow = ReadTouchpadEnabledState();
+        int? kbdBacklightNow = ReadAsusKeyboardBacklightLevel();
 
         if (!_initialized)
         {
             _lastCapsLock = caps;
             _lastNumLock = num;
+            _lastTouchpadEnabled = touchpadNow;
+            _lastKeyboardBacklightLevel = kbdBacklightNow;
             RefreshFullTelemetry(emitToasts: false);
             _initialized = true;
             return;
@@ -610,6 +618,46 @@ public sealed class HardwareTelemetryService : IDisposable
                 Duration: TimeSpan.FromSeconds(1.8)));
         }
 
+        if (touchpadNow.HasValue)
+        {
+            if (_lastTouchpadEnabled.HasValue && touchpadNow.Value != _lastTouchpadEnabled.Value)
+            {
+                bool tpOn = touchpadNow.Value;
+                var loc = LocalizationService.Instance;
+                HardwareToastTriggered?.Invoke(new ToastPayload(
+                    Icon: tpOn ? "TOUCHPAD_ON" : "TOUCHPAD_OFF",
+                    Title: loc.Get(tpOn ? "Toast_TouchpadOn" : "Toast_TouchpadOff"),
+                    Subtitle: loc.Get(tpOn ? "Toast_TouchpadSubOn" : "Toast_TouchpadSubOff"),
+                    AccentHex: tpOn ? "#22C55E" : "#F87171",
+                    Duration: TimeSpan.FromSeconds(2.0)));
+            }
+            _lastTouchpadEnabled = touchpadNow;
+        }
+
+        if (kbdBacklightNow.HasValue)
+        {
+            if (_lastKeyboardBacklightLevel.HasValue && kbdBacklightNow.Value != _lastKeyboardBacklightLevel.Value)
+            {
+                int lvl = kbdBacklightNow.Value;
+                var loc = LocalizationService.Instance;
+                string levelLabel = lvl switch
+                {
+                    1 => loc.Get("KbdBacklight_Low"),
+                    2 => loc.Get("KbdBacklight_Medium"),
+                    3 => loc.Get("KbdBacklight_High"),
+                    _ => loc.Get("KbdBacklight_Off")
+                };
+                HardwareToastTriggered?.Invoke(new ToastPayload(
+                    Icon: "KBD_BACKLIGHT",
+                    Title: loc.Format("Toast_KbdBacklightTitle", levelLabel),
+                    Subtitle: loc.Get("Toast_KbdBacklightSub"),
+                    AccentHex: lvl > 0 ? "#38BDF8" : "#94A3B8",
+                    ProgressRatio: Math.Clamp(lvl / 3.0, 0.0, 1.0),
+                    Duration: TimeSpan.FromSeconds(2.0)));
+            }
+            _lastKeyboardBacklightLevel = kbdBacklightNow;
+        }
+
         // Fast 100ms check for charger plug/unplug so Battery Toast responds immediately
         if (Win32Interop.GetSystemPowerStatus(out var fastPower))
         {
@@ -624,6 +672,96 @@ public sealed class HardwareTelemetryService : IDisposable
             }
         }
     }
+
+    private static bool? ReadTouchpadEnabledState()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad\Status");
+            if (key != null)
+            {
+                object? val = key.GetValue("Enabled");
+                if (val is int intVal) return intVal != 0;
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    internal static int? ParseAsusBacklightLevel(uint rawDstsValue)
+    {
+        // Bit 16 (0x00010000) indicates the keyboard backlight device is present
+        if ((rawDstsValue & 0x00010000u) == 0) return null;
+        return (int)(rawDstsValue & 0x03u);
+    }
+
+    private int? ReadAsusKeyboardBacklightLevel()
+    {
+        if (_asusAtkAvailable == false) return null;
+
+        IntPtr hAtk = CreateFileAtk(
+            @"\\.\ATKACPI",
+            0xC0000000u, // GENERIC_READ | GENERIC_WRITE
+            0x00000003u, // FILE_SHARE_READ | FILE_SHARE_WRITE
+            IntPtr.Zero,
+            3u,          // OPEN_EXISTING
+            0u,
+            IntPtr.Zero);
+
+        if (hAtk == IntPtr.Zero || hAtk == new IntPtr(-1))
+        {
+            _asusAtkAvailable = false;
+            return null;
+        }
+
+        try
+        {
+            _asusAtkAvailable = true;
+            byte[] inBuf = new byte[12];
+            BitConverter.GetBytes(0x53545344u).CopyTo(inBuf, 0); // "DSTS"
+            BitConverter.GetBytes(4u).CopyTo(inBuf, 4);          // arg length
+            BitConverter.GetBytes(0x00050021u).CopyTo(inBuf, 8); // DEVID_KBD_BACKLIGHT
+
+            byte[] outBuf = new byte[16];
+            if (DeviceIoControlAtk(hAtk, 0x0022240Cu, inBuf, 12u, outBuf, 16u, out _, IntPtr.Zero))
+            {
+                uint raw = BitConverter.ToUInt32(outBuf, 0);
+                return ParseAsusBacklightLevel(raw);
+            }
+        }
+        catch { }
+        finally
+        {
+            CloseHandleAtk(hAtk);
+        }
+
+        return null;
+    }
+
+    [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateFileAtk(
+        string lpFileName,
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        IntPtr lpSecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        IntPtr hTemplateFile);
+
+    [DllImport("kernel32.dll", EntryPoint = "DeviceIoControl", SetLastError = true)]
+    private static extern bool DeviceIoControlAtk(
+        IntPtr hDevice,
+        uint dwIoControlCode,
+        byte[] lpInBuffer,
+        uint nInBufferSize,
+        byte[] lpOutBuffer,
+        uint nOutBufferSize,
+        out uint lpBytesReturned,
+        IntPtr lpOverlapped);
+
+    [DllImport("kernel32.dll", EntryPoint = "CloseHandle")]
+    private static extern bool CloseHandleAtk(IntPtr hObject);
 
     private void EmitBatteryChargingToast(bool isCharging, int batteryPct)
     {

@@ -113,6 +113,15 @@ public partial class MainWindow
         if (iconCode == "WIFI_OFF")
             return GetVectorGeometry("GeomWifiOff");
 
+        if (iconCode == "TOUCHPAD_ON")
+            return GetVectorGeometry("GeomTouchpadOn");
+
+        if (iconCode == "TOUCHPAD_OFF")
+            return GetVectorGeometry("GeomTouchpadOff");
+
+        if (iconCode == "KBD_BACKLIGHT")
+            return GetVectorGeometry("GeomKeyboardBacklight");
+
         if (iconCode == "FOLDER" || iconCode == "DROP_SHELF")
             return GetVectorGeometry("GeomFolderTray");
 
@@ -502,11 +511,13 @@ public partial class MainWindow
         {
             int newVol = _audioService.SetMasterVolumePercent(pct);
             ShowVolumeToast(newVol, isMuted: false, muteToggled: false);
+            _settingsWindow?.RefreshSystemControlCenterCard();
         }
         else if (_activeToastSliderKind == ToastSliderKind.Brightness)
         {
             int newBrt = _brightnessService.SetBrightnessPercent(pct);
             ShowBrightnessToast(newBrt);
+            _settingsWindow?.RefreshSystemControlCenterCard();
         }
     }
 

@@ -154,6 +154,18 @@ public partial class MainWindow
                     Subtitle: $"{timeText} • {titleText}",
                     AccentHex: "#38BDF8",
                     Duration: TimeSpan.FromSeconds(2.4)));
+            },
+            setVolume: pct =>
+            {
+                int applied = _audioService.SetMasterVolumePercent(pct);
+                ShowVolumeToast(applied, isMuted: applied == 0, muteToggled: false);
+                _settingsWindow?.RefreshSystemControlCenterCard();
+            },
+            setBrightness: pct =>
+            {
+                int applied = _brightnessService.SetBrightnessPercent(pct);
+                ShowBrightnessToast(applied);
+                _settingsWindow?.RefreshSystemControlCenterCard();
             });
 
         RefreshSpotlightItemSelection();
